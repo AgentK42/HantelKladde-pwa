@@ -761,7 +761,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <body>
 <div id="app"></div>
 <div id="restbar"></div>
-<input type="file" id="filein" class="file" accept="application/json,.json">
+<input type="file" id="filein" class="file" accept="application/json,.json,text/plain,.txt">
 
 <script>
 "use strict";
@@ -4359,9 +4359,10 @@ function viewData() {
     '<button data-act="showtext">Als Text anzeigen</button></div>' +
     descText("backup", (canShareBackup()
       ? '<p class="notice">Backup teilen reicht die Datei direkt an eine andere App ' +
-        'weiter, statt sie im Download-Ordner abzulegen. Lässt sich nicht teilen, ' +
-        'landet das Backup ersatzweise dort, und es steht hier, dass es diesen Weg ' +
-        'genommen hat.</p>'
+        'weiter, statt sie im Download-Ordner abzulegen. Sie heißt dabei .txt statt ' +
+        '.json, weil sich über die Teilen-Funktion nur bestimmte Dateitypen ' +
+        'weitergeben lassen. Der Inhalt ist derselbe, Backup laden liest beide. ' +
+        'Klappt das Teilen nicht, landet das Backup ersatzweise im Download-Ordner.</p>'
       : "") +
     '<p class="notice">Backup speichern legt eine JSON-Datei im Download-Ordner ab, ' +
     'mitsamt allen Einstellungen dieser Seite und den Wochenzielen. ' +
@@ -4746,6 +4747,12 @@ function backupText() {
   }, null, 1);
 }
 function backupName() { return "hantelkladde-" + todayISO() + ".json"; }
+/* Beim Teilen heisst dieselbe Datei .txt. Chrome laesst ueber die Teilen-Funktion
+   nur eine feste Liste von Dateitypen durch, und .json steht nicht darauf,
+   text/plain schon: ein Backup als application/json scheitert dort mit
+   NotAllowedError. Der Inhalt bleibt unveraendert JSON, mergeBackup liest ihn
+   ueber JSON.parse und schert sich nicht um die Endung. */
+function shareName() { return "hantelkladde-" + todayISO() + ".txt"; }
 function markBackup() {
   S.meta.lastBackup = new Date().toISOString();
   S.meta.lastCount = S.entries.length;
@@ -4756,17 +4763,17 @@ function markBackup() {
 function canShareBackup() {
   try {
     if (!navigator.share || !navigator.canShare || typeof File !== "function") return false;
-    return navigator.canShare({ files: [new File(["{}"], "t.json", { type:"application/json" })] });
+    return navigator.canShare({ files: [new File(["{}"], "t.txt", { type:"text/plain" })] });
   } catch (e) { return false; }
 }
 function shareBackup() {
   if (!canShareBackup()) return false;
-  var name = backupName(), text = backupText();
+  var name = backupName(), sname = shareName(), text = backupText();
   try {
-    var file = new File([text], name, { type:"application/json" });
-    navigator.share({ files:[file], title:name }).then(function () {
+    var file = new File([text], sname, { type:"text/plain" });
+    navigator.share({ files:[file], title:sname }).then(function () {
       markBackup();
-      S.note = "Backup geteilt: " + name;
+      S.note = "Backup geteilt: " + sname;
       render();
     }, function (err) {
       /* Den Teilen-Dialog wieder wegzuwischen ist eine Entscheidung, kein Fehler,
