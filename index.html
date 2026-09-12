@@ -4350,17 +4350,18 @@ function viewData() {
     '<div class="tools">' +
     '<button class="solid" data-act="savefile">Backup speichern</button>' +
     (canShareBackup()
-      ? '<button data-act="sharefile" disabled aria-disabled="true" title="Teilt die ' +
-        'Backup-Datei direkt an eine andere App, ist gerade deaktiviert, weil es auf ' +
-        'manchen Geräten nicht zuverlässig funktioniert">Backup teilen</button>'
+      ? '<button data-act="sharefile" title="Teilt die Backup-Datei direkt an eine ' +
+        'andere App, etwa an eine Cloud, eine Notiz oder einen Chat">' +
+        'Backup teilen</button>'
       : "") +
     '<button data-act="loadfile">Backup laden</button>' +
     '<button data-act="dlcsv">CSV speichern</button>' +
     '<button data-act="showtext">Als Text anzeigen</button></div>' +
     descText("backup", (canShareBackup()
-      ? '<p class="notice">Backup teilen ist vorübergehend deaktiviert, weil es auf ' +
-        'manchen Geräten nicht zuverlässig funktioniert. Nutze bis dahin Backup ' +
-        'speichern oder CSV speichern.</p>'
+      ? '<p class="notice">Backup teilen reicht die Datei direkt an eine andere App ' +
+        'weiter, statt sie im Download-Ordner abzulegen. Lässt sich nicht teilen, ' +
+        'landet das Backup ersatzweise dort, und es steht hier, dass es diesen Weg ' +
+        'genommen hat.</p>'
       : "") +
     '<p class="notice">Backup speichern legt eine JSON-Datei im Download-Ordner ab, ' +
     'mitsamt allen Einstellungen dieser Seite und den Wochenzielen. ' +
@@ -4760,14 +4761,29 @@ function canShareBackup() {
 }
 function shareBackup() {
   if (!canShareBackup()) return false;
-  var name = backupName();
+  var name = backupName(), text = backupText();
   try {
-    var file = new File([backupText()], name, { type:"application/json" });
+    var file = new File([text], name, { type:"application/json" });
     navigator.share({ files:[file], title:name }).then(function () {
       markBackup();
       S.note = "Backup geteilt: " + name;
       render();
-    }, function () {});
+    }, function (err) {
+      /* Den Teilen-Dialog wieder wegzuwischen ist eine Entscheidung, kein Fehler,
+         dann bleibt es still. Alles andere heisst, dass das Teilen auf diesem
+         Gerät nicht funktioniert hat, und dann darf das Backup nicht einfach
+         ausbleiben, ohne dass es jemand merkt: ersatzweise in den Download-Ordner,
+         und dazusagen, dass es diesen Weg genommen hat. */
+      if (err && err.name === "AbortError") return;
+      if (download(name, text, "application/json")) {
+        markBackup();
+        S.note = "Teilen ging nicht, Backup liegt im Download-Ordner: " + name;
+      } else {
+        S.note = "Teilen ging nicht und der Download wurde blockiert. " +
+          "Nutze Als Text anzeigen.";
+      }
+      render();
+    });
     return true;
   } catch (e) { return false; }
 }
