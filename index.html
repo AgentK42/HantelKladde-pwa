@@ -766,7 +766,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.15.1";
+var APP_VERSION = "1.15.2";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -1007,7 +1007,7 @@ var S = {
   meta: { lastBackup: "", lastCount: 0, seeded: [] },
   view:"tag", date: todayISO(), exercise:"", source:"",
   reps:"10", weight:"20", rpe:"7", pickOpen:false, plan:"",
-  editId:"", openEx:"", storeOk:null, savedAt:"", out:"", note:"", freshId:"",
+  editId:"", openEx:"", storeOk:null, out:"", note:"", freshId:"",
   search:"", undo:null, hsearch:"", planOpen:false, plansFold:false, planCardsFold:false,
   volGroup:"cat",
   prowNameOpen:"",
@@ -1424,8 +1424,10 @@ function repairNote() {
 }
 function persist() {
   /* Jede Änderung an den Sätzen läuft hier vorbei, also ist das die richtige
-     Stelle, den Tagesindex zu verwerfen, siehe entriesOn(). */
+     Stelle, den Tagesindex und die gemerkte Backupgröße zu verwerfen, siehe
+     entriesOn() und backupSize(). */
   clearDayIndex();
+  backupBytes = -1;
   try {
     localStorage.setItem(KEY, JSON.stringify(S.entries));
     localStorage.setItem(CUSTOM_KEY, JSON.stringify(S.custom));
@@ -1437,7 +1439,6 @@ function persist() {
     localStorage.setItem(EXMETA_KEY, JSON.stringify(S.exmeta));
     localStorage.setItem(NOTES_KEY, JSON.stringify(S.notes));
     S.storeOk = true;
-    S.savedAt = new Date().toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"});
   } catch (e) { S.storeOk = false; }
 }
 /* Nur ein einzelner Schlüssel. Beim Tippen in ein Textfeld soll nicht bei jedem
@@ -2279,21 +2280,21 @@ function byteSize(n) {
   if (n >= 1048576) return num(Math.round(n / 1048576 * 10) / 10) + " MB";
   return Math.max(1, Math.round(n / 1024)) + " kB";
 }
-/* Größe der eigenen Daten, aus dem Speicher selbst gerechnet.
-   navigator.storage.estimate() wäre bequemer, zählt aber die offline
-   abgelegte App mit: das sind 330 kB Programm neben ein paar kB Sätzen, und
-   die Zahl sagt dann nichts mehr über die Trainingsdaten aus. */
-function dataSize() {
-  var keys = [KEY, CUSTOM_KEY, PLANS_KEY, SET_KEY, META_KEY, CATS_KEY,
-    COLOR_KEY, EXMETA_KEY, NOTES_KEY];
-  var n = 0;
-  try {
-    keys.forEach(function (k) {
-      var v = localStorage.getItem(k);
-      if (v) n += v.length;
-    });
-  } catch (e) { return 0; }
-  return n;
+/* Größe des Backups, also genau der Datei, die "Backup speichern" schreibt.
+   Bewusst gerechnet statt geschätzt: der Export ist eingerückt und damit
+   deutlich größer als dieselben Daten im localStorage, und
+   navigator.storage.estimate() zählt umgekehrt die offline abgelegte App mit,
+   das wären 330 kB Programm neben ein paar kB Sätzen.
+
+   Das Ergebnis wird gemerkt und in persist() verworfen: der Daten-Reiter wird
+   bei jedem Tipp neu aufgebaut, und über Jahre hinweg sind das ein paar
+   Megabyte, die sonst jedes Mal neu serialisiert würden. */
+var backupBytes = -1;
+function backupSize() {
+  if (backupBytes >= 0) return backupBytes;
+  var t = backupText();
+  try { backupBytes = new Blob([t]).size; } catch (e) { backupBytes = t.length; }
+  return backupBytes;
 }
 function protectLine() {
   if (S.pwa.persisted === true) return "Vor automatischem Aufräumen geschützt.";
@@ -4627,15 +4628,14 @@ function viewData() {
     '<div class="sect"><h2>Speicher' + infoBtn("speicher") + '</h2></div>' +
     '<div class="card"><p>' +
     (S.storeOk
-      ? "Gespeichert auf diesem Gerät" +
-        (S.savedAt ? ", zuletzt um " + S.savedAt : "") + "."
+      ? "Gespeichert auf diesem Gerät sind:"
       : "Dieser Browser legt hier nichts ab. Lege ein Backup an, bevor du die " +
         "Seite schließt.") +
     '<br>' + S.entries.length + (S.entries.length === 1 ? ' Satz, ' : ' Sätze, ') +
-    S.custom.length + (S.custom.length === 1 ? ' eigene Übung, ' : ' eigene Übungen, ') +
-    byteSize(dataSize()) + '.' +
+    S.custom.length + (S.custom.length === 1 ? ' eigene Übung.' : ' eigene Übungen.') +
     '<br>' + protectLine() +
-    '<br>Letztes Backup: ' + lb + '.</p></div>' +
+    '<br>Letztes Backup: ' + lb + '. Backupgröße ' + byteSize(backupSize()) + '.' +
+    '</p></div>' +
     descText("speicher", '<p class="notice">Geschützt heißt: der Browser räumt diese ' +
       'Daten nicht von sich aus weg, wenn der Platz auf dem Gerät knapp wird. Einer ' +
       'installierten App sagt Chrome das in der Regel ohne Nachfrage zu, im Browser ' +
@@ -4806,7 +4806,7 @@ function viewData() {
       'Bewegung nur stabilisieren, zählen nicht als Sekundärmuskel.</p>') +
     '<div class="card" style="padding:0">' + muscleRows() + '</div>' +
 
-    '<div class="sect"><h2>App' + infoBtn("app") + '</h2></div>' +
+    '<div class="sect"><h2>App Version' + infoBtn("app") + '</h2></div>' +
     '<div class="card">' +
     descText("app", '<p>Installiert läuft HantelKladde ohne Adressleiste in einem ' +
       'eigenen Fenster, startet auch ohne Netz und steht in den Android-Einstellungen ' +

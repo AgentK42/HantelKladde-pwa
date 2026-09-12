@@ -96,12 +96,13 @@ sich aus wegräumt, wenn der Platz auf dem Gerät knapp wird, fragt die App beim
 Start `navigator.storage.persist()` an. Einer installierten App sagt Chrome das
 in der Regel ohne Nachfrage zu; im Browser hängt es davon ab, wie oft die Seite
 benutzt wird. Unter **Daten → Speicher** steht, ob der Schutz vorliegt und wie
-groß die eigenen Daten sind.
+groß ein Backup dieser Daten wäre.
 
-Die Größe wird aus den eigenen Schlüsseln im `localStorage` gerechnet und nicht
-über `navigator.storage.estimate()`: das zählt die offline abgelegte App mit,
-also 330 kB Programm neben ein paar kB Sätzen, und sagt damit nichts mehr über
-die Trainingsdaten aus.
+Die Größe ist die des tatsächlichen Exports, nicht die Belegung aus
+`navigator.storage.estimate()`: das zählt die offline abgelegte App mit, also
+330 kB Programm neben ein paar kB Sätzen, und sagt damit nichts mehr über die
+Trainingsdaten aus. Gerechnet wird einmal und dann gemerkt, `persist()`
+verwirft den Wert bei jeder Änderung.
 
 Gegen bewusstes Löschen über die Browser- oder App-Einstellungen hilft der
 Schutz nicht. Dagegen hilft nur ein Backup.
