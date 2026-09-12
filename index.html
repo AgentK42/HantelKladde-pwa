@@ -766,7 +766,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.14.7";
+var APP_VERSION = "1.14.8";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -4747,11 +4747,12 @@ function backupText() {
   }, null, 1);
 }
 function backupName() { return "hantelkladde-" + todayISO() + ".json"; }
-/* Beim Teilen heisst dieselbe Datei .txt. Chrome laesst ueber die Teilen-Funktion
-   nur eine feste Liste von Dateitypen durch, und .json steht nicht darauf,
-   text/plain schon: ein Backup als application/json scheitert dort mit
-   NotAllowedError. Der Inhalt bleibt unveraendert JSON, mergeBackup liest ihn
-   ueber JSON.parse und schert sich nicht um die Endung. */
+/* Ab 1.14.8 heißt dieselbe Datei beim Teilen .txt. Chrome lässt über die
+   Teilen-Funktion nur eine feste Liste von Dateitypen durch, und .json steht
+   nicht darauf, text/plain schon: bis 1.14.7 scheiterte das Teilen deshalb mit
+   NotAllowedError. Der Inhalt bleibt unverändert JSON, mergeBackup liest ihn
+   über JSON.parse und schert sich nicht um die Endung. Der Download-Weg bleibt
+   bei .json, dort gibt es diese Beschränkung nicht. */
 function shareName() { return "hantelkladde-" + todayISO() + ".txt"; }
 function markBackup() {
   S.meta.lastBackup = new Date().toISOString();
@@ -4777,13 +4778,13 @@ function shareBackup() {
       render();
     }, function (err) {
       /* Den Teilen-Dialog wieder wegzuwischen ist eine Entscheidung, kein Fehler,
-         dann bleibt es still. Alles andere heisst, dass das Teilen auf diesem
+         dann bleibt es still. Alles andere heißt, dass das Teilen auf diesem
          Gerät nicht funktioniert hat, und dann darf das Backup nicht einfach
          ausbleiben, ohne dass es jemand merkt: ersatzweise in den Download-Ordner,
          und dazusagen, dass es diesen Weg genommen hat. */
       if (err && err.name === "AbortError") return;
-      /* Den Namen des Fehlers mitschreiben. canShare() meldet die Faehigkeit auf
-         manchen Geraeten zu bereitwillig, und erst share() sagt, woran es wirklich
+      /* Den Namen des Fehlers mitschreiben. canShare() meldet die Fähigkeit auf
+         manchen Geräten zu bereitwillig, und erst share() sagt, woran es wirklich
          liegt. Ohne diese Angabe bleibt nur Raten. */
       var why = err && err.name ? " (" + err.name + ")" : "";
       if (download(name, text, "application/json")) {
