@@ -766,7 +766,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.14.8";
+var APP_VERSION = "1.15.0";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -1015,7 +1015,12 @@ var S = {
   volRange:7, volMode:"sets", dataClosed:{}, exNoteFor:"", exOpen:"",
   toast:"", pickCat:"", pickGroupBy:"cat", pickMuscle:"", focus:false, pickPlanTarget:"", pickSel:[],
   quickUndo:false, showSummary:false, summaryData:null, summaryReturn:"",
-  focusEndConfirm:false, suggestionHandled:{}
+  focusEndConfirm:false, suggestionHandled:{},
+  /* Alles, was an der App als App hängt: Speicherzusage, Belegung, die Fassung
+     des ServiceWorkers, ein bereitliegendes Update, die Installierbarkeit.
+     Reine Anzeige, nichts davon wird gespeichert oder gesichert. */
+  pwa: { persisted:null, usage:0, quota:0, swVersion:"", swCache:"",
+    updateReady:false, installable:false, standalone:false }
 };
 
 /* Nur für den Fokus-Modus: der Ausschnitt der Reps-Reihe kann per Wischen oder
@@ -2241,6 +2246,275 @@ function signal() {
   } catch (e) {}
 }
 
+/* ---------- Als App auf dem Gerät ---------- */
+/* Alles, was nur greift, weil die Seite ein Manifest und einen ServiceWorker
+   hat: dauerhafter Speicher, die Zurück-Geste im Fenster ohne Adressleiste,
+   der Update-Hinweis, der Installations-Knopf und ein aus einer anderen App
+   hereingereichtes Backup. Fehlt eine der Fähigkeiten, fällt der jeweilige
+   Teil still aus und die App bleibt eine gewöhnliche Seite. */
+
+/* Speicher dauerhaft anfordern. Ohne diese Zusage darf der Browser den
+   localStorage wegräumen, sobald der Platz auf dem Gerät knapp wird, und der
+   ist hier das einzige Zuhause der Trainingsdaten. Chrome sagt sie einer
+   installierten App in der Regel ohne Nachfrage zu, deshalb steht das hier
+   und nicht hinter einem Knopf. */
+function refreshStorage(after) {
+  if (!navigator.storage) return;
+  var done = function () { if (after) after(); };
+  if (navigator.storage.persisted) {
+    navigator.storage.persisted().then(function (p) {
+      if (p || !navigator.storage.persist) { S.pwa.persisted = !!p; done(); return; }
+      navigator.storage.persist().then(function (ok) {
+        S.pwa.persisted = !!ok;
+        done();
+      }, done);
+    }, done);
+  }
+  if (navigator.storage.estimate) {
+    navigator.storage.estimate().then(function (e) {
+      S.pwa.usage = (e && e.usage) || 0;
+      S.pwa.quota = (e && e.quota) || 0;
+      done();
+    }, done);
+  }
+}
+/* Nachrücken, wenn eine dieser Auskünfte erst eintrifft, während der
+   Daten-Reiter schon offen ist. Fokus-Modus und Zusammenfassung nicht stören. */
+function rerenderData() {
+  if (S.view === "daten" && !S.focus && !S.showSummary) render();
+}
+function byteSize(n) {
+  if (n >= 1073741824) return num(Math.round(n / 1073741824 * 10) / 10) + " GB";
+  if (n >= 1048576) return num(Math.round(n / 1048576 * 10) / 10) + " MB";
+  return Math.max(1, Math.round(n / 1024)) + " kB";
+}
+function storageLine() {
+  var p = S.pwa.persisted;
+  var t = "Dauerhaft: " + (p === true ? "ja" : (p === false ? "nein" : "wird geprüft"));
+  if (S.pwa.usage) {
+    t += ", belegt " + byteSize(S.pwa.usage) +
+      (S.pwa.quota ? " von " + byteSize(S.pwa.quota) : "");
+  }
+  return t + ".";
+}
+
+/* Zurück-Geste. Im installierten Fenster gibt es keine Adressleiste und keine
+   Seite, auf die zurück führen könnte: ohne eigenen History-Eintrag schließt
+   die Geste sofort die ganze App, auch mitten im Fokus-Modus. Deshalb bekommt
+   jede Ansicht, die man wieder verlassen können soll, einen Eintrag. Schließt
+   die App sie selbst über einen Knopf, wird der Eintrag mit history.go()
+   abgeräumt, damit Stapel und Verlauf nicht auseinanderlaufen. */
+var navStack = [];
+function navOpen(name) {
+  if (navStack[navStack.length - 1] === name) return;
+  try { history.pushState({ hk:navStack.length + 1 }, ""); } catch (e) { return; }
+  navStack.push(name);
+}
+/* Eine Ebene durch eine andere ersetzen, ohne die Tiefe zu ändern: aus dem
+   Fokus-Modus geht es direkt in die Zusammenfassung, und von dort soll zurück
+   auf die normale Ansicht führen und nicht in den Fokus-Modus zurück. */
+function navSwap(name) {
+  if (!navStack.length) { navOpen(name); return; }
+  navStack[navStack.length - 1] = name;
+}
+function navBack(name) {
+  var i = navStack.lastIndexOf(name);
+  if (i < 0) return;
+  var steps = navStack.length - i;
+  /* Erst den Stapel kürzen, dann zurückgehen: das popstate, das gleich
+     eintrifft, findet nichts mehr zu schließen und macht nichts doppelt. */
+  navStack.length = i;
+  try { history.go(-steps); } catch (e) {}
+}
+function navCloseTop() {
+  var name = navStack.pop();
+  if (name === "focus") {
+    clearQuickUndo();
+    S.focus = false;
+    S.focusEndConfirm = false;
+  } else if (name === "summary") {
+    S.showSummary = false;
+    S.summaryData = null;
+    if (S.summaryReturn) { S.view = S.summaryReturn; S.summaryReturn = ""; }
+  } else if (name === "openex") {
+    S.openEx = "";
+  }
+}
+window.addEventListener("popstate", function (ev) {
+  var d = (ev.state && typeof ev.state.hk === "number") ? ev.state.hk : 0;
+  if (navStack.length <= d) return;
+  while (navStack.length > d) navCloseTop();
+  render();
+});
+
+/* ServiceWorker anmelden, damit die App nach dem ersten Aufruf offline läuft
+   und sich vom Startbildschirm aus installieren lässt. Fehlt der Worker oder
+   scheitert die Anmeldung, ändert das an der App selbst nichts: sie bleibt
+   eine gewöhnliche Seite, nur eben ohne Offline-Betrieb. Deshalb still
+   abfangen statt melden. */
+var swReg = null, swReloading = false;
+function markUpdateReady() {
+  if (S.pwa.updateReady) return;
+  S.pwa.updateReady = true;
+  /* Im Fokus-Modus und in der Zusammenfassung bleibt es still, dort steht die
+     Hinweiszeile nicht und ein Neuaufbau wäre mitten im Satz nur im Weg. */
+  if (!S.focus && !S.showSummary) render();
+}
+function swWatch(reg) {
+  swReg = reg;
+  if (reg.waiting && navigator.serviceWorker.controller) markUpdateReady();
+  reg.addEventListener("updatefound", function () {
+    var w = reg.installing;
+    if (!w) return;
+    w.addEventListener("statechange", function () {
+      /* "installed" bei bereits laufendem Worker heißt: die neue Fassung liegt
+         vollständig im Cache und wartet. Ohne controller wäre es die allererste
+         Installation, da gibt es nichts zu melden. */
+      if (w.state === "installed" && navigator.serviceWorker.controller) markUpdateReady();
+    });
+  });
+}
+function applyUpdate() {
+  var w = swReg && swReg.waiting;
+  if (!w) { location.reload(); return; }
+  swReloading = true;
+  try { w.postMessage({ type:"skipWaiting" }); } catch (e) { location.reload(); }
+}
+/* Die Versionsnummer steht an zwei Stellen: hier in der App und in sw.js, wo
+   sie den Namen des Caches bestimmt. Der Worker sagt auf Nachfrage, was er
+   ausliefert. Laufen beide auseinander, zeigt die App sonst eine Nummer an,
+   die nicht zu den zwischengespeicherten Dateien gehört. */
+function swAskVersion() {
+  var sw = navigator.serviceWorker && navigator.serviceWorker.controller;
+  if (!sw || typeof MessageChannel !== "function") return;
+  try {
+    var ch = new MessageChannel();
+    ch.port1.onmessage = function (ev) {
+      var d = ev.data || {};
+      S.pwa.swVersion = d.version || "";
+      S.pwa.swCache = d.cache || "";
+      rerenderData();
+    };
+    sw.postMessage({ type:"version" }, [ch.port2]);
+  } catch (e) {}
+}
+function versionLine() {
+  if (!("serviceWorker" in navigator)) return ", ohne Offline-Betrieb.";
+  if (!S.pwa.swVersion) return ", der Offline-Speicher meldet sich noch nicht.";
+  if (S.pwa.swVersion !== APP_VERSION) {
+    return ", der Offline-Speicher liefert aber " + S.pwa.swVersion + " aus.";
+  }
+  return ", offline gespeichert als " + S.pwa.swCache + ".";
+}
+
+/* Chrome meldet sich, sobald die Installation möglich wäre, und lässt sich das
+   Ereignis aufheben. Ohne das führt der einzige Weg über das Chrome-Menü, und
+   den findet kaum jemand. */
+var installPrompt = null;
+window.addEventListener("beforeinstallprompt", function (ev) {
+  ev.preventDefault();
+  installPrompt = ev;
+  S.pwa.installable = true;
+  rerenderData();
+});
+window.addEventListener("appinstalled", function () {
+  installPrompt = null;
+  S.pwa.installable = false;
+  S.pwa.standalone = true;
+  S.note = "HantelKladde ist jetzt als eigene App installiert.";
+  render();
+});
+function runInstall() {
+  var p = installPrompt;
+  if (!p) return;
+  /* Das Ereignis lässt sich nur einmal verwenden. Wird die Nachfrage
+     weggewischt, meldet Chrome es später von selbst wieder an. */
+  installPrompt = null;
+  S.pwa.installable = false;
+  try {
+    p.prompt();
+    if (p.userChoice) p.userChoice.then(function () {}, function () {});
+  } catch (e) {}
+}
+function standalone() {
+  try {
+    if (!window.matchMedia) return false;
+    return window.matchMedia("(display-mode: standalone)").matches ||
+      window.matchMedia("(display-mode: fullscreen)").matches ||
+      window.matchMedia("(display-mode: minimal-ui)").matches;
+  } catch (e) { return false; }
+}
+
+/* Adresse beim Start auswerten. Die Shortcuts aus dem Manifest hängen den
+   gewünschten Reiter an, der Teilen-Weg meldet sich mit ?geteilt=1. Danach
+   wird die Adresse wieder aufgeräumt, sonst steht die Markierung beim nächsten
+   Start erneut da. */
+function queryParam(name) {
+  var m = new RegExp("[?&]" + name + "=([^&]*)").exec(location.search || "");
+  return m ? decodeURIComponent(m[1].replace(/\+/g, " ")) : "";
+}
+function startParams() {
+  var tab = queryParam("tab"), shared = queryParam("geteilt");
+  if (["tag","plaene","verlauf","daten"].indexOf(tab) >= 0) S.view = tab;
+  if (shared) S.view = "daten";
+  /* Die Markierung wieder aus der Adresse nehmen, aber den Pfad so lassen, wie
+     er ist: wird die App als .../index.html ausgeliefert, führte "./" auf das
+     Verzeichnis und ein Neuladen liefe ins Leere. */
+  if (location.search) {
+    try { history.replaceState(null, "", location.pathname); } catch (e) {}
+  }
+  return shared;
+}
+/* Ein aus einer anderen App geteiltes Backup. Der ServiceWorker hat die Datei
+   entgegengenommen und unter einer Adresse abgelegt, die es auf dem Server
+   nicht gibt; hier wird sie genau einmal abgeholt und wie ein geladenes Backup
+   eingelesen: ergänzen, nie überschreiben. */
+function takeSharedBackup(shared) {
+  if (!shared) return;
+  if (shared !== "1") {
+    S.note = "Aus der geteilten Nachricht kam keine Datei an.";
+    return;
+  }
+  fetch("shared-backup").then(function (r) {
+    if (!r.ok) throw new Error("nichts abgelegt");
+    return r.text();
+  }).then(function (text) {
+    /* Leer heißt: der Worker hatte nichts mehr, die Datei ist also schon
+       eingelesen. Das passiert, wenn die Adresse mit der Markierung ein
+       zweites Mal aufgerufen wird. */
+    if (!text) {
+      S.note = "Das geteilte Backup wurde bereits eingelesen.";
+      render();
+      return;
+    }
+    var n = mergeBackup(text);
+    S.note = n + " Sätze aus dem geteilten Backup ergänzt, " +
+      S.entries.length + " insgesamt.";
+    render();
+  }).catch(function (e) {
+    S.note = (e && e.message && e.message.indexOf("Backup ungültig:") === 0)
+      ? e.message
+      : "Das geteilte Backup konnte nicht gelesen werden.";
+    render();
+  });
+}
+
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.addEventListener("controllerchange", function () {
+    /* Nur nach einem bewussten Tipp auf den Update-Hinweis neu laden. Sonst
+       wechselt die Seite mitten im Satz. */
+    if (!swReloading) return;
+    swReloading = false;
+    location.reload();
+  });
+  window.addEventListener("load", function () {
+    navigator.serviceWorker.register("sw.js").then(function (reg) {
+      swWatch(reg);
+      swAskVersion();
+    }, function () {});
+  });
+}
+
 /* ---------- Rendern ---------- */
 function render() {
   /* Frischer Tagesindex je Neuaufbau: innerhalb eines Durchlaufs ändern sich die
@@ -2273,6 +2547,11 @@ function render() {
   if (S.storeOk === false) {
     h += '<div class="notice bad">Dieser Browser speichert hier nichts dauerhaft. ' +
       'Lege unter Daten ein Backup an, bevor du die Seite schließt.</div>';
+  }
+
+  if (S.pwa.updateReady) {
+    h += '<div class="notice act">Eine neue Fassung liegt bereit.' +
+      '<button data-act="swupdate">Jetzt starten</button></div>';
   }
 
   if (S.undo) {
@@ -4337,14 +4616,21 @@ function viewData() {
     descText("darstellung", '<p class="notice">System übernimmt die Einstellung des Handys ' +
       'und wechselt mit, sobald der Nachtmodus umschaltet.</p>') +
 
-    '<div class="sect"><h2>Speicher</h2></div>' +
+    '<div class="sect"><h2>Speicher' + infoBtn("speicher") + '</h2></div>' +
     '<div class="card"><p>' +
     (S.storeOk ? "Dieser Browser speichert deine Sätze dauerhaft" +
       (S.savedAt ? ", zuletzt gesichert um " + S.savedAt : "") + "."
       : "Dieser Browser speichert hier nichts dauerhaft. Lege ein Backup an, " +
         "bevor du die Seite schließt.") +
     '<br>' + S.entries.length + ' Sätze, ' + S.custom.length + ' eigene Übungen.' +
-    '<br>Letztes Backup: ' + lb + '.</p></div>' +
+    '<br>Letztes Backup: ' + lb + '.' +
+    '<br>' + storageLine() + '</p></div>' +
+    descText("speicher", '<p class="notice">Dauerhaft heißt: der Browser räumt diese ' +
+      'Daten nicht von sich aus weg, wenn der Platz auf dem Gerät knapp wird. Einer ' +
+      'installierten App sagt Chrome das in der Regel ohne Nachfrage zu, im Browser ' +
+      'hängt es davon ab, wie oft die Seite benutzt wird. Gegen bewusstes Löschen über ' +
+      'die Browser- oder App-Einstellungen hilft die Zusage nicht, dagegen hilft nur ' +
+      'ein Backup.</p>') +
 
     '<div class="sect"><h2>Backup' + infoBtn("backup") + '</h2></div>' +
     '<div class="tools">' +
@@ -4508,6 +4794,32 @@ function viewData() {
       'bei dynamisch mitarbeitenden Sekundärmuskeln jeweils zur Hälfte. Muskeln, die die ' +
       'Bewegung nur stabilisieren, zählen nicht als Sekundärmuskel.</p>') +
     '<div class="card" style="padding:0">' + muscleRows() + '</div>' +
+
+    '<div class="sect"><h2>App' + infoBtn("app") + '</h2></div>' +
+    '<div class="card">' +
+    descText("app", '<p>Installiert läuft HantelKladde ohne Adressleiste in einem ' +
+      'eigenen Fenster, startet auch ohne Netz und steht in den Android-Einstellungen ' +
+      'als eigene App. Ein Backup lässt sich dann aus dem Dateimanager oder einer ' +
+      'Cloud direkt an HantelKladde teilen, statt es hier über Backup laden zu ' +
+      'suchen. Die Trainingsdaten sind dieselben wie im Browser, sie hängen an der ' +
+      'Adresse und nicht am Fenster.</p>') +
+    '<p>' + (S.pwa.standalone
+      ? "Läuft als installierte App."
+      : (S.pwa.installable
+          ? "Läuft im Browser, lässt sich von hier aus installieren."
+          : "Läuft im Browser.")) + '</p>' +
+    (S.pwa.installable
+      ? '<div class="tools" style="margin-top:10px">' +
+        '<button class="solid" data-act="install">App installieren</button></div>'
+      : "") +
+    '<p style="margin-top:10px">Fassung ' + APP_VERSION + versionLine() + '</p>' +
+    (S.pwa.updateReady
+      ? '<div class="tools" style="margin-top:10px">' +
+        '<button class="solid" data-act="swupdate">Neue Fassung starten</button></div>' +
+        '<p style="margin-top:10px">Die neue Fassung liegt vollständig auf dem Gerät. ' +
+        'Der Start lädt die Seite neu, gespeicherte Sätze bleiben davon unberührt.</p>'
+      : "") +
+    '</div>' +
     "";
 }
 /* Liste unter Daten: jede Übung mit ihrer hinterlegten Muskelgruppe, gruppiert
@@ -5252,6 +5564,7 @@ document.addEventListener("click", function (ev) {
   }
   else if (act === "planlist") { S.planOpen = !S.planOpen; }
   else if (act === "tab") {
+    if (S.openEx) { navBack("openex"); S.openEx = ""; }
     S.view = v; S.pickOpen = false; S.pickPlanTarget = ""; S.pickSel = []; S.note = "";
   }
   else if (act === "pickday") { S.date = v; S.editId = ""; S.note = ""; }
@@ -5275,8 +5588,9 @@ document.addEventListener("click", function (ev) {
     }
     repWinCenter = null;
     S.focus = true;
+    navOpen("focus");
   }
-  else if (act === "focusoff") { clearQuickUndo(); S.focus = false; }
+  else if (act === "focusoff") { navBack("focus"); clearQuickUndo(); S.focus = false; }
   else if (act === "focusfinishask") { S.focusEndConfirm = true; }
   else if (act === "focusfinishcancel") { S.focusEndConfirm = false; }
   else if (act === "focusfinish") {
@@ -5291,6 +5605,7 @@ document.addEventListener("click", function (ev) {
       S.showSummary = true;
       S.summaryReturn = "";
       S.focus = false;
+      navSwap("summary");
     } else {
       showToast(S.note);
     }
@@ -5719,9 +6034,11 @@ document.addEventListener("click", function (ev) {
       S.summaryData = trainingSummary(S.date);
       S.showSummary = true;
       S.summaryReturn = "daten";
+      navOpen("summary");
     }
   }
   else if (act === "summaryok") {
+    navBack("summary");
     S.showSummary = false;
     S.summaryData = null;
     /* S.note trägt bereits die Rückmeldung von saveBackup() (Dateiname oder
@@ -5729,6 +6046,8 @@ document.addEventListener("click", function (ev) {
     if (S.summaryReturn) { S.view = S.summaryReturn; S.summaryReturn = ""; }
   }
   else if (act === "sharefile") { if (!shareBackup()) saveBackup(); }
+  else if (act === "install") { runInstall(); }
+  else if (act === "swupdate") { applyUpdate(); return; }
   else if (act === "autoprog") { S.settings.autoProgress = !S.settings.autoProgress; persist(); }
   else if (act === "repfirst") { S.settings.repFirst = !S.settings.repFirst; persist(); }
   else if (act === "repthresh") {
@@ -5814,7 +6133,14 @@ document.addEventListener("click", function (ev) {
     persist();
   }
   else if (act === "autorest") { S.settings.autoRest = !S.settings.autoRest; persist(); }
-  else if (act === "openex") { S.openEx = (S.openEx === v ? "" : v); }
+  else if (act === "openex") {
+    var exWasOpen = !!S.openEx;
+    S.openEx = (S.openEx === v ? "" : v);
+    /* Nur das Auf- und Zuklappen selbst ist eine Ebene. Direkt von einer Übung
+       zur nächsten zu wechseln bleibt dieselbe Ebene. */
+    if (S.openEx && !exWasOpen) navOpen("openex");
+    else if (!S.openEx && exWasOpen) navBack("openex");
+  }
   else if (act === "pdel") {
     var pp = el.getAttribute("data-p"), pi = parseInt(el.getAttribute("data-i"),10);
     if (!S.plans[pp] || !S.plans[pp][pi]) return;
@@ -6258,20 +6584,14 @@ try {
     (e && e.message ? e.message : "unbekannter Fehler") +
     "). Sichere unter Daten sofort ein Backup, bevor du etwas änderst.";
 }
+/* Reiter aus einem Shortcut und die Markierung des Teilen-Wegs stehen in der
+   Adresse und müssen vor dem ersten Aufbau gelesen sein. */
+var sharedFlag = startParams();
 restoreRest();
+S.pwa.standalone = standalone();
 render();
-</script>
-<script>
-/* ServiceWorker anmelden, damit die App nach dem ersten Aufruf offline läuft
-   und sich vom Startbildschirm aus installieren lässt. Fehlt der Worker oder
-   scheitert die Anmeldung, ändert das an der App selbst nichts: sie bleibt
-   eine gewöhnliche Seite, nur eben ohne Offline-Betrieb. Deshalb still
-   abfangen statt melden. */
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", function () {
-    navigator.serviceWorker.register("sw.js").catch(function () {});
-  });
-}
+takeSharedBackup(sharedFlag);
+refreshStorage(rerenderData);
 </script>
 </body>
 </html>

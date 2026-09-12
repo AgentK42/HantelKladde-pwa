@@ -1,4 +1,5 @@
 {
+  "id": "/HantelKladde-pwa/",
   "name": "HantelKladde",
   "short_name": "HantelKladde",
   "description": "Trainingstagebuch für Kraftsport. Arbeitet vollständig offline, alle Daten bleiben auf dem Gerät.",
@@ -15,5 +16,31 @@
     { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
     { "src": "icons/icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
     { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
-  ]
+  ],
+  "screenshots": [
+    { "src": "screenshots/training.png", "sizes": "412x915", "type": "image/png",
+      "form_factor": "narrow", "label": "Satz eintragen mit Zielwerten und Pausentimer" },
+    { "src": "screenshots/plaene.png", "sizes": "412x915", "type": "image/png",
+      "form_factor": "narrow", "label": "Trainingspläne mit Zielgewicht je Übung" },
+    { "src": "screenshots/verlauf.png", "sizes": "412x915", "type": "image/png",
+      "form_factor": "narrow", "label": "Verlauf mit Wochenziel und Volumen" }
+  ],
+  "shortcuts": [
+    { "name": "Training", "short_name": "Training", "url": "./?tab=tag",
+      "description": "Direkt zum Eintragen der Sätze" },
+    { "name": "Verlauf", "short_name": "Verlauf", "url": "./?tab=verlauf",
+      "description": "Wochenziel, Volumen und Bestwerte" },
+    { "name": "Daten und Backup", "short_name": "Daten", "url": "./?tab=daten",
+      "description": "Backup anlegen, laden oder teilen" }
+  ],
+  "share_target": {
+    "action": "share-target",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "files": [
+        { "name": "backup", "accept": ["text/plain", "application/json", ".txt", ".json"] }
+      ]
+    }
+  }
 }
