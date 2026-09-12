@@ -4775,11 +4775,15 @@ function shareBackup() {
          ausbleiben, ohne dass es jemand merkt: ersatzweise in den Download-Ordner,
          und dazusagen, dass es diesen Weg genommen hat. */
       if (err && err.name === "AbortError") return;
+      /* Den Namen des Fehlers mitschreiben. canShare() meldet die Faehigkeit auf
+         manchen Geraeten zu bereitwillig, und erst share() sagt, woran es wirklich
+         liegt. Ohne diese Angabe bleibt nur Raten. */
+      var why = err && err.name ? " (" + err.name + ")" : "";
       if (download(name, text, "application/json")) {
         markBackup();
-        S.note = "Teilen ging nicht, Backup liegt im Download-Ordner: " + name;
+        S.note = "Teilen ging nicht" + why + ", Backup liegt im Download-Ordner: " + name;
       } else {
-        S.note = "Teilen ging nicht und der Download wurde blockiert. " +
+        S.note = "Teilen ging nicht" + why + " und der Download wurde blockiert. " +
           "Nutze Als Text anzeigen.";
       }
       render();
@@ -5698,8 +5702,9 @@ document.addEventListener("click", function (ev) {
     persist();
   }
   else if (act === "finish") {
-    /* Teilen ist deaktiviert, siehe sharefile-Button unter Daten. Solange läuft der
-       Abschluss direkt über den Download, damit sicher ein Backup entsteht. */
+    /* Der Abschluss geht bewusst direkt über den Download und nicht über das
+       Teilen: hier soll sicher ein Backup entstehen, ohne dass sich ein
+       Auswahldialog dazwischenschiebt, den man wegwischen kann. */
     var saved = saveBackup();
     stopRest();
     if (saved) {

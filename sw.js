@@ -15,7 +15,7 @@ var APP_VERSION = "1.14.7";
 /* BUILD hochzaehlen, wenn sich ausgelieferte Dateien aendern, ohne dass die App
    selbst eine neue Versionsnummer bekommt, etwa bei einer Korrektur am Manifest.
    Ohne das behalten bereits installierte Geraete die alten Dateien im Cache. */
-var BUILD = 3;
+var BUILD = 4;
 
 var CACHE = "hantelkladde-" + APP_VERSION + "-" + BUILD;
 
