@@ -49,6 +49,24 @@ Ausgeliefert über GitHub Pages aus dem Wurzelverzeichnis des `main`-Branch.
 Das Paket ist pfadunabhängig: Manifest und ServiceWorker arbeiten mit relativen
 Adressen, der Ordner lässt sich also unverändert auch woanders ausliefern.
 
+## Farbe der Statusleiste
+
+Android faerbt bei einer installierten PWA den Streifen am oberen Bildschirmrand
+mit dem `theme_color` aus dem Manifest. Das `<meta name="theme-color">`, das die
+App beim Umschalten zwischen Hell und Dunkel mitfuehrt, wertet Chrome dafuer
+nicht aus: es wirkt nur im Browser, nicht in der installierten App. Die
+Statusleiste kann dem gewaehlten Thema also nicht folgen, sie bekommt einen
+festen Wert.
+
+Der steht auf `#151816`, dem Hintergrund des dunklen Themas, passend dazu, dass
+die App bei einer frischen Installation dunkel startet. Wer dauerhaft hell
+arbeitet, traegt in `manifest.webmanifest` stattdessen `#E6E7E2` ein.
+
+Aenderungen am Manifest erreichen ein bereits installiertes Geraet nicht sofort.
+Chrome prueft das Manifest im Hintergrund und erneuert die installierte App
+danach von selbst, das kann bis zu einem Tag dauern. Wer nicht warten will,
+deinstalliert die App und installiert sie neu.
+
 ## Neue Version ausrollen
 
 `index.html` austauschen und in `sw.js` die Zeile `APP_VERSION` auf die neue
