@@ -95,11 +95,16 @@ Die Trainingsdaten liegen im `localStorage`. Damit der Browser sie nicht von
 sich aus wegräumt, wenn der Platz auf dem Gerät knapp wird, fragt die App beim
 Start `navigator.storage.persist()` an. Einer installierten App sagt Chrome das
 in der Regel ohne Nachfrage zu; im Browser hängt es davon ab, wie oft die Seite
-benutzt wird. Unter **Daten → Speicher** steht, ob die Zusage vorliegt und wie
-viel belegt ist.
+benutzt wird. Unter **Daten → Speicher** steht, ob der Schutz vorliegt und wie
+groß die eigenen Daten sind.
 
-Gegen bewusstes Löschen über die Browser- oder App-Einstellungen hilft die
-Zusage nicht. Dagegen hilft nur ein Backup.
+Die Größe wird aus den eigenen Schlüsseln im `localStorage` gerechnet und nicht
+über `navigator.storage.estimate()`: das zählt die offline abgelegte App mit,
+also 330 kB Programm neben ein paar kB Sätzen, und sagt damit nichts mehr über
+die Trainingsdaten aus.
+
+Gegen bewusstes Löschen über die Browser- oder App-Einstellungen hilft der
+Schutz nicht. Dagegen hilft nur ein Backup.
 
 ## Zurück-Geste
 
@@ -119,8 +124,8 @@ auseinanderlaufen. Der alte Cache wird beim Aktivieren verworfen. Die
 Trainingsdaten im `localStorage` bleiben davon unberührt.
 
 Die neue Fassung wird im Hintergrund geladen und wartet dann. Die laufende App
-zeigt oben **Eine neue Fassung liegt bereit** mit einem Knopf; ohne einen Tipp
-darauf übernimmt sie beim nächsten Start, sobald kein Fenster mehr offen ist.
+zeigt oben **Ein Update ist vorhanden** mit einem Knopf; ohne einen Tipp darauf
+übernimmt sie beim nächsten Start, sobald kein Fenster mehr offen ist.
 Bewusst kein sofortiges Neuladen, damit nicht mitten im Satz die Seite wechselt.
 
 Unter **Daten → App** steht, welche Fassung die App meldet und welche der

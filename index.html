@@ -766,7 +766,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.15.0";
+var APP_VERSION = "1.15.1";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -1019,7 +1019,7 @@ var S = {
   /* Alles, was an der App als App hängt: Speicherzusage, Belegung, die Fassung
      des ServiceWorkers, ein bereitliegendes Update, die Installierbarkeit.
      Reine Anzeige, nichts davon wird gespeichert oder gesichert. */
-  pwa: { persisted:null, usage:0, quota:0, swVersion:"", swCache:"",
+  pwa: { persisted:null, swVersion:"",
     updateReady:false, installable:false, standalone:false }
 };
 
@@ -2259,24 +2259,15 @@ function signal() {
    installierten App in der Regel ohne Nachfrage zu, deshalb steht das hier
    und nicht hinter einem Knopf. */
 function refreshStorage(after) {
-  if (!navigator.storage) return;
+  if (!navigator.storage || !navigator.storage.persisted) return;
   var done = function () { if (after) after(); };
-  if (navigator.storage.persisted) {
-    navigator.storage.persisted().then(function (p) {
-      if (p || !navigator.storage.persist) { S.pwa.persisted = !!p; done(); return; }
-      navigator.storage.persist().then(function (ok) {
-        S.pwa.persisted = !!ok;
-        done();
-      }, done);
-    }, done);
-  }
-  if (navigator.storage.estimate) {
-    navigator.storage.estimate().then(function (e) {
-      S.pwa.usage = (e && e.usage) || 0;
-      S.pwa.quota = (e && e.quota) || 0;
+  navigator.storage.persisted().then(function (p) {
+    if (p || !navigator.storage.persist) { S.pwa.persisted = !!p; done(); return; }
+    navigator.storage.persist().then(function (ok) {
+      S.pwa.persisted = !!ok;
       done();
     }, done);
-  }
+  }, done);
 }
 /* Nachrücken, wenn eine dieser Auskünfte erst eintrifft, während der
    Daten-Reiter schon offen ist. Fokus-Modus und Zusammenfassung nicht stören. */
@@ -2284,18 +2275,33 @@ function rerenderData() {
   if (S.view === "daten" && !S.focus && !S.showSummary) render();
 }
 function byteSize(n) {
-  if (n >= 1073741824) return num(Math.round(n / 1073741824 * 10) / 10) + " GB";
+  if (!n) return "0 kB";
   if (n >= 1048576) return num(Math.round(n / 1048576 * 10) / 10) + " MB";
   return Math.max(1, Math.round(n / 1024)) + " kB";
 }
-function storageLine() {
-  var p = S.pwa.persisted;
-  var t = "Dauerhaft: " + (p === true ? "ja" : (p === false ? "nein" : "wird geprüft"));
-  if (S.pwa.usage) {
-    t += ", belegt " + byteSize(S.pwa.usage) +
-      (S.pwa.quota ? " von " + byteSize(S.pwa.quota) : "");
+/* Größe der eigenen Daten, aus dem Speicher selbst gerechnet.
+   navigator.storage.estimate() wäre bequemer, zählt aber die offline
+   abgelegte App mit: das sind 330 kB Programm neben ein paar kB Sätzen, und
+   die Zahl sagt dann nichts mehr über die Trainingsdaten aus. */
+function dataSize() {
+  var keys = [KEY, CUSTOM_KEY, PLANS_KEY, SET_KEY, META_KEY, CATS_KEY,
+    COLOR_KEY, EXMETA_KEY, NOTES_KEY];
+  var n = 0;
+  try {
+    keys.forEach(function (k) {
+      var v = localStorage.getItem(k);
+      if (v) n += v.length;
+    });
+  } catch (e) { return 0; }
+  return n;
+}
+function protectLine() {
+  if (S.pwa.persisted === true) return "Vor automatischem Aufräumen geschützt.";
+  if (S.pwa.persisted === false) {
+    return "Nicht geschützt: wird der Platz auf dem Gerät knapp, darf der Browser " +
+      "diese Daten löschen.";
   }
-  return t + ".";
+  return "Der Schutz vor automatischem Aufräumen wird noch geprüft.";
 }
 
 /* Zurück-Geste. Im installierten Fenster gibt es keine Adressleiste und keine
@@ -2392,19 +2398,21 @@ function swAskVersion() {
     ch.port1.onmessage = function (ev) {
       var d = ev.data || {};
       S.pwa.swVersion = d.version || "";
-      S.pwa.swCache = d.cache || "";
       rerenderData();
     };
     sw.postMessage({ type:"version" }, [ch.port2]);
   } catch (e) {}
 }
 function versionLine() {
-  if (!("serviceWorker" in navigator)) return ", ohne Offline-Betrieb.";
-  if (!S.pwa.swVersion) return ", der Offline-Speicher meldet sich noch nicht.";
+  var v = "Fassung " + APP_VERSION;
+  if (!("serviceWorker" in navigator)) return v + ", kein Offline-Betrieb.";
+  if (!S.pwa.swVersion) return v + ", noch nicht offline gespeichert.";
+  /* Läuft die Nummer im Worker auseinander, zeigt die App sonst eine Fassung
+     an, die nicht zu den offline abgelegten Dateien gehört. */
   if (S.pwa.swVersion !== APP_VERSION) {
-    return ", der Offline-Speicher liefert aber " + S.pwa.swVersion + " aus.";
+    return v + ", offline liegt aber noch " + S.pwa.swVersion + ".";
   }
-  return ", offline gespeichert als " + S.pwa.swCache + ".";
+  return v + ", offline gespeichert.";
 }
 
 /* Chrome meldet sich, sobald die Installation möglich wäre, und lässt sich das
@@ -2550,7 +2558,7 @@ function render() {
   }
 
   if (S.pwa.updateReady) {
-    h += '<div class="notice act">Eine neue Fassung liegt bereit.' +
+    h += '<div class="notice act">Ein Update ist vorhanden.' +
       '<button data-act="swupdate">Jetzt starten</button></div>';
   }
 
@@ -4618,18 +4626,21 @@ function viewData() {
 
     '<div class="sect"><h2>Speicher' + infoBtn("speicher") + '</h2></div>' +
     '<div class="card"><p>' +
-    (S.storeOk ? "Dieser Browser speichert deine Sätze dauerhaft" +
-      (S.savedAt ? ", zuletzt gesichert um " + S.savedAt : "") + "."
-      : "Dieser Browser speichert hier nichts dauerhaft. Lege ein Backup an, " +
-        "bevor du die Seite schließt.") +
-    '<br>' + S.entries.length + ' Sätze, ' + S.custom.length + ' eigene Übungen.' +
-    '<br>Letztes Backup: ' + lb + '.' +
-    '<br>' + storageLine() + '</p></div>' +
-    descText("speicher", '<p class="notice">Dauerhaft heißt: der Browser räumt diese ' +
+    (S.storeOk
+      ? "Gespeichert auf diesem Gerät" +
+        (S.savedAt ? ", zuletzt um " + S.savedAt : "") + "."
+      : "Dieser Browser legt hier nichts ab. Lege ein Backup an, bevor du die " +
+        "Seite schließt.") +
+    '<br>' + S.entries.length + (S.entries.length === 1 ? ' Satz, ' : ' Sätze, ') +
+    S.custom.length + (S.custom.length === 1 ? ' eigene Übung, ' : ' eigene Übungen, ') +
+    byteSize(dataSize()) + '.' +
+    '<br>' + protectLine() +
+    '<br>Letztes Backup: ' + lb + '.</p></div>' +
+    descText("speicher", '<p class="notice">Geschützt heißt: der Browser räumt diese ' +
       'Daten nicht von sich aus weg, wenn der Platz auf dem Gerät knapp wird. Einer ' +
       'installierten App sagt Chrome das in der Regel ohne Nachfrage zu, im Browser ' +
       'hängt es davon ab, wie oft die Seite benutzt wird. Gegen bewusstes Löschen über ' +
-      'die Browser- oder App-Einstellungen hilft die Zusage nicht, dagegen hilft nur ' +
+      'die Browser- oder App-Einstellungen hilft der Schutz nicht, dagegen hilft nur ' +
       'ein Backup.</p>') +
 
     '<div class="sect"><h2>Backup' + infoBtn("backup") + '</h2></div>' +
@@ -4812,12 +4823,12 @@ function viewData() {
       ? '<div class="tools" style="margin-top:10px">' +
         '<button class="solid" data-act="install">App installieren</button></div>'
       : "") +
-    '<p style="margin-top:10px">Fassung ' + APP_VERSION + versionLine() + '</p>' +
+    '<p style="margin-top:10px">' + versionLine() + '</p>' +
     (S.pwa.updateReady
       ? '<div class="tools" style="margin-top:10px">' +
-        '<button class="solid" data-act="swupdate">Neue Fassung starten</button></div>' +
-        '<p style="margin-top:10px">Die neue Fassung liegt vollständig auf dem Gerät. ' +
-        'Der Start lädt die Seite neu, gespeicherte Sätze bleiben davon unberührt.</p>'
+        '<button class="solid" data-act="swupdate">Update starten</button></div>' +
+        '<p style="margin-top:10px">Das Update liegt vollständig auf dem Gerät. ' +
+        'Der Start lädt die Seite neu, gespeicherte Sätze bleiben unberührt.</p>'
       : "") +
     '</div>' +
     "";

@@ -6,13 +6,13 @@
    wird im Hintergrund nach einer neueren Fassung gesehen. Die liegt dann beim
    nächsten Start bereit. Bewusst kein automatisches Neuladen: ein Reload
    mitten im Satz wäre störender als eine Version, die einen Start später kommt.
-   Ab 1.15.0 gibt die App stattdessen Bescheid, dass etwas bereitliegt, und
-   wartet auf einen Tipp, siehe die Nachricht "skipWaiting" weiter unten.
+   Ab 1.15.0 gibt die App stattdessen Bescheid, dass ein Update vorhanden ist,
+   und wartet auf einen Tipp, siehe die Nachricht "skipWaiting" weiter unten.
 
    Beim Anheben von APP_VERSION wird der alte Cache verworfen. Die Trainings-
    daten liegen im localStorage und sind davon nicht berührt. */
 
-var APP_VERSION = "1.15.0";
+var APP_VERSION = "1.15.1";
 
 /* BUILD hochzählen, wenn sich ausgelieferte Dateien ändern, ohne dass die App
    selbst eine neue Versionsnummer bekommt, etwa bei einer Korrektur am Manifest.
@@ -71,15 +71,15 @@ self.addEventListener("activate", function (ev) {
 });
 
 /* Zwei Nachrichten von der App:
-   "version"    - wer bin ich und welcher Cache wird ausgeliefert. Die App
-                  vergleicht das mit ihrer eigenen Nummer und sagt es, wenn
-                  beides auseinanderläuft.
+   "version"     - welche Fassung wird hier ausgeliefert. Die App vergleicht das
+                   mit ihrer eigenen Nummer und sagt es unter Daten, wenn beides
+                   auseinanderläuft.
    "skipWaiting" - der Nutzer hat auf den Update-Hinweis getippt. */
 self.addEventListener("message", function (ev) {
   var msg = ev.data || {};
   if (msg.type === "skipWaiting") { self.skipWaiting(); return; }
   if (msg.type === "version" && ev.ports && ev.ports[0]) {
-    ev.ports[0].postMessage({ version: APP_VERSION, build: BUILD, cache: CACHE });
+    ev.ports[0].postMessage({ version: APP_VERSION, build: BUILD });
   }
 });
 
