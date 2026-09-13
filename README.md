@@ -243,9 +243,22 @@ im Fokus-Modus über der Übung, siehe `restOffNote()`.
 
 `index.html` austauschen und in `sw.js` die Zeile `APP_VERSION` auf die neue
 Nummer setzen. Dieselbe Nummer steht in `index.html`, sie wird dort angezeigt.
-`tools/check-version.sh` vergleicht beide und meldet sich, wenn sie
-auseinanderlaufen. Der alte Cache wird beim Aktivieren verworfen. Die
-Trainingsdaten im `localStorage` bleiben davon unberührt.
+Der alte Cache wird beim Aktivieren verworfen. Die Trainingsdaten im
+`localStorage` bleiben davon unberührt.
+
+Vor dem Push, in dieser Reihenfolge:
+
+```
+tools/check-version.sh                        # beide Nummern gleich?
+tools/lint.sh                                 # formale Fehler im JavaScript
+NODE_PATH=$(npm root -g) node tools/test-pwa.js   # Offline, Update, Signal, Teilen
+```
+
+Jeder Schritt meldet Erfolg mit Rückgabewert 0, und der nächste lohnt sich erst,
+wenn der vorige durch ist: eine abweichende Versionsnummer macht den Update-Test
+sinnlos, ein Tippfehler im Skript den Browsertest. Was die drei im Einzelnen tun
+und was sie brauchen, steht unter **Prüfen**. Die beiden ersten laufen in unter
+einer Sekunde, der dritte braucht unter einer halben Minute.
 
 Die neue Fassung wird im Hintergrund geladen und wartet dann. Die laufende App
 zeigt oben **Ein Update ist vorhanden** mit einem Knopf; ohne einen Tipp darauf
