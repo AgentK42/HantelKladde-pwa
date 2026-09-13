@@ -12,7 +12,7 @@
    Beim Anheben von APP_VERSION wird der alte Cache verworfen. Die Trainings-
    daten liegen im localStorage und sind davon nicht berührt. */
 
-var APP_VERSION = "1.16.1";
+var APP_VERSION = "1.16.2";
 
 /* BUILD hochzählen, wenn sich ausgelieferte Dateien ändern, ohne dass die App
    selbst eine neue Versionsnummer bekommt, etwa bei einer Korrektur am Manifest.
@@ -25,14 +25,22 @@ var ROOT = new URL("./", self.location);
 /* Der Cache-Speicher gilt pro Origin, nicht pro Pfad. Auf github.io liegen
    alle Projekte einer Person auf derselben Adresse, eine zweite Fassung der
    App in einem anderen Verzeichnis teilt sich den Speicher also mit dieser
-   hier. Deshalb trägt der Name den eigenen Pfad, und deshalb räumt activate()
-   unten nur Namen mit genau diesem Präfix weg. Ohne das löschte jede Fassung
-   beim Aktivieren den Offline-Speicher aller anderen. */
+   hier. Deshalb ist der Name der eigene Pfad, aus /HantelKladde-pwa/ wird
+   HantelKladde-pwa-<version>-<build>, und deshalb räumt activate() unten nur
+   Namen mit genau diesem Präfix weg. Ohne das löschte jede Fassung beim
+   Aktivieren den Offline-Speicher aller anderen. */
 var SCOPE_ID = ROOT.pathname.replace(/[^A-Za-z0-9]+/g, "-")
   .replace(/^-+|-+$/g, "") || "root";
-var CACHE_PREFIX = "hantelkladde-" + SCOPE_ID + "-";
+var CACHE_PREFIX = SCOPE_ID + "-";
 
+/* Zwei frühere Namensformen, die nicht mehr auf das Präfix passen und sonst
+   für immer liegen blieben, rund 330 kB auf jedem Gerät, das die App schon
+   hatte:
+     bis 1.16.0   hantelkladde-<version>-<build> und hantelkladde-geteilt,
+     in  1.16.1   hantelkladde-<pfad>-<version>-<build>.
+   Beide sind eindeutig, ein heutiger Name beginnt mit dem Pfad. */
 var LEGACY = /^hantelkladde-(\d+\.\d+\.\d+-\d+|geteilt)$/;
+var LEGACY_PREFIX = "hantelkladde-" + CACHE_PREFIX;
 
 var CACHE = CACHE_PREFIX + APP_VERSION + "-" + BUILD;
 
@@ -74,11 +82,7 @@ self.addEventListener("activate", function (ev) {
   ev.waitUntil(
     caches.keys().then(function (keys) {
       return Promise.all(keys.map(function (k) {
-        /* Namen aus der Zeit vor dem Pfadanteil, bis 1.16.0. Sie passen nicht
-           mehr auf das Präfix und blieben sonst für immer liegen, rund 330 kB
-           auf jedem Gerät, das die App schon hatte. Die alte Form ist
-           eindeutig: auf "hantelkladde-" folgte sofort die Versionsnummer. */
-        if (LEGACY.test(k)) return caches.delete(k);
+        if (LEGACY.test(k) || k.indexOf(LEGACY_PREFIX) === 0) return caches.delete(k);
         /* Sonst nur eigene Namen anfassen, siehe CACHE_PREFIX. */
         if (k.indexOf(CACHE_PREFIX) !== 0) return null;
         return (k === CACHE || k === SHARE_CACHE) ? null : caches.delete(k);

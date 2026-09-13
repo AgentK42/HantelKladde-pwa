@@ -168,11 +168,13 @@ alles gelöscht, was nicht genau so hieß. Jede Fassung riss damit den
 Offline-Speicher jeder anderen mit, auch den fremder Projekte auf derselben
 Adresse.
 
-Ab 1.16.1 trägt der Name den eigenen Pfad (`SCOPE_ID` in `sw.js`), aus
-`/HantelKladde-pwa/` wird `hantelkladde-HantelKladde-pwa-<version>-<build>`, und
-aufgeräumt wird nur, was mit genau diesem Präfix beginnt. Die alte Namensform
-wird einmalig mitgelöscht, sonst bliebe sie auf bereits installierten Geräten für
-immer liegen.
+Seit 1.16.1 ist der Name der eigene Pfad (`SCOPE_ID` in `sw.js`), aus
+`/HantelKladde-pwa/` wird `HantelKladde-pwa-<version>-<build>`, und aufgeräumt
+wird nur, was mit genau diesem Präfix beginnt. Die beiden früheren Namensformen
+werden einmalig mitgelöscht, sonst blieben sie auf bereits installierten Geräten
+für immer liegen: `hantelkladde-<version>-<build>` von bis 1.16.0 und
+`hantelkladde-<pfad>-<version>-<build>` aus der kurzlebigen 1.16.1, die den
+Projektnamen noch doppelt trug.
 
 ## Icons und Screenshots
 
