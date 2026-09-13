@@ -214,6 +214,19 @@ Meldungen zu stapeln. Beim Zurückkommen und beim Beenden der Pause wird sie
 weggeräumt. Ein Tipp darauf holt das laufende Fenster nach vorne, dafür sitzt
 ein `notificationclick`-Handler in `sw.js`.
 
+## Aufbau des Daten-Reiters
+
+Die Reihenfolge folgt dem, was am häufigsten gebraucht wird: Darstellung,
+Speicher, Backup, Pause, danach die selteneren Einstellungen und ganz unten die
+Fassung.
+
+Zwei Abschnitte sind lang und starten deshalb zugeklappt, die Übungen mit allen
+Gruppen und die Muskelgruppen mit jeder Übung einzeln. Zusammen machen sie den
+Reiter doppelt so lang: 4757 statt 2386 Pixel. Der Zustand liegt in `S.secOpen`
+und nicht in den Einstellungen, sie sollen bei jedem Besuch wieder zu sein, wie
+die einzelnen Gruppen darin (`S.dataClosed`) und die Plankarten
+(`S.planCardsFold`), siehe `secFold()`.
+
 ## Timer und Datum
 
 Der Pausentimer startet nur für den heutigen Tag. Wer einen zurückliegenden Tag

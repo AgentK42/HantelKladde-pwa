@@ -725,6 +725,13 @@ textarea.note { width:100%; margin-top:8px; padding:11px 12px; border-radius:13p
 .chead .cc { margin-left:auto; font-weight:600; }
 .chead .chv { display:flex; transform:rotate(90deg); }
 .chead .chv.up { transform:rotate(-90deg); }
+/* Klappknopf einer ganzen Überschrift im Daten-Reiter, siehe secFold(). Sitzt
+   rechts wie die Zählung, die er ersetzt, und dreht das Zeichen wie oben. */
+.sect .secfold { margin-left:auto; display:flex; align-items:center; gap:7px;
+  padding:4px 0 4px 10px; border:none; background:none; font-size:12.5px;
+  color:var(--muted); }
+.sect .secfold .chv { display:flex; transform:rotate(90deg); }
+.sect .secfold .chv.up { transform:rotate(-90deg); }
 .crow { display:grid; grid-template-columns:1fr 58px 34px 26px; gap:6px; align-items:center;
   padding:8px 12px; border-top:1px solid var(--line); }
 .movecat { padding:10px 12px 12px; border-top:1px solid var(--line); background:var(--raise); }
@@ -776,7 +783,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.18.1";
+var APP_VERSION = "1.19.0";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -1013,7 +1020,7 @@ var S = {
   volGroup:"cat",
   prowNameOpen:"",
   restEnd:0, restTotal:0, warm:false, warmBase:0, warmReps:"", noteOpen:false,
-  volRange:7, volMode:"sets", dataClosed:{}, exNoteFor:"", exOpen:"",
+  volRange:7, volMode:"sets", dataClosed:{}, secOpen:{}, exNoteFor:"", exOpen:"",
   toast:"", pickCat:"", pickGroupBy:"cat", pickMuscle:"", focus:false, pickPlanTarget:"", pickSel:[],
   quickUndo:false, showSummary:false, summaryData:null, summaryReturn:"",
   focusEndConfirm:false, suggestionHandled:{},
@@ -4829,6 +4836,48 @@ function viewData() {
       '<div class="tools"><button data-act="importtext">Text einlesen</button>' +
       '<button data-act="clear">Feld leeren</button></div>' : "") +
 
+    '<div class="sect"><h2>Pause' + infoBtn("pause") + '</h2></div>' +
+    '<div class="card">' +
+    descText("pause", '<p>Länge der Pause nach einem gespeicherten Satz.</p>') +
+    '<div class="tools" style="margin-top:10px">' +
+    '<button data-act="restlen" data-d="-15">15 s weniger</button>' +
+    '<button data-act="restlen" data-d="15">15 s mehr</button></div>' +
+    '<p style="margin-top:10px">Aktuell ' + mmss(S.settings.rest) + ' Minuten.</p>' +
+    '<button class="open" data-act="autorest">Automatischer Start: ' +
+    (S.settings.autoRest ? "an" : "aus") + '</button>' +
+    '<button class="open" data-act="vibepattern">Vibrationsmuster: ' +
+    (S.settings.vibeLong ? "durchgehend" : "einfach") + '</button>' +
+    notifyBlock() +
+    descText("pause", '<p style="margin-top:10px">Während der Pause bleibt der ' +
+      'Bildschirm an, damit das Signal pünktlich kommt. Am Ende wird bis zu drei Mal im ' +
+      'Abstand von fünf Sekunden vibriert und gepiepst, danach geht der Bildschirm ' +
+      'wieder von selbst aus. Der Ton hängt an der Medienlautstärke.</p>' +
+      '<p style="margin-top:8px">Das Vibrationsmuster bestimmt, wie sich das Ende ' +
+      'anfühlt. <b>Einfach</b> ist ein kurzer Doppelschlag je Signal, ' +
+      '<b>durchgehend</b> vibriert vom ersten Signal an ohne Pause bis zum dritten, ' +
+      'also rund zehn Sekunden. Das zweite ist für das Handy in der Hosentasche ' +
+      'gedacht, wo ein kurzer Schlag leicht untergeht.</p>' +
+      '<p style="margin-top:8px">Liegt das Handy in der Tasche oder ist der Bildschirm ' +
+      'aus, bricht der Browser jede laufende Vibration ab, das Muster greift dann ' +
+      'nicht mehr. Der Ton läuft weiter, und mit der Erlaubnis für Benachrichtigungen ' +
+      'meldet zusätzlich Android selbst.</p>' +
+      '<p style="margin-top:8px">Ob diese Meldung klingelt, vibriert und den Bildschirm ' +
+      'weckt, entscheidet seit Android 8 der Benachrichtigungskanal und nicht die App. ' +
+      'Kommt die Meldung lautlos an, steht der Kanal zu niedrig: lange auf die Meldung ' +
+      'tippen und die Einstellungen öffnen, oder in den Android-Einstellungen unter ' +
+      'Apps, HantelKladde, Benachrichtigungen. Dort auf die höchste Stufe stellen, ' +
+      'damit sie klingelt und auf dem Bildschirm auftaucht. Ein aktiver Nicht-stören-' +
+      'Modus unterdrückt sie ebenfalls.</p>' +
+      '<p style="margin-top:8px">Kommt bei ausgeschaltetem Bildschirm gar nichts, ' +
+      'weder Ton noch Meldung, und erst beim Einschalten alles auf einmal, dann hat ' +
+      'Android das Gerät schlafen gelegt. Dann läuft kein Programm mehr, auch die ' +
+      'Uhr nicht. Abhilfe: Android-Einstellungen, Apps, <b>Chrome</b>, Akku, auf ' +
+      '<b>uneingeschränkt</b> stellen. Die Einstellung hängt an Chrome und nicht an ' +
+      'HantelKladde, auch bei der installierten App, und ist auf einem neuen Gerät ' +
+      'wieder zu setzen. Bei kurzen Pausen fällt es nicht auf, weil das Gerät erst ' +
+      'nach etwa einer Minute wirklich einschläft.</p>') +
+    '</div>' +
+
     '<div class="sect"><h2>Farben der Pläne' + infoBtn("farben") + '</h2></div>' +
     descText("farben", '<p class="notice">Bestimmt die Punktfarbe im Wochenstreifen für ' +
       'Tage, an denen du den Plan absolviert hast.</p>') +
@@ -4841,8 +4890,8 @@ function viewData() {
         esc(p) + '"></div>';
     }).join("") + '</div>' +
 
-    '<div class="sect"><h2>Übungen' + infoBtn("uebungen") + '</h2><span>' + allNames().length +
-    ' Übungen</span></div>' +
+    '<div class="sect"><h2>Übungen' + infoBtn("uebungen") + '</h2>' +
+    secFold("uebungen", allNames().length + " Übungen") + '</div>' +
     descText("uebungen", '<p class="notice">Die Überschrift zeigt die Gruppe, unter der eine ' +
       'Übung im Auswahlmenü steht, ein Tipp darauf klappt sie zu. Die Schrittweite gilt für ' +
       'die Plus- und Minus-Tasten beim Gewicht, angegeben in Kilogramm. ' +
@@ -4851,6 +4900,10 @@ function viewData() {
       'öffnet Umbenennen und die Geräteeinstellung, die im Training über den ' +
       'Eingabefeldern steht. Am Ende jeder Gruppe ' +
       'lässt sich eine Übung in eine andere Gruppe verschieben.</p>') +
+    /* Liste und Anlegen-Kasten hängen zusammen und klappen gemeinsam, siehe
+       secFold(). Die Beschreibung darüber bleibt sichtbar: wer sie aufgeklappt
+       hat, will sie lesen, auch wenn die Liste zu ist. */
+    (secOpen("uebungen") ?
     '<div class="card" style="padding:0">' + catRows() + '</div>' +
     /* Punkt 12: bisher ließ sich eine unbekannte Übung nur über den Übung-wählen-
        Bildschirm im Training bzw. Fokus-Modus anlegen, siehe viewPicker(). */
@@ -4875,7 +4928,7 @@ function viewData() {
     '<select id="dataNewMuscleSecondary" aria-label="Sekundäre Muskelgruppe" disabled>' +
     muscleOptionList("Sekundär") + '</select></div></div></div>' +
     '<div class="newrow"><button data-act="addexdata">Anlegen</button></div>' +
-    '</div></div>' +
+    '</div></div>' : "") +
 
     '<div class="sect"><h2>Progression' + infoBtn("progression") + '</h2></div>' +
     '<div class="card">' +
@@ -4941,55 +4994,16 @@ function viewData() {
         '">' + num(p) + ' kg</button>';
     }).join("") + '</div></div>' +
 
-    '<div class="sect"><h2>Pause' + infoBtn("pause") + '</h2></div>' +
-    '<div class="card">' +
-    descText("pause", '<p>Länge der Pause nach einem gespeicherten Satz.</p>') +
-    '<div class="tools" style="margin-top:10px">' +
-    '<button data-act="restlen" data-d="-15">15 s weniger</button>' +
-    '<button data-act="restlen" data-d="15">15 s mehr</button></div>' +
-    '<p style="margin-top:10px">Aktuell ' + mmss(S.settings.rest) + ' Minuten.</p>' +
-    '<button class="open" data-act="autorest">Automatischer Start: ' +
-    (S.settings.autoRest ? "an" : "aus") + '</button>' +
-    '<button class="open" data-act="vibepattern">Vibrationsmuster: ' +
-    (S.settings.vibeLong ? "durchgehend" : "einfach") + '</button>' +
-    notifyBlock() +
-    descText("pause", '<p style="margin-top:10px">Während der Pause bleibt der ' +
-      'Bildschirm an, damit das Signal pünktlich kommt. Am Ende wird bis zu drei Mal im ' +
-      'Abstand von fünf Sekunden vibriert und gepiepst, danach geht der Bildschirm ' +
-      'wieder von selbst aus. Der Ton hängt an der Medienlautstärke.</p>' +
-      '<p style="margin-top:8px">Das Vibrationsmuster bestimmt, wie sich das Ende ' +
-      'anfühlt. <b>Einfach</b> ist ein kurzer Doppelschlag je Signal, ' +
-      '<b>durchgehend</b> vibriert vom ersten Signal an ohne Pause bis zum dritten, ' +
-      'also rund zehn Sekunden. Das zweite ist für das Handy in der Hosentasche ' +
-      'gedacht, wo ein kurzer Schlag leicht untergeht.</p>' +
-      '<p style="margin-top:8px">Liegt das Handy in der Tasche oder ist der Bildschirm ' +
-      'aus, bricht der Browser jede laufende Vibration ab, das Muster greift dann ' +
-      'nicht mehr. Der Ton läuft weiter, und mit der Erlaubnis für Benachrichtigungen ' +
-      'meldet zusätzlich Android selbst.</p>' +
-      '<p style="margin-top:8px">Ob diese Meldung klingelt, vibriert und den Bildschirm ' +
-      'weckt, entscheidet seit Android 8 der Benachrichtigungskanal und nicht die App. ' +
-      'Kommt die Meldung lautlos an, steht der Kanal zu niedrig: lange auf die Meldung ' +
-      'tippen und die Einstellungen öffnen, oder in den Android-Einstellungen unter ' +
-      'Apps, HantelKladde, Benachrichtigungen. Dort auf die höchste Stufe stellen, ' +
-      'damit sie klingelt und auf dem Bildschirm auftaucht. Ein aktiver Nicht-stören-' +
-      'Modus unterdrückt sie ebenfalls.</p>' +
-      '<p style="margin-top:8px">Kommt bei ausgeschaltetem Bildschirm gar nichts, ' +
-      'weder Ton noch Meldung, und erst beim Einschalten alles auf einmal, dann hat ' +
-      'Android das Gerät schlafen gelegt. Dann läuft kein Programm mehr, auch die ' +
-      'Uhr nicht. Abhilfe: Android-Einstellungen, Apps, <b>Chrome</b>, Akku, auf ' +
-      '<b>uneingeschränkt</b> stellen. Die Einstellung hängt an Chrome und nicht an ' +
-      'HantelKladde, auch bei der installierten App, und ist auf einem neuen Gerät ' +
-      'wieder zu setzen. Bei kurzen Pausen fällt es nicht auf, weil das Gerät erst ' +
-      'nach etwa einer Minute wirklich einschläft.</p>') +
-    '</div>' +
-
-    '<div class="sect"><h2>Muskelgruppen' + infoBtn("muskeln") + '</h2></div>' +
+    '<div class="sect"><h2>Muskelgruppen' + infoBtn("muskeln") + '</h2>' +
+    secFold("muskeln", allNames().length + " Übungen") + '</div>' +
     descText("muskeln", '<p class="notice">Primäre und sekundäre Muskelgruppe je Übung, ' +
       'Grundlage für die Verteilung im Verlauf. Bei eigenen oder umbenannten Übungen lässt ' +
       'sich beides per Dropdown setzen. Ein Arbeitssatz zählt beim Primärmuskel voll und ' +
       'bei dynamisch mitarbeitenden Sekundärmuskeln jeweils zur Hälfte. Muskeln, die die ' +
       'Bewegung nur stabilisieren, zählen nicht als Sekundärmuskel.</p>') +
-    '<div class="card" style="padding:0">' + muscleRows() + '</div>' +
+    (secOpen("muskeln")
+      ? '<div class="card" style="padding:0">' + muscleRows() + '</div>'
+      : "") +
 
     '<div class="sect"><h2>App Version' + infoBtn("app") + '</h2></div>' +
     '<div class="card">' +
@@ -5096,6 +5110,22 @@ function muscleRow(n) {
     (own.musclePrimary ? "" : "Erst Primär wählen") + '">' +
     muscleOptionList("Sekundär", own.muscleSecondary, own.musclePrimary) + '</select>' +
     '</div></div>';
+}
+/* Zwei Listen im Daten-Reiter sind lang: die Übungen mit allen Gruppen und die
+   Muskelgruppen mit jeder Übung einzeln. Zusammen schieben sie alles darunter
+   weit nach unten, obwohl beide selten gebraucht werden. Sie starten deshalb
+   zugeklappt.
+
+   Der Zustand liegt in S und nicht in den Einstellungen: er soll bei jedem
+   Besuch wieder zu sein, wie beim Zuklappen einzelner Gruppen (S.dataClosed)
+   und der Plankarten (S.planCardsFold). */
+function secOpen(key) { return !!S.secOpen[key]; }
+function secFold(key, label) {
+  var open = secOpen(key);
+  return '<button class="secfold" data-act="secfold" data-v="' + key +
+    '" aria-expanded="' + (open ? "true" : "false") + '"><span>' + label +
+    '</span><span class="chv' + (open ? " up" : "") + '">' + svg("chev", 13) +
+    '</span></button>';
 }
 function catRows() {
   var order = CATLIST.concat(["Sonstige"]);
@@ -6305,6 +6335,7 @@ document.addEventListener("click", function (ev) {
   else if (act === "volmode") { S.volMode = v; }
   else if (act === "volgroup") { S.volGroup = v; }
   else if (act === "datacat") { S.dataClosed[v] = !S.dataClosed[v]; }
+  else if (act === "secfold") { S.secOpen[v] = !S.secOpen[v]; }
   else if (act === "barw") {
     var bw = S.settings.barWeight + parseFloat(el.getAttribute("data-d"));
     S.settings.barWeight = Math.min(40, Math.max(2.5, Math.round(bw * 100) / 100));
