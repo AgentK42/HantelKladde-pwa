@@ -776,7 +776,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.18.0";
+var APP_VERSION = "1.18.1";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -4972,7 +4972,15 @@ function viewData() {
       'tippen und die Einstellungen öffnen, oder in den Android-Einstellungen unter ' +
       'Apps, HantelKladde, Benachrichtigungen. Dort auf die höchste Stufe stellen, ' +
       'damit sie klingelt und auf dem Bildschirm auftaucht. Ein aktiver Nicht-stören-' +
-      'Modus unterdrückt sie ebenfalls.</p>') +
+      'Modus unterdrückt sie ebenfalls.</p>' +
+      '<p style="margin-top:8px">Kommt bei ausgeschaltetem Bildschirm gar nichts, ' +
+      'weder Ton noch Meldung, und erst beim Einschalten alles auf einmal, dann hat ' +
+      'Android das Gerät schlafen gelegt. Dann läuft kein Programm mehr, auch die ' +
+      'Uhr nicht. Abhilfe: Android-Einstellungen, Apps, <b>Chrome</b>, Akku, auf ' +
+      '<b>uneingeschränkt</b> stellen. Die Einstellung hängt an Chrome und nicht an ' +
+      'HantelKladde, auch bei der installierten App, und ist auf einem neuen Gerät ' +
+      'wieder zu setzen. Bei kurzen Pausen fällt es nicht auf, weil das Gerät erst ' +
+      'nach etwa einer Minute wirklich einschläft.</p>') +
     '</div>' +
 
     '<div class="sect"><h2>Muskelgruppen' + infoBtn("muskeln") + '</h2></div>' +

@@ -188,6 +188,26 @@ etwas melden könnte. Die Benachrichtigung hilft bei "versteckt, aber am Leben",
 und das ist bei anderthalb Minuten Pause der Normalfall. Der Bildschirmwächter
 bleibt daneben bestehen, er ist nur nicht mehr die einzige Grundlage.
 
+### Akku-Optimierung
+
+Kommt bei ausgeschaltetem Bildschirm gar nichts und beim Einschalten alles auf
+einmal, hat Android das Gerät schlafen gelegt. Dann läuft überhaupt kein
+Programm mehr, weder der Timer noch der ServiceWorker; der fällige Tick wird
+beim Aufwachen nachgeholt.
+
+Das ist keine Regel des Browsers und keine feste Grenze, sondern die Nachlaufzeit
+des Geräts, bis es wirklich suspendiert, auf einem Testgerät rund eine Minute.
+Pausen von 30 und 60 Sekunden enden noch davor und funktionieren, 90 Sekunden
+nicht mehr. Auf einem anderen Handy liegt die Grenze woanders.
+
+Abhilfe: Android-Einstellungen, Apps, **Chrome**, Akku, auf **uneingeschränkt**
+stellen. Die Einstellung hängt an Chrome und nicht an HantelKladde, auch bei der
+installierten App, und ist auf einem neuen Gerät wieder zu setzen. Damit lief im
+Test auch eine Pause von 90 Sekunden mit Ton und Vibration durch.
+
+Schläft das Gerät mehr als zwei Minuten über das Pausenende hinaus, verwirft die
+App den Timer beim Aufwachen, statt verspätet zu piepsen, siehe `tickRest()`.
+
 Alle Meldungen tragen denselben `tag`, weil bis zu drei Mal im Abstand von fünf
 Sekunden signalisiert wird: so wird eine Meldung dreimal erneuert, statt drei
 Meldungen zu stapeln. Beim Zurückkommen und beim Beenden der Pause wird sie
