@@ -776,7 +776,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.17.2";
+var APP_VERSION = "1.17.3";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -3622,6 +3622,22 @@ function viewPicker() {
   return h;
 }
 
+/* Der Pausentimer startet nur für den heutigen Tag, siehe den Aufruf von
+   startRest() im Speichern-Zweig: wer einen zurückliegenden Tag nachträgt, will
+   nicht dabei sitzen und warten. Das passierte bisher stillschweigend, und weil
+   restoreSession() seit 1.17.2 auch das zuletzt betrachtete Datum zurückholt,
+   kam man nach Mitternacht mit dem Datum von gestern hoch und wunderte sich über
+   einen Timer, der nicht mehr angeht. Deshalb steht der Grund jetzt da. */
+function restOffNote() {
+  if (!S.settings.autoRest || S.date === todayISO()) return "";
+  /* Der Weg zurück steht nur im Trainingsreiter dabei. Im Fokus-Modus gibt es
+     die Datumszeile und damit den Knopf "Heute" nicht, dort führt der Pfeil
+     links oben hinaus. */
+  return '<div class="notice bad">Kein Timer, da Datum ' +
+    (S.date < todayISO() ? "in der Vergangenheit" : "in der Zukunft") + '.' +
+    (S.focus ? "" : ' Über <b>Heute</b> oben zurück zum laufenden Tag.') +
+    '</div>';
+}
 function viewTag() {
   if (S.pickOpen) return viewPicker();
 
@@ -3639,7 +3655,7 @@ function viewTag() {
     (S.date === todayISO() ? "" : '<button class="today" data-act="today">Heute</button>') +
     '<span class="cal">' + svg("kalender", 17) +
     '<input type="date" value="' + S.date + '" data-act="date" aria-label="Datum wählen">' +
-    '</span></span></div>' + weekStrip();
+    '</span></span></div>' + weekStrip() + restOffNote();
 
   if (S.plan && S.plans[S.plan] && S.plansFold) {
     /* Eingeklappt: nur der gewählte Plan, ein Tipp öffnet die Auswahl wieder */
@@ -3946,7 +3962,9 @@ function viewFocus() {
   var h = '<div class="fx"><div class="fx-head">' +
     '<button class="back" data-act="focusoff" aria-label="Fokus verlassen">' +
     svg("zurueck", 22) + '</button>' + focusWho() + '</div>' + planProgress() +
-    '<div class="fx-body">';
+    /* Auch hier, der Fokus-Modus zeigt keine Datumszeile: ohne den Hinweis
+       bliebe dort völlig unklar, warum nach dem Satz nichts passiert. */
+    '<div class="fx-body">' + restOffNote();
 
   if (!S.exercise) {
     h += '<div class="fx-blank"><div class="hero-ex">Bereit für den ersten Satz</div>' +

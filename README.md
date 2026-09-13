@@ -188,6 +188,18 @@ Meldungen zu stapeln. Beim Zurückkommen und beim Beenden der Pause wird sie
 weggeräumt. Ein Tipp darauf holt das laufende Fenster nach vorne, dafür sitzt
 ein `notificationclick`-Handler in `sw.js`.
 
+## Timer und Datum
+
+Der Pausentimer startet nur für den heutigen Tag. Wer einen zurückliegenden Tag
+nachträgt, will nicht dabei sitzen und warten, und ein Datum in der Zukunft ist
+ohnehin eine Planung.
+
+Das passierte bis 1.17.2 stillschweigend. Seit `restoreSession()` auch das
+zuletzt betrachtete Datum zurückholt, kam man nach Mitternacht mit dem Datum von
+gestern hoch und wunderte sich über einen Timer, der nach dem Speichern nicht
+mehr angeht. Seit 1.17.3 steht der Grund als roter Hinweis über der Planliste und
+im Fokus-Modus über der Übung, siehe `restOffNote()`.
+
 ## Neue Version ausrollen
 
 `index.html` austauschen und in `sw.js` die Zeile `APP_VERSION` auf die neue
