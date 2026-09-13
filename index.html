@@ -280,8 +280,8 @@ textarea.note { width:100%; margin-top:8px; padding:11px 12px; border-radius:13p
   font-weight:800; }
 .pills button.on.rpe { background:var(--accent); border-color:var(--accent);
   color:var(--accent-ink); }
-/* Ziel-Range der doppelten Progression, 1.13.0: Rahmen um die Tasten im
-   Bereich, sonst nichts. Nur in der Reps-Reihe des Fokus-Modus, siehe
+/* Ziel-Range der doppelten Progression, 1.13.0: Rahmen um die Tasten in der
+   Range, sonst nichts. Nur in der Reps-Reihe des Fokus-Modus, siehe
    focusRepPills(). Die gewählte Taste bleibt farblich die gewählte, die Range
    färbt sie nur um, statt sie zu überdecken. */
 .pills button.inrange { border-color:var(--accent); color:var(--ink); }
@@ -1865,11 +1865,18 @@ function mainWorkBlock(session, goalSets, preferredWeight) {
   var rpes = chosen.sets.filter(function (s) { return s.rpe != null; })
     .map(function (s) { return s.rpe; });
   var low = Math.min.apply(null, chosen.sets.map(function (s) { return s.reps; }));
+  /* RPE des schwächsten Satzes, getrennt vom Durchschnitt: die Begründung unter dem
+     Vorschlag nennt diesen einen Satz, dann muss auch sein RPE dort stehen und nicht
+     der des Blocks. Haben mehrere Sätze dieselbe kleinste Rep-Zahl, gilt der höchste
+     RPE darunter, also der teuerste der gleich schwachen Sätze. */
+  var lowRpes = chosen.sets.filter(function (s) { return s.reps === low && s.rpe != null; })
+    .map(function (s) { return s.rpe; });
   return {
     weight:chosen.weight,
     sets:chosen.sets,
     complete:chosen.sets.length >= goalSets,
     low:low,
+    lowRpe:lowRpes.length ? Math.max.apply(null, lowRpes) : null,
     avg:rpes.length ? rpes.reduce(function (a,b) { return a+b; }, 0) / rpes.length : null,
     rpes:rpes,
     last:chosen.sets[chosen.sets.length - 1]
@@ -1965,7 +1972,7 @@ function suggestFor(name) {
       base.up = true;
       base.why = "+" + gain + (gain === 1 ? " Rep" : " Reps") +
         ", schwächster Satz " + low + "x" +
-        (avg != null ? " @ RPE " + num(avg) : "");
+        (block.lowRpe != null ? " @ RPE " + num(block.lowRpe) : "");
     }
     return base;
   }
@@ -3310,7 +3317,7 @@ function focusRepPills() {
      sondern nur Beiwerk. */
   var rng = repRange(S.exercise, deci(S.weight) || 0);
   var h = '<div class="repsrow"><button class="chev" data-act="repwin" data-d="-5" ' +
-    'aria-label="Niedrigere Wiederholungen zeigen">' + svg("zurueck", 15) +
+    'aria-label="Niedrigere Reps zeigen">' + svg("zurueck", 15) +
     '</button><div class="pills">';
   for (var i = 0; i < 5; i++) {
     var v = lo + i;
@@ -3321,7 +3328,7 @@ function focusRepPills() {
       v + '">' + v + '</button>';
   }
   h += '</div><button class="chev fwd" data-act="repwin" data-d="5" ' +
-    'aria-label="Höhere Wiederholungen zeigen">' + svg("zurueck", 15) + '</button></div>';
+    'aria-label="Höhere Reps zeigen">' + svg("zurueck", 15) + '</button></div>';
   return h;
 }
 
@@ -3642,7 +3649,7 @@ function viewTag() {
       (isToday ? suggestionBlock() : "") +
       (isToday && flat ? '<div class="flag">Seit ' + flat + ' Wochen unverändert bei ' +
         num(lastSet ? lastSet.weight : 0) + ' kg. Zeit für mehr Gewicht, mehr ' +
-        'Wiederholungen oder eine andere Übung.</div>' : "") +
+        'Reps oder eine andere Übung.</div>' : "") +
       heroWeightDial(S.exercise) +
       (split ? '<div class="plates">Stange ' + num(split.bar) + ' kg, pro Seite ' +
         split.side.map(num).join(' + ') +
@@ -3681,7 +3688,7 @@ function viewTag() {
       planNav();
   } else {
     h += '<div class="hero blank"><div class="hero-ex">Bereit für den ersten Satz</div>' +
-      '<div class="hero-meta">Wähle einen Plan oder eine einzelne Übung. Wiederholungen ' +
+      '<div class="hero-meta">Wähle einen Plan oder eine einzelne Übung. Reps ' +
       'und Gewicht werden dann aus deinem letzten Training vorgeschlagen.</div>' +
       '<div class="savearea"><button class="save" data-act="pickopen">Übung wählen</button>' +
       '</div></div>';
@@ -3853,7 +3860,7 @@ function viewFocus() {
 
   if (!S.exercise) {
     h += '<div class="fx-blank"><div class="hero-ex">Bereit für den ersten Satz</div>' +
-      '<p class="notice">Wähle eine Übung, Wiederholungen und Gewicht werden dann ' +
+      '<p class="notice">Wähle eine Übung, Reps und Gewicht werden dann ' +
       'aus deinem letzten Training vorgeschlagen.</p>' +
       '<button class="save" data-act="pickopen">Übung wählen</button></div></div></div>';
     return h;
@@ -3905,7 +3912,7 @@ function viewFocus() {
     (isToday ? suggestionBlock() : "") +
     (isToday && flat ? '<div class="flag">Seit ' + flat + ' Wochen unverändert bei ' +
       num(lastSet ? lastSet.weight : 0) + ' kg. Zeit für mehr Gewicht, mehr ' +
-      'Wiederholungen oder eine andere Übung.</div>' : "") +
+      'Reps oder eine andere Übung.</div>' : "") +
     exNoteBlock() +
     weightDial(S.exercise) +
     (showPlates && split ? '<div class="plates">Stange ' + num(split.bar) + ' kg, pro Seite ' +
@@ -4868,7 +4875,7 @@ function viewData() {
     '<div class="card">' +
     descText("progression", '<p>Für einen Gewichtssprung zählt der höchste vollständige ' +
       'Arbeitsblock einer Einheit. Einzelne Topsätze und leichtere Back-off-Sätze ändern ' +
-      'die Grundlage nicht. Ohne Wiederholungs-Range braucht es zuerst eine Einheit ' +
+      'die Grundlage nicht. Ohne Rep Range braucht es zuerst eine Einheit ' +
       'als Ausgangswert und danach zwei erfolgreiche Bestätigungseinheiten am selben ' +
       'Gewicht. Bei einem durchschnittlichen RPE bis 7 in beiden Bestätigungen sind es ' +
       'zwei Schrittweiten, darüber eine. Ab RPE 9 bleibt das Gewicht stehen.</p>') +
@@ -4882,17 +4889,17 @@ function viewData() {
       'Schrittweite mehr als ' + num(S.settings.repFirstThresh * 100) + ' Prozent des ' +
       'aktuellen Gewichts ausmacht, ist ein Gewichtssprung zu groß, um ihn in einer ' +
       'Einheit aufzufangen — an der Shoulderpress mit 3,75 kg Schritt auf 30 kg sind ' +
-      'das 12,5 Prozent. Dort gehen erst die Wiederholungen hoch, jede Einheit eine, ' +
-      'innerhalb von ' + S.settings.repSpan + ' Wiederholungen um dein Planziel. Bei ' +
-      'einem Ziel von 10 Reps ist das der Bereich ' + Math.max(1, 10 - S.settings.repSpan) +
+      'das 12,5 Prozent. Dort gehen erst die Reps hoch, jede Einheit eine, ' +
+      'innerhalb von ' + S.settings.repSpan + ' Reps um dein Planziel. Bei ' +
+      'einem Ziel von 10 Reps ist das die Range ' + Math.max(1, 10 - S.settings.repSpan) +
       ' bis ' + (10 + S.settings.repSpan) + '. Oben angekommen muss die Leistung in ' +
       'zwei Einheiten bestätigt werden. Danach steigt das Gewicht um eine Schrittweite, ' +
-      'und die Wiederholungen fallen auf den unteren Rand zurück.</p>' +
-      '<p style="margin-top:8px">Der Bereich steht im Training in der Zielzeile und ' +
-      'unter der Wiederholungszahl, im Fokus-Modus zusätzlich als Rahmen um die ' +
-      'Wiederholungstasten. Bei allen anderen Übungen bleibt es beim Vorschlag von ' +
-      'oben. Ab RPE 9 kommt auch keine Wiederholung dazu.</p>') +
-    '<button class="open" data-act="repfirst">Erst Wiederholungen steigern: ' +
+      'und die Reps fallen auf den unteren Rand zurück.</p>' +
+      '<p style="margin-top:8px">Die Range steht im Training in der Zielzeile und ' +
+      'unter der Rep-Zahl, im Fokus-Modus zusätzlich als Rahmen um die ' +
+      'Rep-Tasten. Bei allen anderen Übungen bleibt es beim Vorschlag von ' +
+      'oben. Ab RPE 9 kommt auch keine Rep dazu.</p>') +
+    '<button class="open" data-act="repfirst">Erst Reps steigern: ' +
     (S.settings.repFirst ? "an" : "aus") + '</button>' +
     '<div class="tools" style="margin-top:10px">' +
     '<button data-act="repthresh" data-d="-0.5">0,5 % weniger</button>' +
@@ -4903,7 +4910,7 @@ function viewData() {
     '<button data-act="repspan" data-d="-1">Range schmaler</button>' +
     '<button data-act="repspan" data-d="1">Range breiter</button></div>' +
     '<p style="margin-top:10px">Range aktuell Planziel ± ' + S.settings.repSpan +
-    ' Wiederholungen.</p></div>' +
+    ' Reps.</p></div>' +
 
     '<div class="sect"><h2>Fokus-Modus' + infoBtn("fokus") + '</h2></div>' +
     '<div class="card">' +
@@ -5441,7 +5448,7 @@ function cleanEntry(e, idx) {
   var exercise = exerciseFix(cleanName(e.exercise, at));
   if (!Number.isInteger(e.set) || e.set < 1) importError(at + " hat keine gültige Satznummer.");
   if (!finiteNumber(e.weight) || e.weight < 0) importError(at + " hat kein gültiges Gewicht.");
-  if (!Number.isInteger(e.reps) || e.reps < 1) importError(at + " hat keine gültige Wiederholungszahl.");
+  if (!Number.isInteger(e.reps) || e.reps < 1) importError(at + " hat keine gültige Rep-Zahl.");
   if (e.rpe != null && (!finiteNumber(e.rpe) || e.rpe < 1 || e.rpe > 10)) {
     importError(at + " hat einen ungültigen RPE-Wert.");
   }
@@ -5474,7 +5481,7 @@ function cleanPlans(src) {
       if (seen[name]) importError("Plan „" + p + "“ enthält „" + name + "“ doppelt.");
       seen[name] = 1;
       if (!Number.isInteger(item.reps) || item.reps < 1) {
-        importError(at + " hat keine gültige Wiederholungszahl.");
+        importError(at + " hat keine gültige Rep-Zahl.");
       }
       if (!finiteNumber(item.weight) || item.weight < 0) {
         importError(at + " hat kein gültiges Gewicht.");
@@ -6083,7 +6090,7 @@ document.addEventListener("click", function (ev) {
     var w = deci(S.weight), r = parseInt(S.reps,10), p = deci(S.rpe);
     if (!S.exercise) { S.note = "Wähle zuerst eine Übung."; render(); return; }
     if (isNaN(r) || r < 1) {
-      S.note = "Wiederholungen fehlen oder sind keine Zahl."; render(); return;
+      S.note = "Reps fehlen oder sind keine Zahl."; render(); return;
     }
     if (!isFinite(w) || w < 0) {
       S.note = "Das Gewicht muss eine Zahl ab 0 kg sein."; render(); return;
@@ -6159,7 +6166,7 @@ document.addEventListener("click", function (ev) {
   else if (act === "update") {
     var w2 = deci(S.weight), r2 = parseInt(S.reps,10), p2 = deci(S.rpe);
     if (isNaN(r2) || r2 < 1 || !isFinite(w2) || w2 < 0) {
-      S.note = "Wiederholungen müssen mindestens 1 und das Gewicht mindestens 0 kg sein.";
+      S.note = "Reps müssen mindestens 1 und das Gewicht mindestens 0 kg sein.";
       render(); return;
     }
     S.entries.forEach(function (e) {
