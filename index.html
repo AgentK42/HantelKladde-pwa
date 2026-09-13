@@ -766,7 +766,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.15.2";
+var APP_VERSION = "1.16.0";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -968,7 +968,7 @@ var DEFAULT_SETTINGS = {
   barWeight: 20, plates: DEFAULT_PLATES.slice(), hiddenEx: [], focusPlates: false,
   defSets: DEFAULT_SETS, defReps: 10, defWeight: 20, descOpen: {}, wrapNames: false,
   weekGoals: {}, weekGoalLog: {}, repFirst: true,
-  repFirstThresh: 0.05, repSpan: 2
+  repFirstThresh: 0.05, repSpan: 2, notifySignal: true
 };
 
 /* ---------- Doppelte Progression, 1.13.0 ---------- */
@@ -1261,6 +1261,7 @@ function load() {
       Object.keys(st.descOpen).forEach(function (k) { S.settings.descOpen[k] = !!st.descOpen[k]; });
     }
     if (typeof st.wrapNames === "boolean") S.settings.wrapNames = st.wrapNames;
+    if (typeof st.notifySignal === "boolean") S.settings.notifySignal = st.notifySignal;
     if (st.weekGoals && typeof st.weekGoals === "object") {
       Object.keys(st.weekGoals).forEach(function (k) {
         var n = st.weekGoals[k];
@@ -2164,6 +2165,7 @@ function addRest(sec) {
 }
 function stopRest() {
   S.restEnd = 0;
+  clearRestNotification();
   try { localStorage.removeItem(REST_KEY); } catch (e) {}
   if (restInterval) { clearInterval(restInterval); restInterval = null; }
   wakeOff();
@@ -2186,6 +2188,8 @@ document.addEventListener("visibilitychange", function () {
   /* Der Bildschirmwächter fällt beim Wegwischen weg und wird hier neu angefordert */
   if (S.restEnd && wakeWanted) wakeOn();
   if (S.restEnd) tickRest();
+  /* Wer wieder hinsieht, braucht die Meldung im Schacht nicht mehr. */
+  clearRestNotification();
 });
 
 /* Höchstens drei Signale im Abstand von fünf Sekunden */
@@ -2228,8 +2232,29 @@ function renderRest() {
     '<button data-act="reststop">Fertig</button></div>' +
     '<div class="track"><i style="width:' + pct + '%"></i></div></div>';
 }
+/* Drei Wege, dasselbe zu melden, je nachdem, wo die App gerade steht.
+
+   Im Vordergrund bleibt es bei Vibration und Ton wie bisher. Eine
+   Benachrichtigung wäre dort nur im Weg, der Pausenbalken steht ja sichtbar
+   auf dem Schirm.
+
+   Im Hintergrund richten beide nichts mehr aus: der Ton braucht eine hörbare
+   Seite, und eine laufende Vibration bricht der Browser ab, sobald das
+   Dokument versteckt ist. Dort übernimmt die Benachrichtigung, denn die stellt
+   Android zu, nicht die Seite. Nur wenn dafür die Erlaubnis fehlt, wird es
+   trotzdem mit Vibration und Ton versucht, besser als gar nichts.
+
+   Was auch das nicht löst: ist die Seite eingefroren, läuft hier kein Code
+   mehr. Die Benachrichtigung hilft bei "versteckt, aber am Leben", und das ist
+   bei einer Pause von anderthalb Minuten der Normalfall. */
 function signal() {
+  if (!document.hidden) { buzz(); beep(); return; }
+  if (!notifyRestOver()) { buzz(); beep(); }
+}
+function buzz() {
   try { if (navigator.vibrate) navigator.vibrate([220,120,220]); } catch (e) {}
+}
+function beep() {
   try {
     var Ctx = window.AudioContext || window.webkitAudioContext;
     if (!Ctx) return;
@@ -2244,6 +2269,65 @@ function signal() {
       o.start(ctx.currentTime + off); o.stop(ctx.currentTime + off + 0.24);
     });
     setTimeout(function () { try { ctx.close(); } catch (e) {} }, 1200);
+  } catch (e) {}
+}
+
+/* ---------- Signal bei ausgeschaltetem Bildschirm ---------- */
+/* "unsupported" heißt: kein Notification-Objekt oder kein ServiceWorker, dann
+   gibt es diesen Weg gar nicht. Sonst der Zustand, den der Browser führt. */
+function notifyState() {
+  if (typeof Notification === "undefined" || !("serviceWorker" in navigator)) {
+    return "unsupported";
+  }
+  return Notification.permission;
+}
+function notifyReady() {
+  return S.settings.notifySignal && notifyState() === "granted" &&
+    !!swReg && !!swReg.showNotification;
+}
+/* Immer derselbe tag: tickRest() meldet sich bis zu dreimal im Abstand von fünf
+   Sekunden, und ohne tag lägen danach drei Meldungen im Schacht statt einer,
+   die dreimal erneuert wurde. renotify sorgt dafür, dass die Erneuerung nicht
+   stillschweigend passiert. */
+var REST_TAG = "rest";
+function notifyRestOver() {
+  if (!notifyReady()) return false;
+  try {
+    var p = swReg.showNotification("Pause vorbei", {
+      body: S.exercise ? S.exercise + ", Satz " + nextSet() : "Weiter geht es.",
+      tag: REST_TAG,
+      renotify: true,
+      icon: "icons/icon-192.png",
+      vibrate: [220,120,220]
+    });
+    /* Schlägt das Zeigen doch fehl, bleibt der alte Weg als Rückfall. */
+    if (p && p.catch) p.catch(function () { buzz(); beep(); });
+    return true;
+  } catch (e) { return false; }
+}
+/* Beim Zurückkommen und beim Beenden der Pause wegräumen. Sonst klebt "Pause
+   vorbei" noch im Schacht, während längst der nächste Satz läuft. */
+function clearRestNotification() {
+  if (!swReg || !swReg.getNotifications) return;
+  try {
+    var p = swReg.getNotifications({ tag:REST_TAG });
+    if (p && p.then) {
+      p.then(function (list) {
+        list.forEach(function (n) { try { n.close(); } catch (e) {} });
+      }, function () {});
+    }
+  } catch (e) {}
+}
+/* Die Nachfrage braucht auf Android eine Nutzeraktion, sie hängt deshalb an
+   einem Knopf unter Daten und läuft nicht beim Start. Eine abgelehnte Nachfrage
+   holt Chrome nicht von selbst zurück, deshalb wird sie nur im Zustand
+   "default" überhaupt gestellt. */
+function askNotify() {
+  if (notifyState() !== "default") return;
+  var done = function () { render(); };
+  try {
+    var p = Notification.requestPermission(done);
+    if (p && p.then) p.then(done, function () {});
   } catch (e) {}
 }
 
@@ -4792,10 +4876,16 @@ function viewData() {
     '<p style="margin-top:10px">Aktuell ' + mmss(S.settings.rest) + ' Minuten.</p>' +
     '<button class="open" data-act="autorest">Automatischer Start: ' +
     (S.settings.autoRest ? "an" : "aus") + '</button>' +
+    notifyBlock() +
     descText("pause", '<p style="margin-top:10px">Während der Pause bleibt der ' +
       'Bildschirm an, damit das Signal pünktlich kommt. Am Ende wird bis zu drei Mal im ' +
       'Abstand von fünf Sekunden vibriert und gepiepst, danach geht der Bildschirm ' +
-      'wieder von selbst aus. Der Ton hängt an der Medienlautstärke.</p>') +
+      'wieder von selbst aus. Der Ton hängt an der Medienlautstärke.</p>' +
+      '<p style="margin-top:8px">Liegt das Handy in der Tasche oder ist der Bildschirm ' +
+      'aus, richten Ton und Vibration nichts mehr aus: der Ton braucht eine hörbare ' +
+      'Seite, und eine Vibration bricht der Browser ab, sobald die Seite versteckt ist. ' +
+      'Mit der Erlaubnis für Benachrichtigungen übernimmt stattdessen Android das ' +
+      'Melden. Steht das Handy auf lautlos, bleibt davon nur die Vibration.</p>') +
     '</div>' +
 
     '<div class="sect"><h2>Muskelgruppen' + infoBtn("muskeln") + '</h2></div>' +
@@ -4833,6 +4923,36 @@ function viewData() {
     '</div>' +
     "";
 }
+/* Vier Zustände im Abschnitt Pause. "denied" ist der unangenehme: Chrome fragt
+   danach nicht mehr von selbst, zurückholen lässt es sich nur über die
+   Seiteneinstellungen des Browsers. Deshalb steht der Knopf unter Daten und
+   nicht mitten im Training, wo er im Vorbeigehen weggetippt würde. */
+function notifyBlock() {
+  var st = notifyState();
+  if (st === "unsupported") {
+    return '<p style="margin-top:10px">Benachrichtigungen beherrscht dieser Browser ' +
+      'nicht. Das Signal kommt nur, solange die App im Vordergrund ist.</p>';
+  }
+  if (st === "denied") {
+    return '<p style="margin-top:10px">Benachrichtigungen sind für diese Seite ' +
+      'abgelehnt, das Signal kommt deshalb nur im Vordergrund. Chrome fragt von sich ' +
+      'aus nicht noch einmal; erlauben lässt es sich über das Schloss-Symbol in der ' +
+      'Adressleiste oder in den Seiteneinstellungen des Browsers.</p>';
+  }
+  if (st === "default") {
+    /* Dieselbe Knopfform wie der Schalter, der danach an dieser Stelle steht,
+       und wie "Automatischer Start" darüber. In der zweispaltigen Werkzeugleiste
+       bräche die Beschriftung auf vier Zeilen um. */
+    return '<button class="open" data-act="notifyask">' +
+      'Signal bei ausgeschaltetem Bildschirm erlauben</button>' +
+      '<p style="margin-top:10px">Bisher kommt das Signal nur, solange die App im ' +
+      'Vordergrund ist.</p>';
+  }
+  return '<button class="open" data-act="notifytoggle">' +
+    'Signal bei ausgeschaltetem Bildschirm: ' +
+    (S.settings.notifySignal ? "an" : "aus") + '</button>';
+}
+
 /* Liste unter Daten: jede Übung mit ihrer hinterlegten Muskelgruppe, gruppiert
    wie die Übungsliste weiter oben nach Push/Pull/Legs/Core. */
 function muscleRows() {
@@ -5156,7 +5276,7 @@ function mergeSettings(src) {
   /* Einzelwerte: Typ prüfen wie beim Laden, dann nur bei unverändertem Stand */
   [["rest", "number"], ["autoRest", "boolean"], ["autoProgress", "boolean"],
    ["repFirst", "boolean"], ["repFirstThresh", "number"], ["repSpan", "number"],
-   ["focusPlates", "boolean"], ["wrapNames", "boolean"],
+   ["focusPlates", "boolean"], ["wrapNames", "boolean"], ["notifySignal", "boolean"],
    ["barWeight", "number"],
    ["defSets", "number"], ["defReps", "number"], ["defWeight", "number"]
   ].forEach(function (f) {
@@ -6144,6 +6264,12 @@ document.addEventListener("click", function (ev) {
     persist();
   }
   else if (act === "autorest") { S.settings.autoRest = !S.settings.autoRest; persist(); }
+  else if (act === "notifyask") { askNotify(); }
+  else if (act === "notifytoggle") {
+    S.settings.notifySignal = !S.settings.notifySignal;
+    if (!S.settings.notifySignal) clearRestNotification();
+    persist();
+  }
   else if (act === "openex") {
     var exWasOpen = !!S.openEx;
     S.openEx = (S.openEx === v ? "" : v);

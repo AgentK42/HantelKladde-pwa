@@ -116,6 +116,31 @@ Fokus-Modus, die Zusammenfassung und ein aufgeklapptes Diagramm im Verlauf je
 einen History-Eintrag an (`navOpen`/`navBack` in `index.html`). Zurück schließt
 damit erst die offene Ansicht, und erst aus der Grundansicht heraus die App.
 
+## Signal am Ende der Pause
+
+Drei Wege, je nachdem, wo die App steht.
+
+Im Vordergrund vibriert und piepst es wie bisher. Eine Benachrichtigung wäre
+dort nur im Weg, der Pausenbalken steht ja sichtbar auf dem Schirm.
+
+Im Hintergrund richten beide nichts mehr aus. Der Ton braucht eine hörbare
+Seite, und eine laufende Vibration bricht der Browser ab, sobald das Dokument
+versteckt ist. Dort übernimmt eine Benachrichtigung, die Android zustellt und
+nicht die Seite. Die Erlaubnis dafür holt ein Knopf unter **Daten → Pause**,
+bewusst dort und nicht mitten im Training: eine abgelehnte Nachfrage holt Chrome
+nicht von selbst zurück. Danach steht an derselben Stelle ein Schalter.
+
+Was auch das nicht löst: ist die Seite eingefroren, läuft kein Code mehr, der
+etwas melden könnte. Die Benachrichtigung hilft bei "versteckt, aber am Leben",
+und das ist bei anderthalb Minuten Pause der Normalfall. Der Bildschirmwächter
+bleibt daneben bestehen, er ist nur nicht mehr die einzige Grundlage.
+
+Alle Meldungen tragen denselben `tag`, weil bis zu drei Mal im Abstand von fünf
+Sekunden signalisiert wird: so wird eine Meldung dreimal erneuert, statt drei
+Meldungen zu stapeln. Beim Zurückkommen und beim Beenden der Pause wird sie
+weggeräumt. Ein Tipp darauf holt das laufende Fenster nach vorne, dafür sitzt
+ein `notificationclick`-Handler in `sw.js`.
+
 ## Neue Version ausrollen
 
 `index.html` austauschen und in `sw.js` die Zeile `APP_VERSION` auf die neue
@@ -153,7 +178,9 @@ eingetragen; ändert sich die Oberfläche deutlich, gehören sie neu aufgenommen
 Offline-Betrieb, Update-Weg, Zurück-Geste, Speicherzusage, Kurzbefehle und das
 Entgegennehmen eines geteilten Backups lassen sich nicht durch Hinsehen prüfen.
 `tools/test-pwa.js` fährt sie in Chromium durch. Das Skript startet den Server
-selbst und braucht außer Playwright nichts:
+selbst und braucht außer Playwright nichts. Es startet den vollen Browser
+(`channel: "chromium"`), nicht die Headless-Shell: die kennt keine
+Benachrichtigungen, dort steht `Notification.permission` fest auf `denied`.
 
 ```
 npm i -g playwright && npx playwright install chromium

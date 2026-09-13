@@ -72,7 +72,10 @@ async function main() {
   const original = fs.readFileSync(SW, "utf8");
   const srv = await serve();
   const base = "http://127.0.0.1:" + srv.address().port + "/";
-  const browser = await chromium.launch();
+  /* channel: "chromium" nimmt den vollen Browser statt der Headless-Shell.
+     Die Shell kennt keine Benachrichtigungen: Notification.permission steht dort
+     fest auf "denied", und grantPermissions() ändert daran nichts. */
+  const browser = await chromium.launch({ channel: "chromium" });
   const ctx = await browser.newContext({ viewport: { width:412, height:915 },
     locale: "de-DE", hasTouch: true, isMobile: true });
   const errs = [];
@@ -166,6 +169,64 @@ async function main() {
     check("index.html liegt genau einmal im Cache",
       urls.filter(u => /index\.html$/.test(u)).length === 1 && !urls.includes("/"),
       urls.join(" "));
+
+    /* Signal bei ausgeschaltetem Bildschirm */
+    const notes = () => page.evaluate(async () => {
+      const reg = await navigator.serviceWorker.ready;
+      const list = await reg.getNotifications({ tag: "rest" });
+      return list.map(n => ({ title: n.title, body: n.body }));
+    });
+
+    await page.goto(base, { waitUntil: "load" });
+    await page.waitForTimeout(1000);
+    await page.evaluate(() => { S.view = "daten"; render(); });
+    check("Ohne Erlaubnis steht der Knopf unter Daten",
+      await page.locator('[data-act="notifyask"]').count() === 1);
+    check("Ohne Erlaubnis meldet notifyReady() nichts",
+      await page.evaluate(() => notifyReady()) === false);
+
+    await ctx.grantPermissions(["notifications"], { origin: base.replace(/\/$/, "") });
+    await page.reload({ waitUntil: "load" });
+    await page.waitForTimeout(1200);
+    await page.evaluate(() => { S.view = "daten"; S.exercise = "Benchpress Maschine"; render(); });
+    check("Mit Erlaubnis steht dort der Schalter",
+      await page.locator('[data-act="notifytoggle"]').count() === 1);
+
+    await page.evaluate(() => signal());
+    await page.waitForTimeout(300);
+    check("Im Vordergrund kommt keine Meldung", (await notes()).length === 0);
+
+    /* document.hidden lässt sich in Playwright nicht direkt umlegen, für den
+       Zweig genügt es, den Getter zu überschreiben. */
+    await page.evaluate(async () => {
+      Object.defineProperty(document, "hidden", { get: () => true, configurable: true });
+      signal(); signal(); signal();
+      await new Promise(r => setTimeout(r, 300));
+    });
+    const hidden = await notes();
+    check("Versteckt kommt genau eine Meldung, auch nach drei Signalen",
+      hidden.length === 1, JSON.stringify(hidden));
+    check("Die Meldung nennt die Übung",
+      !!hidden[0] && /Benchpress Maschine/.test(hidden[0].body), JSON.stringify(hidden[0]));
+
+    await page.evaluate(async () => {
+      Object.defineProperty(document, "hidden", { get: () => false, configurable: true });
+      document.dispatchEvent(new Event("visibilitychange"));
+      await new Promise(r => setTimeout(r, 400));
+    });
+    check("Zurückkommen räumt die Meldung weg", (await notes()).length === 0);
+
+    await page.evaluate(async () => {
+      S.settings.notifySignal = false;
+      Object.defineProperty(document, "hidden", { get: () => true, configurable: true });
+      signal();
+      await new Promise(r => setTimeout(r, 300));
+    });
+    check("Abgeschaltet kommt keine Meldung", (await notes()).length === 0);
+    await page.evaluate(() => {
+      S.settings.notifySignal = true;
+      Object.defineProperty(document, "hidden", { get: () => false, configurable: true });
+    });
 
     /* Update-Weg */
     fs.writeFileSync(SW, original.replace('var APP_VERSION = "', 'var APP_VERSION = "9.'));

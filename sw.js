@@ -12,7 +12,7 @@
    Beim Anheben von APP_VERSION wird der alte Cache verworfen. Die Trainings-
    daten liegen im localStorage und sind davon nicht berührt. */
 
-var APP_VERSION = "1.15.2";
+var APP_VERSION = "1.16.0";
 
 /* BUILD hochzählen, wenn sich ausgelieferte Dateien ändern, ohne dass die App
    selbst eine neue Versionsnummer bekommt, etwa bei einer Korrektur am Manifest.
@@ -81,6 +81,21 @@ self.addEventListener("message", function (ev) {
   if (msg.type === "version" && ev.ports && ev.ports[0]) {
     ev.ports[0].postMessage({ version: APP_VERSION, build: BUILD });
   }
+});
+
+/* Tipp auf die Meldung "Pause vorbei". Ohne diesen Handler öffnet Android je
+   nach Fassung ein zweites Fenster, statt das laufende Training zu holen.
+   Gesucht wird deshalb zuerst ein offenes Fenster im eigenen Verzeichnis. */
+self.addEventListener("notificationclick", function (ev) {
+  ev.notification.close();
+  ev.waitUntil(
+    self.clients.matchAll({ type:"window", includeUncontrolled:true }).then(function (list) {
+      for (var i = 0; i < list.length; i++) {
+        if (list[i].url.indexOf(ROOT.href) === 0 && list[i].focus) return list[i].focus();
+      }
+      return self.clients.openWindow ? self.clients.openWindow("./") : null;
+    })
+  );
 });
 
 /* Ein aus einer anderen App geteiltes Backup. Android schickt es als POST an
