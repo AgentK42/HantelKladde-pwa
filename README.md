@@ -38,6 +38,12 @@ der installierten Fassung zunächst einen leeren Stand:
 
 Der Import ergänzt, er überschreibt nicht.
 
+Gelesen werden Backups im Format 6, also aus Fassung 1.14.1 und neuer. Die Nummer
+steht als `version` in der Datei, `BACKUP_VERSION` in `index.html` nennt den
+erwarteten Stand. Ältere Dateien lehnt der Import seit 1.18.0 mit Angabe des
+gefundenen Formats ab, statt die Hälfte einzulesen und den Rest zu verschweigen.
+Bis dahin wurde die Nummer zwar mitgeschrieben, aber nie geprüft.
+
 Ist die App installiert, geht es auch andersherum: eine Backup-Datei im
 Dateimanager oder in der Cloud antippen, **Teilen** wählen und **HantelKladde**
 als Ziel nehmen. Die App öffnet sich, liest die Datei ein und meldet, wie viele
