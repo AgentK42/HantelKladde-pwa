@@ -208,6 +208,43 @@ async function main() {
     check("Pausenstart öffnet genau einen Tonkanal",
       au.exists && au.same && au.state === "running", JSON.stringify(au));
 
+    /* Vibrationsmuster. navigator.vibrate tut im Testbrowser nichts, der
+       Aufruf selbst laesst sich aber mitschreiben. */
+    const vibe = await page.evaluate(() => {
+      const calls = [];
+      const orig = navigator.vibrate;
+      navigator.vibrate = function (p) { calls.push(p); return true; };
+      S.settings.vibeLong = false;
+      buzz(true); buzz(false);
+      const kurz = calls.slice();
+      calls.length = 0;
+      S.settings.vibeLong = true;
+      buzz(true); buzz(false); buzz(false);
+      const lang = calls.slice();
+      navigator.vibrate = orig;
+      S.settings.vibeLong = false;
+      return { kurz, lang };
+    });
+    check("Einfaches Muster vibriert bei jedem Signal",
+      vibe.kurz.length === 2 && vibe.kurz.every(p => String(p) === "220,120,220"),
+      JSON.stringify(vibe.kurz));
+    const langeDauer = vibe.lang.length === 1
+      ? vibe.lang[0].reduce((a, b) => a + b, 0) : 0;
+    check("Durchgehendes Muster startet einmal und traegt bis zum dritten Signal",
+      vibe.lang.length === 1 && langeDauer >= 2 * 5000,
+      vibe.lang.length + " Aufrufe, " + langeDauer + " ms");
+
+    await page.evaluate(() => { S.view = "daten"; render(); });
+    check("Der Schalter steht unter Pause",
+      await page.locator('[data-act="vibepattern"]').count() === 1);
+    const label = () => page.locator('[data-act="vibepattern"]').innerText();
+    check("Schalter zeigt einfach", /einfach/.test(await label()), await label());
+    await page.click('[data-act="vibepattern"]');
+    await page.waitForTimeout(200);
+    check("Schalter zeigt durchgehend", /durchgehend/.test(await label()), await label());
+    await page.click('[data-act="vibepattern"]');
+    await page.waitForTimeout(200);
+
     await page.evaluate(() => signal());
     await page.waitForTimeout(300);
     check("Im Vordergrund kommt keine Meldung", (await notes()).length === 0);

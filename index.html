@@ -766,7 +766,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.16.3";
+var APP_VERSION = "1.17.0";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -968,7 +968,7 @@ var DEFAULT_SETTINGS = {
   barWeight: 20, plates: DEFAULT_PLATES.slice(), hiddenEx: [], focusPlates: false,
   defSets: DEFAULT_SETS, defReps: 10, defWeight: 20, descOpen: {}, wrapNames: false,
   weekGoals: {}, weekGoalLog: {}, repFirst: true,
-  repFirstThresh: 0.05, repSpan: 2, notifySignal: true
+  repFirstThresh: 0.05, repSpan: 2, notifySignal: true, vibeLong: false
 };
 
 /* ---------- Doppelte Progression, 1.13.0 ---------- */
@@ -1262,6 +1262,7 @@ function load() {
     }
     if (typeof st.wrapNames === "boolean") S.settings.wrapNames = st.wrapNames;
     if (typeof st.notifySignal === "boolean") S.settings.notifySignal = st.notifySignal;
+    if (typeof st.vibeLong === "boolean") S.settings.vibeLong = st.vibeLong;
     if (st.weekGoals && typeof st.weekGoals === "object") {
       Object.keys(st.weekGoals).forEach(function (k) {
         var n = st.weekGoals[k];
@@ -2156,6 +2157,8 @@ function startRest(sec) {
 }
 function addRest(sec) {
   if (!S.restEnd) return;
+  /* Läuft gerade das lange Muster, endet es hier: die Pause geht ja weiter. */
+  vibeStop();
   S.restEnd += sec * 1000;
   S.restTotal += sec;
   var over = S.restEnd <= Date.now();
@@ -2168,6 +2171,7 @@ function addRest(sec) {
 }
 function stopRest() {
   S.restEnd = 0;
+  vibeStop();
   clearRestNotification();
   try { localStorage.removeItem(REST_KEY); } catch (e) {}
   if (restInterval) { clearInterval(restInterval); restInterval = null; }
@@ -2204,7 +2208,7 @@ function tickRest() {
   if (left <= 0 && restSignals < REST_SIGNAL_MAX && now - restSignalAt >= REST_SIGNAL_GAP) {
     restSignals += 1;
     restSignalAt = now;
-    signal();
+    signal(restSignals === 1);
     if (restSignals >= REST_SIGNAL_MAX) wakeOff();
   }
   if (left < -120) { stopRest(); return; }
@@ -2249,13 +2253,42 @@ function renderRest() {
    Was die App nicht beeinflussen kann: ob die Benachrichtigung klingelt,
    vibriert und den Bildschirm weckt. Das entscheidet seit Android 8 der
    Benachrichtigungskanal, nicht die Seite, siehe notifyRestOver(). */
-function signal() {
-  buzz();
+function signal(first) {
+  buzz(first);
   beep();
   if (document.hidden) notifyRestOver();
 }
-function buzz() {
-  try { if (navigator.vibrate) navigator.vibrate([220,120,220]); } catch (e) {}
+
+/* Zwei Muster für die Vibration am Ende der Pause.
+
+   einfach:     ein kurzer Doppelschlag je Signal, wie bisher.
+   durchgehend: vom ersten Signal an ohne Pause bis zum dritten, also rund zehn
+                Sekunden. Für das Handy in der Hosentasche, wo ein kurzer
+                Doppelschlag leicht untergeht.
+
+   Beides gilt nur, solange die Seite sichtbar ist. Ist sie versteckt, bricht
+   der Browser jede laufende Vibration ab, und es vibriert stattdessen die
+   Benachrichtigung. Wie stark und wie oft entscheidet dort der
+   Benachrichtigungskanal von Android, nicht diese Einstellung. */
+var VIBE_SHORT = [220, 120, 220];
+function vibeLongPattern() {
+  /* Der Bogen vom ersten bis zum dritten Signal ist zweimal REST_SIGNAL_GAP,
+     plus eine Sekunde Zugabe, damit es nicht kurz vor dem letzten Ton aufhört. */
+  var total = 2 * REST_SIGNAL_GAP + 1000, out = [];
+  for (var t = 0; t < total; t += 900) out.push(600, 300);
+  return out;
+}
+function buzz(first) {
+  try {
+    if (!navigator.vibrate) return;
+    if (!S.settings.vibeLong) { navigator.vibrate(VIBE_SHORT); return; }
+    /* Das lange Muster nur beim ersten Signal starten. Jeder weitere Aufruf
+       setzte es zurück, und die Vibration liefe über das dritte Signal hinaus. */
+    if (first) navigator.vibrate(vibeLongPattern());
+  } catch (e) {}
+}
+function vibeStop() {
+  try { if (navigator.vibrate) navigator.vibrate(0); } catch (e) {}
 }
 /* Ein einziger AudioContext für die ganze Sitzung, angelegt beim Start der
    Pause und damit aus einem Tipp heraus. Genau das war der Fehler bis 1.16.2:
@@ -4896,14 +4929,22 @@ function viewData() {
     '<p style="margin-top:10px">Aktuell ' + mmss(S.settings.rest) + ' Minuten.</p>' +
     '<button class="open" data-act="autorest">Automatischer Start: ' +
     (S.settings.autoRest ? "an" : "aus") + '</button>' +
+    '<button class="open" data-act="vibepattern">Vibrationsmuster: ' +
+    (S.settings.vibeLong ? "durchgehend" : "einfach") + '</button>' +
     notifyBlock() +
     descText("pause", '<p style="margin-top:10px">Während der Pause bleibt der ' +
       'Bildschirm an, damit das Signal pünktlich kommt. Am Ende wird bis zu drei Mal im ' +
       'Abstand von fünf Sekunden vibriert und gepiepst, danach geht der Bildschirm ' +
       'wieder von selbst aus. Der Ton hängt an der Medienlautstärke.</p>' +
+      '<p style="margin-top:8px">Das Vibrationsmuster bestimmt, wie sich das Ende ' +
+      'anfühlt. <b>Einfach</b> ist ein kurzer Doppelschlag je Signal, ' +
+      '<b>durchgehend</b> vibriert vom ersten Signal an ohne Pause bis zum dritten, ' +
+      'also rund zehn Sekunden. Das zweite ist für das Handy in der Hosentasche ' +
+      'gedacht, wo ein kurzer Schlag leicht untergeht.</p>' +
       '<p style="margin-top:8px">Liegt das Handy in der Tasche oder ist der Bildschirm ' +
-      'aus, bricht der Browser die Vibration ab. Der Ton läuft weiter, und mit der ' +
-      'Erlaubnis für Benachrichtigungen meldet zusätzlich Android selbst.</p>' +
+      'aus, bricht der Browser jede laufende Vibration ab, das Muster greift dann ' +
+      'nicht mehr. Der Ton läuft weiter, und mit der Erlaubnis für Benachrichtigungen ' +
+      'meldet zusätzlich Android selbst.</p>' +
       '<p style="margin-top:8px">Ob diese Meldung klingelt, vibriert und den Bildschirm ' +
       'weckt, entscheidet seit Android 8 der Benachrichtigungskanal und nicht die App. ' +
       'Kommt die Meldung lautlos an, steht der Kanal zu niedrig: lange auf die Meldung ' +
@@ -5306,6 +5347,7 @@ function mergeSettings(src) {
   [["rest", "number"], ["autoRest", "boolean"], ["autoProgress", "boolean"],
    ["repFirst", "boolean"], ["repFirstThresh", "number"], ["repSpan", "number"],
    ["focusPlates", "boolean"], ["wrapNames", "boolean"], ["notifySignal", "boolean"],
+   ["vibeLong", "boolean"],
    ["barWeight", "number"],
    ["defSets", "number"], ["defReps", "number"], ["defWeight", "number"]
   ].forEach(function (f) {
@@ -6293,6 +6335,7 @@ document.addEventListener("click", function (ev) {
     persist();
   }
   else if (act === "autorest") { S.settings.autoRest = !S.settings.autoRest; persist(); }
+  else if (act === "vibepattern") { S.settings.vibeLong = !S.settings.vibeLong; persist(); }
   else if (act === "notifyask") { askNotify(); }
   else if (act === "notifytoggle") {
     S.settings.notifySignal = !S.settings.notifySignal;
@@ -6306,7 +6349,7 @@ document.addEventListener("click", function (ev) {
     audioOn();
     S.note = "Das Signal kommt in fünf Sekunden. Sperre bis dahin den " +
       "Bildschirm oder wechsle zu einer anderen App.";
-    setTimeout(signal, 5000);
+    setTimeout(function () { signal(true); }, 5000);
   }
   else if (act === "openex") {
     var exWasOpen = !!S.openEx;
