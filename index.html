@@ -783,7 +783,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.19.0";
+var APP_VERSION = "1.19.1";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -1812,6 +1812,22 @@ function repFirstOn(name, weight) {
    bei einer Übung ohne Plan bleibt es beim alten Verhalten. */
 function repRange(name, weight) {
   if (!repFirstOn(name, weight)) return null;
+  return spanAroundTarget(name);
+}
+/* Die angezeigte Range, 1.19.1: sobald die doppelte Progression eingeschaltet
+   ist, steht das Planziel überall als Range - unabhängig von der Schwelle aus
+   S.settings.repFirstThresh. Die Schwelle entscheidet weiterhin allein darüber,
+   ob der Vorschlag zuerst die Reps oder direkt das Gewicht anhebt (repRange()).
+   Vorher fiel die Anzeige unter der Schwelle auf die eine Zielzahl zurück, was
+   die Range je nach aktuellem Gewicht derselben Übung erscheinen und wieder
+   verschwinden ließ. */
+function repRangeShown(name) {
+  if (!S.settings.repFirst || !S.settings.autoProgress) return null;
+  return spanAroundTarget(name);
+}
+/* Zielwert ± S.settings.repSpan, oder null ohne Planziel - denn nur aus dem
+   Planziel ergibt sich die Mitte der Range. */
+function spanAroundTarget(name) {
   var t = planTarget(name);
   var g = t ? parseInt(t.reps, 10) : 0;
   if (!(g > 0)) return null;
@@ -3310,7 +3326,7 @@ function focusRepPills() {
      Bewusst nur hier und in heroSteppers(), nicht in repPills() - beim
      Korrigieren eines früheren Satzes ist die Range keine Information,
      sondern nur Beiwerk. */
-  var rng = repRange(S.exercise, deci(S.weight) || 0);
+  var rng = repRangeShown(S.exercise);
   var h = '<div class="repsrow"><button class="chev" data-act="repwin" data-d="-5" ' +
     'aria-label="Niedrigere Reps zeigen">' + svg("zurueck", 15) +
     '</button><div class="pills">';
@@ -3630,7 +3646,7 @@ function viewTag() {
     var wBase = S.warm && S.warmBase > 0 ? S.warmBase : curW;
     var ramp = doneSets(S.exercise, S.date) ? [] : warmupPlan(S.exercise, wBase);
     var split = isBar(S.exercise) ? plateSplit(curW) : null;
-    var heroRng = repRange(S.exercise, curW);
+    var heroRng = repRangeShown(S.exercise);
     /* Wie im Fokus-Modus: blau der aktuelle, grün die erledigten Sätze, keine
        Textzeile "Satz X von Y" mehr daneben, siehe BACKLOG. */
     var setBars = "";
@@ -3647,9 +3663,9 @@ function viewTag() {
       '<div class="setprog"><div class="bars">' + setBars + '</div></div>' +
       '</div>' +
       '<div class="hero-meta">' +
-      /* Greift die doppelte Progression, steht hier die Range statt der einen
+      /* Ist die doppelte Progression an, steht hier die Range statt der einen
          Zielzahl - sonst wäre der Vorschlag "+1 Rep" nicht
-         nachvollziehbar, siehe repRange(). */
+         nachvollziehbar, siehe repRangeShown(). */
       (tg ? "Ziel <b>" + needN + "x " +
         (heroRng ? rangeText(heroRng) : tg.reps) + " Reps</b> mit <b>" +
         num(tg.weight) + " kg</b><br>" : "") +
@@ -3894,7 +3910,7 @@ function viewFocus() {
   var split = isBar(S.exercise) ? plateSplit(curW) : null;
   var showPlates = S.settings.focusPlates;
   var done = doneN >= needN;
-  var fxRng = repRange(S.exercise, curW);
+  var fxRng = repRangeShown(S.exercise);
 
   /* Pillenanzeige aus dem Standard-Trainingsreiter übernommen (.setprog), hier
      anstelle der Textzeile "Satz X von Y": blau der aktuelle, grün die erledigten
@@ -3912,7 +3928,7 @@ function viewFocus() {
     '</div>' +
     '<div class="hero-meta">' +
     /* Wie im Standard-Trainingsreiter: bei doppelter Progression die Range
-       statt der einen Zielzahl, siehe repRange(). */
+       statt der einen Zielzahl, siehe repRangeShown(). */
     (tg ? "Ziel <b>" + needN + "x " +
       (fxRng ? rangeText(fxRng) : tg.reps) + " Reps</b> mit <b>" +
       num(tg.weight) + " kg</b><br>" : "") +
@@ -4956,8 +4972,9 @@ function viewData() {
       'und die Reps fallen auf den unteren Rand zurück.</p>' +
       '<p style="margin-top:8px">Die Range steht im Training in der Zielzeile und ' +
       'unter der Rep-Zahl, im Fokus-Modus zusätzlich als Rahmen um die ' +
-      'Rep-Tasten. Bei allen anderen Übungen bleibt es beim Vorschlag von ' +
-      'oben. Ab RPE 9 kommt auch keine Rep dazu.</p>') +
+      'Rep-Tasten — und zwar bei jeder Übung, solange diese Einstellung an ist. ' +
+      'Die Grenze entscheidet nur darüber, ob der Vorschlag zuerst die Reps oder ' +
+      'direkt das Gewicht anhebt. Ab RPE 9 kommt auch keine Rep dazu.</p>') +
     '<button class="open" data-act="repfirst">Erst Reps steigern: ' +
     (S.settings.repFirst ? "an" : "aus") + '</button>' +
     '<div class="tools" style="margin-top:10px">' +
