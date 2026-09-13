@@ -12,7 +12,7 @@ des Geräts (`localStorage`), es gibt keinen Server, keine Anmeldung, keine
 
 1. Die Adresse oben in **Chrome für Android** öffnen (nicht in einem
    In-App-Browser, etwa aus WhatsApp heraus, dort fehlt der Eintrag)
-2. Unter **Daten → App** auf **App installieren** tippen. Alternativ über das
+2. Unter **Daten → App Version** auf **App installieren** tippen. Alternativ über das
    Chrome-Menü (drei Punkte) → **App installieren**
 3. Die App startet danach ohne Adressleiste in einem eigenen Fenster und
    erscheint in den Android-Einstellungen als eigenständige App
@@ -154,9 +154,25 @@ zeigt oben **Ein Update ist vorhanden** mit einem Knopf; ohne einen Tipp darauf
 übernimmt sie beim nächsten Start, sobald kein Fenster mehr offen ist.
 Bewusst kein sofortiges Neuladen, damit nicht mitten im Satz die Seite wechselt.
 
-Unter **Daten → App** steht, welche Fassung die App meldet und welche der
-ServiceWorker tatsächlich ausliefert. Laufen beide auseinander, ist im Cache
+Unter **Daten → App Version** steht, welche Fassung die App meldet und welche
+der ServiceWorker tatsächlich ausliefert. Laufen beide auseinander, ist im Cache
 etwas anderes als das, was die Versionsnummer behauptet.
+
+### Name des Caches
+
+Der Cache-Speicher gilt pro Origin, nicht pro Pfad. Auf `agentk42.github.io`
+liegen alle Projekte auf derselben Adresse, eine zweite Fassung der App in einem
+anderen Verzeichnis teilt sich den Speicher also mit dieser hier. Bis 1.16.0 hieß
+der Cache schlicht `hantelkladde-<version>-<build>`, und beim Aktivieren wurde
+alles gelöscht, was nicht genau so hieß. Jede Fassung riss damit den
+Offline-Speicher jeder anderen mit, auch den fremder Projekte auf derselben
+Adresse.
+
+Ab 1.16.1 trägt der Name den eigenen Pfad (`SCOPE_ID` in `sw.js`), aus
+`/HantelKladde-pwa/` wird `hantelkladde-HantelKladde-pwa-<version>-<build>`, und
+aufgeräumt wird nur, was mit genau diesem Präfix beginnt. Die alte Namensform
+wird einmalig mitgelöscht, sonst bliebe sie auf bereits installierten Geräten für
+immer liegen.
 
 ## Icons und Screenshots
 

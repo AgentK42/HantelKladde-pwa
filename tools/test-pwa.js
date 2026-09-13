@@ -141,8 +141,10 @@ async function main() {
       fd.append("backup", new File([backup], "backup.txt", { type:"text/plain" }));
       await fetch("share-target", { method:"POST", body:fd });
     });
+    /* Der Server liefert aus dem Wurzelverzeichnis, der Worker bildet das auf
+       den Pfadanteil "root" ab, siehe SCOPE_ID in sw.js. */
     const stash = await page.evaluate(async () => {
-      const c = await caches.open("hantelkladde-geteilt");
+      const c = await caches.open("hantelkladde-root-geteilt");
       return (await c.keys()).map(r => new URL(r.url).pathname);
     });
     check("Worker legt die geteilte Datei ab", stash.includes("/shared-backup"), stash.join(","));
@@ -163,7 +165,7 @@ async function main() {
     await ctx.setOffline(false);
 
     const urls = await page.evaluate(async () => {
-      const n = (await caches.keys()).find(k => /^hantelkladde-1\./.test(k));
+      const n = (await caches.keys()).find(k => /^hantelkladde-root-\d/.test(k));
       return (await (await caches.open(n)).keys()).map(r => new URL(r.url).pathname);
     });
     check("index.html liegt genau einmal im Cache",
@@ -228,7 +230,16 @@ async function main() {
       Object.defineProperty(document, "hidden", { get: () => false, configurable: true });
     });
 
-    /* Update-Weg */
+    /* Update-Weg. Vorher Fremdnamen anlegen: aufgeräumt wird nur beim
+       Aktivieren eines neuen Workers, also muss das hier stehen und nicht
+       danach. "hantelkladde-1.15.2-1" ist die Namensform von vor 1.16.1, die
+       soll verschwinden, die beiden anderen sollen liegen bleiben. */
+    await page.evaluate(async () => {
+      await caches.open("hantelkladde-anderePfad-1.0.0-1");
+      await caches.open("fremdes-projekt");
+      await caches.open("hantelkladde-1.15.2-1");
+    });
+
     fs.writeFileSync(SW, original.replace('var APP_VERSION = "', 'var APP_VERSION = "9.'));
     await page.reload({ waitUntil: "load" });
     await page.waitForTimeout(2500);
@@ -241,7 +252,14 @@ async function main() {
       await page.evaluate(() => S.pwa.swVersion.indexOf("9.") === 0));
     const left = await page.evaluate(() => caches.keys());
     check("Alter Cache ist geräumt",
-      left.filter(c => /^hantelkladde-\d/.test(c)).length === 1, left.join(","));
+      left.filter(c => /^hantelkladde-root-\d/.test(c)).length === 1, left.join(","));
+    /* Der Cache-Speicher gilt pro Origin: eine zweite Fassung der App unter
+       einem anderen Pfad darf beim Aktivieren nicht mitgerissen werden. */
+    check("Fremde Caches bleiben unangetastet",
+      left.includes("hantelkladde-anderePfad-1.0.0-1") &&
+      left.includes("fremdes-projekt"), left.join(","));
+    check("Alter Name von vor 1.16.1 wird aufgeräumt",
+      !left.includes("hantelkladde-1.15.2-1"), left.join(","));
 
     console.log("\nKonsolenfehler:", errs.length);
     errs.slice(0, 5).forEach(e => console.log("  " + e));

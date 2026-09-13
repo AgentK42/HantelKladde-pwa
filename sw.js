@@ -12,7 +12,7 @@
    Beim Anheben von APP_VERSION wird der alte Cache verworfen. Die Trainings-
    daten liegen im localStorage und sind davon nicht berührt. */
 
-var APP_VERSION = "1.16.0";
+var APP_VERSION = "1.16.1";
 
 /* BUILD hochzählen, wenn sich ausgelieferte Dateien ändern, ohne dass die App
    selbst eine neue Versionsnummer bekommt, etwa bei einer Korrektur am Manifest.
@@ -20,14 +20,26 @@ var APP_VERSION = "1.16.0";
    Mit einer neuen APP_VERSION beginnt die Zählung wieder bei 1. */
 var BUILD = 1;
 
-var CACHE = "hantelkladde-" + APP_VERSION + "-" + BUILD;
+var ROOT = new URL("./", self.location);
+
+/* Der Cache-Speicher gilt pro Origin, nicht pro Pfad. Auf github.io liegen
+   alle Projekte einer Person auf derselben Adresse, eine zweite Fassung der
+   App in einem anderen Verzeichnis teilt sich den Speicher also mit dieser
+   hier. Deshalb trägt der Name den eigenen Pfad, und deshalb räumt activate()
+   unten nur Namen mit genau diesem Präfix weg. Ohne das löschte jede Fassung
+   beim Aktivieren den Offline-Speicher aller anderen. */
+var SCOPE_ID = ROOT.pathname.replace(/[^A-Za-z0-9]+/g, "-")
+  .replace(/^-+|-+$/g, "") || "root";
+var CACHE_PREFIX = "hantelkladde-" + SCOPE_ID + "-";
+
+var LEGACY = /^hantelkladde-(\d+\.\d+\.\d+-\d+|geteilt)$/;
+
+var CACHE = CACHE_PREFIX + APP_VERSION + "-" + BUILD;
 
 /* Eigener Ablageort für ein hereingereichtes Backup, siehe receiveShare().
    Bewusst außerhalb von CACHE: der wird bei jeder neuen Version gelöscht,
    und eine gerade geteilte Datei soll ein Update überleben. */
-var SHARE_CACHE = "hantelkladde-geteilt";
-
-var ROOT = new URL("./", self.location);
+var SHARE_CACHE = CACHE_PREFIX + "geteilt";
 /* Ziel des Teilen-Dialogs (manifest: share_target) und die Adresse, unter der
    die App die entgegengenommene Datei danach genau einmal abholt. Beide gibt
    es auf dem Server nicht, sie existieren nur hier im Worker. */
@@ -62,6 +74,13 @@ self.addEventListener("activate", function (ev) {
   ev.waitUntil(
     caches.keys().then(function (keys) {
       return Promise.all(keys.map(function (k) {
+        /* Namen aus der Zeit vor dem Pfadanteil, bis 1.16.0. Sie passen nicht
+           mehr auf das Präfix und blieben sonst für immer liegen, rund 330 kB
+           auf jedem Gerät, das die App schon hatte. Die alte Form ist
+           eindeutig: auf "hantelkladde-" folgte sofort die Versionsnummer. */
+        if (LEGACY.test(k)) return caches.delete(k);
+        /* Sonst nur eigene Namen anfassen, siehe CACHE_PREFIX. */
+        if (k.indexOf(CACHE_PREFIX) !== 0) return null;
         return (k === CACHE || k === SHARE_CACHE) ? null : caches.delete(k);
       }));
     }).then(function () {
