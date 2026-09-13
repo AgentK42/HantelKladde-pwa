@@ -766,7 +766,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.16.2";
+var APP_VERSION = "1.16.3";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -2142,6 +2142,9 @@ function saveRest() {
   } catch (e) {}
 }
 function startRest(sec) {
+  /* Hier läuft noch ein Tipp nach, deshalb ist das die Stelle, an der sich der
+     Tonkanal öffnen lässt. Siehe audioOn(). */
+  audioOn();
   S.restEnd = Date.now() + sec * 1000;
   S.restTotal = sec;
   restSignals = 0;
@@ -2232,33 +2235,48 @@ function renderRest() {
     '<button data-act="reststop">Fertig</button></div>' +
     '<div class="track"><i style="width:' + pct + '%"></i></div></div>';
 }
-/* Drei Wege, dasselbe zu melden, je nachdem, wo die App gerade steht.
+/* Alles gleichzeitig, statt sich für einen Weg zu entscheiden. Bis 1.16.2 gab
+   es im Hintergrund ausschließlich die Benachrichtigung, mit der Begründung,
+   Ton und Vibration richteten dort ohnehin nichts aus. Für die Vibration
+   stimmt das, die bricht der Browser ab, sobald das Dokument versteckt ist.
+   Für den Ton stimmt es nicht: ein AudioContext, der bereits läuft, spielt
+   auch bei versteckter Seite weiter, siehe audioOn(). Der Versuch kostet
+   nichts und ist der einzige Kanal, den die App selbst in der Hand hat.
 
-   Im Vordergrund bleibt es bei Vibration und Ton wie bisher. Eine
-   Benachrichtigung wäre dort nur im Weg, der Pausenbalken steht ja sichtbar
-   auf dem Schirm.
+   Die Benachrichtigung kommt nur dazu, wenn niemand hinsieht. Im Vordergrund
+   wäre sie nur im Weg, der Pausenbalken steht ja sichtbar auf dem Schirm.
 
-   Im Hintergrund richten beide nichts mehr aus: der Ton braucht eine hörbare
-   Seite, und eine laufende Vibration bricht der Browser ab, sobald das
-   Dokument versteckt ist. Dort übernimmt die Benachrichtigung, denn die stellt
-   Android zu, nicht die Seite. Nur wenn dafür die Erlaubnis fehlt, wird es
-   trotzdem mit Vibration und Ton versucht, besser als gar nichts.
-
-   Was auch das nicht löst: ist die Seite eingefroren, läuft hier kein Code
-   mehr. Die Benachrichtigung hilft bei "versteckt, aber am Leben", und das ist
-   bei einer Pause von anderthalb Minuten der Normalfall. */
+   Was die App nicht beeinflussen kann: ob die Benachrichtigung klingelt,
+   vibriert und den Bildschirm weckt. Das entscheidet seit Android 8 der
+   Benachrichtigungskanal, nicht die Seite, siehe notifyRestOver(). */
 function signal() {
-  if (!document.hidden) { buzz(); beep(); return; }
-  if (!notifyRestOver()) { buzz(); beep(); }
+  buzz();
+  beep();
+  if (document.hidden) notifyRestOver();
 }
 function buzz() {
   try { if (navigator.vibrate) navigator.vibrate([220,120,220]); } catch (e) {}
 }
-function beep() {
+/* Ein einziger AudioContext für die ganze Sitzung, angelegt beim Start der
+   Pause und damit aus einem Tipp heraus. Genau das war der Fehler bis 1.16.2:
+   der Kontext entstand erst im Moment des Signals, also bei längst versteckter
+   Seite. Ein dort frisch angelegter Kontext startet angehalten, und ohne neue
+   Nutzeraktion lässt er sich nicht mehr starten - der Ton blieb aus, ohne dass
+   irgendwo ein Fehler auflief. */
+var audio = null;
+function audioOn() {
   try {
     var Ctx = window.AudioContext || window.webkitAudioContext;
     if (!Ctx) return;
-    var ctx = new Ctx();
+    if (!audio) audio = new Ctx();
+    if (audio.state === "suspended" && audio.resume) audio.resume();
+  } catch (e) { audio = null; }
+}
+function beep() {
+  audioOn();
+  var ctx = audio;
+  if (!ctx) return;
+  try {
     [0, 0.28].forEach(function (off) {
       var o = ctx.createOscillator(), g = ctx.createGain();
       o.type = "sine"; o.frequency.value = 880;
@@ -2268,7 +2286,6 @@ function beep() {
       o.connect(g); g.connect(ctx.destination);
       o.start(ctx.currentTime + off); o.stop(ctx.currentTime + off + 0.24);
     });
-    setTimeout(function () { try { ctx.close(); } catch (e) {} }, 1200);
   } catch (e) {}
 }
 
@@ -2290,18 +2307,21 @@ function notifyReady() {
    die dreimal erneuert wurde. renotify sorgt dafür, dass die Erneuerung nicht
    stillschweigend passiert. */
 var REST_TAG = "rest";
+/* vibrate steht hier für ältere Android-Fassungen und für den Rechner. Ab
+   Android 8 wird es ignoriert, genau wie silent: seit den Benachrichtigungs-
+   kanälen entscheidet der Kanal über Ton, Vibration und darüber, ob die
+   Meldung den Bildschirm weckt. Die Seite hat darauf keinen Zugriff, das
+   stellt man einmal in den Android-Einstellungen der App ein. */
 function notifyRestOver() {
   if (!notifyReady()) return false;
   try {
-    var p = swReg.showNotification("Pause vorbei", {
+    swReg.showNotification("Pause vorbei", {
       body: S.exercise ? S.exercise + ", Satz " + nextSet() : "Weiter geht es.",
       tag: REST_TAG,
       renotify: true,
       icon: "icons/icon-192.png",
       vibrate: [220,120,220]
     });
-    /* Schlägt das Zeigen doch fehl, bleibt der alte Weg als Rückfall. */
-    if (p && p.catch) p.catch(function () { buzz(); beep(); });
     return true;
   } catch (e) { return false; }
 }
@@ -4882,10 +4902,15 @@ function viewData() {
       'Abstand von fünf Sekunden vibriert und gepiepst, danach geht der Bildschirm ' +
       'wieder von selbst aus. Der Ton hängt an der Medienlautstärke.</p>' +
       '<p style="margin-top:8px">Liegt das Handy in der Tasche oder ist der Bildschirm ' +
-      'aus, richten Ton und Vibration nichts mehr aus: der Ton braucht eine hörbare ' +
-      'Seite, und eine Vibration bricht der Browser ab, sobald die Seite versteckt ist. ' +
-      'Mit der Erlaubnis für Benachrichtigungen übernimmt stattdessen Android das ' +
-      'Melden. Steht das Handy auf lautlos, bleibt davon nur die Vibration.</p>') +
+      'aus, bricht der Browser die Vibration ab. Der Ton läuft weiter, und mit der ' +
+      'Erlaubnis für Benachrichtigungen meldet zusätzlich Android selbst.</p>' +
+      '<p style="margin-top:8px">Ob diese Meldung klingelt, vibriert und den Bildschirm ' +
+      'weckt, entscheidet seit Android 8 der Benachrichtigungskanal und nicht die App. ' +
+      'Kommt die Meldung lautlos an, steht der Kanal zu niedrig: lange auf die Meldung ' +
+      'tippen und die Einstellungen öffnen, oder in den Android-Einstellungen unter ' +
+      'Apps, HantelKladde, Benachrichtigungen. Dort auf die höchste Stufe stellen, ' +
+      'damit sie klingelt und auf dem Bildschirm auftaucht. Ein aktiver Nicht-stören-' +
+      'Modus unterdrückt sie ebenfalls.</p>') +
     '</div>' +
 
     '<div class="sect"><h2>Muskelgruppen' + infoBtn("muskeln") + '</h2></div>' +
@@ -4950,7 +4975,11 @@ function notifyBlock() {
   }
   return '<button class="open" data-act="notifytoggle">' +
     'Signal bei ausgeschaltetem Bildschirm: ' +
-    (S.settings.notifySignal ? "an" : "aus") + '</button>';
+    (S.settings.notifySignal ? "an" : "aus") + '</button>' +
+    (S.settings.notifySignal
+      ? '<button class="open" data-act="notifytest">Signal in 5 Sekunden testen' +
+        '</button>'
+      : "");
 }
 
 /* Liste unter Daten: jede Übung mit ihrer hinterlegten Muskelgruppe, gruppiert
@@ -6269,6 +6298,15 @@ document.addEventListener("click", function (ev) {
     S.settings.notifySignal = !S.settings.notifySignal;
     if (!S.settings.notifySignal) clearRestNotification();
     persist();
+  }
+  /* Fünf Sekunden reichen, um den Bildschirm zu sperren. Danach läuft genau
+     derselbe Weg wie am Ende einer Pause, samt der Regel, dass die Meldung nur
+     bei versteckter Seite kommt. */
+  else if (act === "notifytest") {
+    audioOn();
+    S.note = "Das Signal kommt in fünf Sekunden. Sperre bis dahin den " +
+      "Bildschirm oder wechsle zu einer anderen App.";
+    setTimeout(signal, 5000);
   }
   else if (act === "openex") {
     var exWasOpen = !!S.openEx;

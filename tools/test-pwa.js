@@ -194,6 +194,20 @@ async function main() {
     check("Mit Erlaubnis steht dort der Schalter",
       await page.locator('[data-act="notifytoggle"]').count() === 1);
 
+    /* Der Tonkanal muss beim Start der Pause stehen, nicht erst beim Signal:
+       bei versteckter Seite liesse er sich nicht mehr oeffnen. */
+    const au = await page.evaluate(() => {
+      startRest(90);
+      const first = audio;
+      beep();
+      beep();
+      const out = { exists: !!first, same: audio === first, state: first && first.state };
+      stopRest();
+      return out;
+    });
+    check("Pausenstart öffnet genau einen Tonkanal",
+      au.exists && au.same && au.state === "running", JSON.stringify(au));
+
     await page.evaluate(() => signal());
     await page.waitForTimeout(300);
     check("Im Vordergrund kommt keine Meldung", (await notes()).length === 0);

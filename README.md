@@ -130,6 +130,22 @@ nicht die Seite. Die Erlaubnis dafür holt ein Knopf unter **Daten → Pause**,
 bewusst dort und nicht mitten im Training: eine abgelehnte Nachfrage holt Chrome
 nicht von selbst zurück. Danach steht an derselben Stelle ein Schalter.
 
+Ton und Vibration werden trotzdem immer versucht, nicht nur im Vordergrund. Die
+Vibration bricht der Browser bei versteckter Seite ab, der Ton dagegen läuft
+weiter, solange der AudioContext bereits steht. Deshalb wird er beim Start der
+Pause geöffnet und nicht erst beim Signal: ein im Hintergrund frisch angelegter
+Kontext startet angehalten und lässt sich ohne neue Nutzeraktion nicht mehr
+starten. Bis 1.16.2 war das der Grund, warum im Hintergrund gar nichts zu hören
+war.
+
+Ob die Benachrichtigung klingelt, vibriert und den Bildschirm weckt, entscheidet
+seit Android 8 der Benachrichtigungskanal und nicht die App. `vibrate` und
+`silent` in den Optionen werden dort ignoriert. Kommt die Meldung lautlos an,
+steht der Kanal zu niedrig, und das stellt man einmal in den Android-
+Einstellungen unter Apps, HantelKladde, Benachrichtigungen ein. Der Knopf
+**Signal in 5 Sekunden testen** unter Daten, Pause ist dafür da: einmal tippen,
+Bildschirm sperren, hinhören.
+
 Was auch das nicht löst: ist die Seite eingefroren, läuft kein Code mehr, der
 etwas melden könnte. Die Benachrichtigung hilft bei "versteckt, aber am Leben",
 und das ist bei anderthalb Minuten Pause der Normalfall. Der Bildschirmwächter
