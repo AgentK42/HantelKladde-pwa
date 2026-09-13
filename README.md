@@ -60,7 +60,7 @@ ausliefert und nichts annehmen kann.
 | `sw.js` | ServiceWorker für den Offline-Betrieb und für das Entgegennehmen geteilter Backups |
 | `icons/` | App-Icons in 192 und 512 Pixel, je randlos und maskierbar |
 | `screenshots/` | drei Bilder für den Installationsdialog von Chrome |
-| `tools/` | drei Helfer für das Ausrollen und zum Prüfen, siehe unten |
+| `tools/` | Helfer für das Ausrollen und zum Prüfen, siehe unten |
 
 ## Hosting
 
@@ -290,6 +290,15 @@ Rand. Sie sind 412 auf 915 Pixel groß und als `form_factor: narrow` im Manifest
 eingetragen; ändert sich die Oberfläche deutlich, gehören sie neu aufgenommen.
 
 ## Prüfen
+
+`tools/lint.sh` lässt ESLint über das JavaScript laufen, mit den Grundregeln, die
+formal gültigen Code melden, der trotzdem fast immer ein Versehen ist: ein
+unbekannter Name, eine doppelte Deklaration, Code hinter einem `return`. Der
+Browser meldet nichts davon. Das Skript der App steckt in `index.html`, ESLint
+liest aber nur `.js`-Dateien; deshalb zieht das Skript den `<script>`-Block in
+eine Hilfsdatei, mit so vielen Leerzeilen davor, dass die gemeldeten
+Zeilennummern denen in `index.html` entsprechen. Die Regeln stehen in
+`tools/eslint.config.js`. Braucht `npm i -g eslint`, sonst nichts.
 
 Offline-Betrieb, Update-Weg, Zurück-Geste, Speicherzusage, Kurzbefehle und das
 Entgegennehmen eines geteilten Backups lassen sich nicht durch Hinsehen prüfen.
