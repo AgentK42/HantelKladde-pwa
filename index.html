@@ -280,9 +280,9 @@ textarea.note { width:100%; margin-top:8px; padding:11px 12px; border-radius:13p
   font-weight:800; }
 .pills button.on.rpe { background:var(--accent); border-color:var(--accent);
   color:var(--accent-ink); }
-/* Zielkorridor der doppelten Progression, 1.13.0: Rahmen um die Tasten im
+/* Ziel-Range der doppelten Progression, 1.13.0: Rahmen um die Tasten im
    Bereich, sonst nichts. Nur in der Reps-Reihe des Fokus-Modus, siehe
-   focusRepPills(). Die gewählte Taste bleibt farblich die gewählte, der Korridor
+   focusRepPills(). Die gewählte Taste bleibt farblich die gewählte, die Range
    färbt sie nur um, statt sie zu überdecken. */
 .pills button.inrange { border-color:var(--accent); color:var(--ink); }
 .pills button.inrange.on { background:var(--accent); border-color:var(--accent);
@@ -766,7 +766,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.17.0";
+var APP_VERSION = "1.17.1";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -975,15 +975,15 @@ var DEFAULT_SETTINGS = {
 /* Bis 1.12.3 ging ausschließlich das Gewicht hoch. Bei einer Schrittweite von
    3,75 kg auf 21,25 kg sind das 17,6 Prozent in einem Sprung - deutlich zu viel,
    um ihn in einer Einheit aufzufangen. Ab 1.13.0 klettern deshalb zuerst die
-   Wiederholungen innerhalb eines Korridors um den Zielwert, und erst an seinem
+   Wiederholungen innerhalb einer Range um den Zielwert, und erst an ihrem
    oberen Rand steigt das Gewicht, während die Reps auf den unteren Rand
    zurückfallen.
 
-   Der Korridor wird nicht eingestellt, sondern gerechnet: Zielwert ± S.settings.repSpan.
+   Die Range wird nicht eingestellt, sondern gerechnet: Zielwert ± S.settings.repSpan.
    Ob überhaupt erst die Reps steigen, entscheidet die Schrittweite im Verhältnis
    zum aktuellen Gewicht, verglichen mit S.settings.repFirstThresh. Das hat die
    angenehme Eigenschaft, sich selbst zu erledigen - dieselbe Übung wächst mit
-   steigendem Gewicht aus dem Rep-Korridor heraus, weil derselbe Schritt relativ
+   steigendem Gewicht aus der Rep-Range heraus, weil derselbe Schritt relativ
    immer kleiner wird (Shoulderpress Maschine mit 3,75 kg: bei 30 kg sind das
    12,5 Prozent und damit Reps zuerst, ab 50 kg nur noch 7,5 Prozent und damit
    direkt das Gewicht).
@@ -992,13 +992,13 @@ var DEFAULT_SETTINGS = {
    Latzug Maschine und Reverse Flys (beide step 3,75 kg bei Zielgewicht 50 kg,
    also exakt 7,5 %) wegen des strikten Vergleichs unten in repFirstOn() knapp
    auf der falschen, der Gewichts-Seite lagen, obwohl sie rechnerisch auf der
-   Grenze lagen. Bei 5 Prozent fällt praktisch jede Übung in den Rep-Korridor
+   Grenze lagen. Bei 5 Prozent fällt praktisch jede Übung in die Rep-Range
    (Flys 5,8 %, Squats 6,25 %, Beinpresse 5,0 %) - die Schwelle trennt kaum noch,
    war aber bewusst in Kauf genommen, damit die beiden Grenzfälle zuverlässig in
-   den Korridor rutschen. Ab 1.13.3 sind Schwelle und Korridorbreite deshalb
+   die Range rutschen. Ab 1.13.3 sind Schwelle und Range-Breite deshalb
    einstellbar (S.settings.repFirstThresh, S.settings.repSpan, siehe Bereich
    "Progression" in den Einstellungen), Default weiterhin 5 Prozent bzw. ±2. */
-/* Die Regel selbst steht bei suggestFor(), siehe repFirstOn()/repCorridor(). */
+/* Die Regel selbst steht bei suggestFor(), siehe repFirstOn()/repRange(). */
 
 var S = {
   entries: [], custom: [], plans: null, cats: {}, colors: {}, themeAuto: false,
@@ -1815,16 +1815,16 @@ function planTarget(name) {
 }
 /* Gilt für diese Übung bei diesem Gewicht die Rep-zuerst-Regel? Mit autoProgress
    gekoppelt: ohne automatischen Vorschlag wird gar nichts vorgeschlagen, dann wäre
-   ein angezeigter Korridor eine Behauptung ohne Folgen. Siehe S.settings.repFirstThresh. */
+   eine angezeigte Range eine Behauptung ohne Folgen. Siehe S.settings.repFirstThresh. */
 function repFirstOn(name, weight) {
   if (!S.settings.repFirst || !S.settings.autoProgress) return false;
   if (!(weight > 0)) return false;
   return stepOf(name) / weight > S.settings.repFirstThresh;
 }
-/* Der Korridor um das Planziel, oder null wenn die Regel hier nicht greift.
-   Braucht ein Planziel, denn nur daraus ergibt sich die Mitte des Korridors -
+/* Die Range um das Planziel, oder null wenn die Regel hier nicht greift.
+   Braucht ein Planziel, denn nur daraus ergibt sich die Mitte der Range -
    bei einer Übung ohne Plan bleibt es beim alten Verhalten. */
-function repCorridor(name, weight) {
+function repRange(name, weight) {
   if (!repFirstOn(name, weight)) return null;
   var t = planTarget(name);
   var g = t ? parseInt(t.reps, 10) : 0;
@@ -1832,7 +1832,7 @@ function repCorridor(name, weight) {
   var span = S.settings.repSpan;
   return { lo: Math.max(1, g - span), hi: g + span };
 }
-function corridorText(cor) { return cor.lo + "–" + cor.hi; }
+function rangeText(rng) { return rng.lo + "–" + rng.hi; }
 
 /* Maßgeblicher Arbeitsblock einer Einheit. Einzelne schwere Topsätze und leichte
    Back-off-Sätze am Ende dürfen nicht bestimmen, womit das nächste Training startet.
@@ -1886,9 +1886,9 @@ function sameBlockWeight(a, b) {
 /* Konservative Progression ab 1.14.0:
    - direkte Gewichtssprünge brauchen eine Baseline und zwei anschließende
      erfolgreiche Bestätigungseinheiten am selben maßgeblichen Arbeitsgewicht;
-   - innerhalb eines Rep-Korridors darf nach einer vollständigen Einheit eine
+   - innerhalb einer Rep-Range darf nach einer vollständigen Einheit eine
      Wiederholung hinzukommen;
-   - der Gewichtssprung am oberen Korridorrand braucht zwei Bestätigungen;
+   - der Gewichtssprung am oberen Rand der Range braucht zwei Bestätigungen;
    - die RPE-Regel betrachtet beide Bestätigungseinheiten. */
 function suggestFor(name) {
   var t = planTarget(name), step = stepOf(name);
@@ -1927,9 +1927,9 @@ function suggestFor(name) {
     return { reps:t.reps, weight:t.weight, rpe:lastSet.rpe, up:false };
   }
   /* Doppelte Progression, 1.13.0: greift die Rep-zuerst-Regel, ist nicht das
-     Planziel die Schwelle für mehr Gewicht, sondern der obere Rand des Korridors. */
-  var cor = repCorridor(name, w);
-  var reqReps = cor ? cor.hi : goalReps;
+     Planziel die Schwelle für mehr Gewicht, sondern der obere Rand der Range. */
+  var rng = repRange(name, w);
+  var reqReps = rng ? rng.hi : goalReps;
   var hit = blockHits(block, goalSets, reqReps);
   var avg = block.avg;
   var base = { reps:lastSet.reps, weight:w, rpe:lastSet.rpe, up:false };
@@ -1939,31 +1939,39 @@ function suggestFor(name) {
   var low = block.low;
 
   if (!hit) {
-    if (!cor) { base.reps = goalReps; return base; }
+    if (!rng) { base.reps = goalReps; return base; }
     /* Nah am Muskelversagen kommt auch keine Wiederholung obendrauf, dieselbe
        Grenze wie beim Gewicht weiter unten. Der Vorschlag bleibt dann stehen. */
     if (avg != null && avg >= 9) {
-      base.reps = Math.min(cor.hi, Math.max(cor.lo, low));
+      base.reps = Math.min(rng.hi, Math.max(rng.lo, low));
       return base;
     }
     /* Unter dem unteren Rand geblieben, etwa nach einem abgebrochenen Satz: dann
        erst wieder den unteren Rand anpeilen, statt von dort aus weiterzuklettern. */
     if (!block.complete) {
-      base.reps = Math.min(cor.hi, Math.max(cor.lo, low));
+      base.reps = Math.min(rng.hi, Math.max(rng.lo, low));
       return base;
     }
-    var next = Math.min(cor.hi, Math.max(cor.lo, low + 1));
+    var next = Math.min(rng.hi, Math.max(rng.lo, low + 1));
     base.reps = next;
     if (next > low) {
+      /* Der Sprung ist nicht immer eine Wiederholung: liegt der schwächste Satz unter
+         dem unteren Rand der Range, klemmt Math.max() den Vorschlag dorthin hoch. Bis
+         1.17.0 stand hier fest "+1 Rep" und behauptete damit weniger, als der Vorschlag
+         verlangt - nach 8x und 6x bei einer Range ab 8 sind es zwei. Genannt wird der
+         schwächste Satz, denn er ist die bindende Größe; die Zeile "Letztes Top Set"
+         darüber zeigt dagegen den besten, sonst widersprechen sich beide Zahlen. */
+      var gain = next - low;
       base.up = true;
-      base.why = "+1 Rep, " + low + "x geschafft" +
+      base.why = "+" + gain + (gain === 1 ? " Rep" : " Reps") +
+        ", schwächster Satz " + low + "x" +
         (avg != null ? " @ RPE " + num(avg) : "");
     }
     return base;
   }
 
   /* Für einen Gewichtssprung muss auch die unmittelbar vorige Einheit denselben
-     maßgeblichen Block vollständig geschafft haben. Ohne Korridor kommt noch eine
+     maßgeblichen Block vollständig geschafft haben. Ohne Range kommt noch eine
      davorliegende Einheit am selben Gewicht als Baseline hinzu. */
   var prev = lastSession(name, ls.day);
   var prevBlock = mainWorkBlock(prev, goalSets, w);
@@ -1971,35 +1979,35 @@ function suggestFor(name) {
   var baseline = prev ? lastSession(name, prev.day) : null;
   var baselineBlock = mainWorkBlock(baseline, goalSets, w);
   var baselineSeen = sameBlockWeight(block, baselineBlock);
-  var confirmed = prevHit && (cor || baselineSeen);
+  var confirmed = prevHit && (rng || baselineSeen);
   var hardRpe = (avg != null && avg >= 9) ||
     (prevBlock && prevBlock.avg != null && prevBlock.avg >= 9);
   if (!confirmed || hardRpe) {
-    base.reps = cor ? Math.min(cor.hi, Math.max(cor.lo, low)) : goalReps;
+    base.reps = rng ? Math.min(rng.hi, Math.max(rng.lo, low)) : goalReps;
     return base;
   }
   /* Nie zwei Schrittweiten auf einmal, wenn der Schritt relativ zum Gewicht ohnehin
      groß ist - genau dann ist ja schon eine Schrittweite viel. Bis 1.14.5 hing das
-     allein am fehlenden Korridor, und der fehlt auch einer Übung ohne Planeintrag,
+     allein an der fehlenden Range, und die fehlt auch einer Übung ohne Planeintrag,
      unabhängig von ihrer Schrittweite: eine freie Übung sprang so von 20 auf 25 kg,
      also um 25 Prozent. Deshalb hier dieselbe Verhältnisrechnung wie in
      repFirstOn(), aber ohne dessen Schalter - die Größe des Sprungs hängt nicht
      daran, ob die Rep-Leiter eingeschaltet ist. */
   var bothStrong = avg != null && avg <= 7 && prevBlock.avg != null && prevBlock.avg <= 7;
   var bigStep = !(w > 0) || step / w > S.settings.repFirstThresh;
-  var mult = (!cor && bothStrong && !bigStep) ? 2 : 1;
+  var mult = (!rng && bothStrong && !bigStep) ? 2 : 1;
   var confirmRpes = block.rpes.concat(prevBlock.rpes);
   var confirmAvg = confirmRpes.length
     ? confirmRpes.reduce(function (a,b) { return a+b; }, 0) / confirmRpes.length : null;
   return {
-    reps: cor ? cor.lo : goalReps,
+    reps: rng ? rng.lo : goalReps,
     weight: Math.round((w + step * mult) * 100) / 100,
     rpe: lastSet.rpe,
     up: true,
-    why: cor
-      ? "+" + num(step) + " kg, " + goalSets + "x " + cor.hi +
+    why: rng
+      ? "+" + num(step) + " kg, " + goalSets + "x " + rng.hi +
         " in 2 Einheiten bestätigt" +
-        (confirmAvg != null ? " @ RPE " + num(confirmAvg) : "") + " – zurück auf " + cor.lo
+        (confirmAvg != null ? " @ RPE " + num(confirmAvg) : "") + " – zurück auf " + rng.lo
       : "+" + num(step * mult) + " kg, " + goalSets + "x " + goalReps +
         " in 2 Einheiten bestätigt" +
         (confirmAvg != null ? " @ RPE " + num(confirmAvg) : "")
@@ -2697,7 +2705,7 @@ function render() {
 
   if (S.pwa.updateReady) {
     h += '<div class="notice act">Ein Update ist vorhanden.' +
-      '<button data-act="swupdate">Jetzt starten</button></div>';
+      '<button data-act="swupdate">Update starten</button></div>';
   }
 
   if (S.undo) {
@@ -3253,8 +3261,8 @@ function heroWeightDial(name) {
    Pillen-Reihen aus repPills()/rpePills(). */
 function heroSteppers() {
   var rpeVal = deci(S.rpe);
-  /* Der Zielkorridor stand hier eine Zeit lang in der Beschriftung unter der
-     Zahl ("Reps 8-12"). Er steht schon in der Zielzeile darüber, deshalb bleibt
+  /* Die Ziel-Range stand hier eine Zeit lang in der Beschriftung unter der
+     Zahl ("Reps 8-12"). Sie steht schon in der Zielzeile darüber, deshalb bleibt
      es hier bei der schlichten Beschriftung. */
   return '<div class="steprow">' +
     '<div class="stepbox"><button data-act="step" data-f="reps" data-d="-1" ' +
@@ -3292,15 +3300,15 @@ function focusRepPills() {
   if (!(cur > 0)) cur = 10;
   var center = repWinCenter != null ? repWinCenter : cur;
   var lo = Math.max(1, center - 2);
-  /* Zielkorridor der doppelten Progression, 1.13.0: die Tasten innerhalb des
-     Bereichs bekommen einen Rahmen, das ist die ganze Auszeichnung. Der untere
+  /* Ziel-Range der doppelten Progression, 1.13.0: die Tasten innerhalb der
+     Range bekommen einen Rahmen, das ist die ganze Auszeichnung. Der untere
      Rand hatte zunächst zusätzlich einen Punkt, der ist wieder raus - er stand
      ohnehin schon in der Zielzeile, war die linkeste umrandete Taste und der
      Vorschlag nach einem Gewichtssprung, trug also keine eigene Information.
      Bewusst nur hier und in heroSteppers(), nicht in repPills() - beim
-     Korrigieren eines früheren Satzes ist der Korridor keine Information,
+     Korrigieren eines früheren Satzes ist die Range keine Information,
      sondern nur Beiwerk. */
-  var cor = repCorridor(S.exercise, deci(S.weight) || 0);
+  var rng = repRange(S.exercise, deci(S.weight) || 0);
   var h = '<div class="repsrow"><button class="chev" data-act="repwin" data-d="-5" ' +
     'aria-label="Niedrigere Wiederholungen zeigen">' + svg("zurueck", 15) +
     '</button><div class="pills">';
@@ -3308,7 +3316,7 @@ function focusRepPills() {
     var v = lo + i;
     var cls = [];
     if (v === cur) cls.push("on");
-    if (cor && v >= cor.lo && v <= cor.hi) cls.push("inrange");
+    if (rng && v >= rng.lo && v <= rng.hi) cls.push("inrange");
     h += '<button class="' + cls.join(" ") + '" data-act="pillrep" data-v="' +
       v + '">' + v + '</button>';
   }
@@ -3604,7 +3612,7 @@ function viewTag() {
     var wBase = S.warm && S.warmBase > 0 ? S.warmBase : curW;
     var ramp = doneSets(S.exercise, S.date) ? [] : warmupPlan(S.exercise, wBase);
     var split = isBar(S.exercise) ? plateSplit(curW) : null;
-    var heroCor = repCorridor(S.exercise, curW);
+    var heroRng = repRange(S.exercise, curW);
     /* Wie im Fokus-Modus: blau der aktuelle, grün die erledigten Sätze, keine
        Textzeile "Satz X von Y" mehr daneben, siehe BACKLOG. */
     var setBars = "";
@@ -3621,11 +3629,11 @@ function viewTag() {
       '<div class="setprog"><div class="bars">' + setBars + '</div></div>' +
       '</div>' +
       '<div class="hero-meta">' +
-      /* Greift die doppelte Progression, steht hier der Korridor statt der einen
+      /* Greift die doppelte Progression, steht hier die Range statt der einen
          Zielzahl - sonst wäre der Vorschlag "+1 Rep" nicht
-         nachvollziehbar, siehe repCorridor(). */
+         nachvollziehbar, siehe repRange(). */
       (tg ? "Ziel <b>" + needN + "x " +
-        (heroCor ? corridorText(heroCor) : tg.reps) + " Reps</b> mit <b>" +
+        (heroRng ? rangeText(heroRng) : tg.reps) + " Reps</b> mit <b>" +
         num(tg.weight) + " kg</b><br>" : "") +
       (lastSet ? "Letztes Top Set <b>" + lastSet.reps + "x " + num(lastSet.weight) + " kg</b> am " +
         tinyDate(last.day) + (lastSet.rpe != null ? " bei RPE " + num(lastSet.rpe) : "") +
@@ -3866,7 +3874,7 @@ function viewFocus() {
   var split = isBar(S.exercise) ? plateSplit(curW) : null;
   var showPlates = S.settings.focusPlates;
   var done = doneN >= needN;
-  var fxCor = repCorridor(S.exercise, curW);
+  var fxRng = repRange(S.exercise, curW);
 
   /* Pillenanzeige aus dem Standard-Trainingsreiter übernommen (.setprog), hier
      anstelle der Textzeile "Satz X von Y": blau der aktuelle, grün die erledigten
@@ -3883,10 +3891,10 @@ function viewFocus() {
     '<div class="setprog"><div class="bars">' + setBars + '</div></div>' +
     '</div>' +
     '<div class="hero-meta">' +
-    /* Wie im Standard-Trainingsreiter: bei doppelter Progression der Korridor
-       statt der einen Zielzahl, siehe repCorridor(). */
+    /* Wie im Standard-Trainingsreiter: bei doppelter Progression die Range
+       statt der einen Zielzahl, siehe repRange(). */
     (tg ? "Ziel <b>" + needN + "x " +
-      (fxCor ? corridorText(fxCor) : tg.reps) + " Reps</b> mit <b>" +
+      (fxRng ? rangeText(fxRng) : tg.reps) + " Reps</b> mit <b>" +
       num(tg.weight) + " kg</b><br>" : "") +
     (lastSet ? "Letztes Top Set <b>" + lastSet.reps + "x " + num(lastSet.weight) + " kg</b> am " +
       tinyDate(last.day) + (lastSet.rpe != null ? " bei RPE " + num(lastSet.rpe) : "") +
@@ -4860,14 +4868,14 @@ function viewData() {
     '<div class="card">' +
     descText("progression", '<p>Für einen Gewichtssprung zählt der höchste vollständige ' +
       'Arbeitsblock einer Einheit. Einzelne Topsätze und leichtere Back-off-Sätze ändern ' +
-      'die Grundlage nicht. Ohne Wiederholungskorridor braucht es zuerst eine Einheit ' +
+      'die Grundlage nicht. Ohne Wiederholungs-Range braucht es zuerst eine Einheit ' +
       'als Ausgangswert und danach zwei erfolgreiche Bestätigungseinheiten am selben ' +
       'Gewicht. Bei einem durchschnittlichen RPE bis 7 in beiden Bestätigungen sind es ' +
       'zwei Schrittweiten, darüber eine. Ab RPE 9 bleibt das Gewicht stehen.</p>') +
     '<button class="open" data-act="autoprog">Automatischer Vorschlag: ' +
     (S.settings.autoProgress ? "an" : "aus") + '</button>' +
-    /* Doppelte Progression, 1.13.0, Schwelle und Korridorbreite ab 1.13.3 einstellbar
-       statt fest verdrahtet, siehe repFirstOn()/repCorridor(). Beispielzahlen in der
+    /* Doppelte Progression, 1.13.0, Schwelle und Range-Breite ab 1.13.3 einstellbar
+       statt fest verdrahtet, siehe repFirstOn()/repRange(). Beispielzahlen in der
        Beschreibung deshalb aus den aktuellen Einstellungen berechnet, nicht mehr fest
        im Text. */
     descText("progression", '<p style="margin-top:12px">Bei Übungen, deren ' +
@@ -4892,9 +4900,9 @@ function viewData() {
     '<p style="margin-top:10px">Grenze aktuell ' + num(S.settings.repFirstThresh * 100) +
     ' Prozent.</p>' +
     '<div class="tools" style="margin-top:10px">' +
-    '<button data-act="repspan" data-d="-1">Korridor schmaler</button>' +
-    '<button data-act="repspan" data-d="1">Korridor breiter</button></div>' +
-    '<p style="margin-top:10px">Korridor aktuell Planziel ± ' + S.settings.repSpan +
+    '<button data-act="repspan" data-d="-1">Range schmaler</button>' +
+    '<button data-act="repspan" data-d="1">Range breiter</button></div>' +
+    '<p style="margin-top:10px">Range aktuell Planziel ± ' + S.settings.repSpan +
     ' Wiederholungen.</p></div>' +
 
     '<div class="sect"><h2>Fokus-Modus' + infoBtn("fokus") + '</h2></div>' +
@@ -5907,10 +5915,10 @@ document.addEventListener("click", function (ev) {
     if (acceptTarget) {
       /* Die Rep-Spanne bleibt um das bewusst gesetzte Planziel zentriert. Deshalb
          wird bei doppelter Progression nur das neue Gewicht übernommen; eine
-         einzelne vorgeschlagene Wiederholung verschiebt den Korridor nicht. */
-      var hadCorridor = !!repCorridor(S.exercise, acceptTarget.weight);
+         einzelne vorgeschlagene Wiederholung verschiebt die Range nicht. */
+      var hadRange = !!repRange(S.exercise, acceptTarget.weight);
       if (isFinite(acceptWeight) && acceptWeight >= 0) acceptTarget.weight = acceptWeight;
-      if (!hadCorridor && acceptReps > 0) acceptTarget.reps = acceptReps;
+      if (!hadRange && acceptReps > 0) acceptTarget.reps = acceptReps;
       persist();
     }
     var acceptRpe = deci(S.rpe);
