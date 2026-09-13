@@ -107,6 +107,25 @@ verwirft den Wert bei jeder Änderung.
 Gegen bewusstes Löschen über die Browser- oder App-Einstellungen hilft der
 Schutz nicht. Dagegen hilft nur ein Backup.
 
+## Wo das Training gerade steht
+
+Neben den Trainingsdaten hält die App drei Dinge fest, die nur zur laufenden
+Sitzung gehören und deshalb je einen eigenen Schlüssel bekommen statt im Backup
+zu landen: den Pausentimer (`kraftlog:rest`), die angenommenen und verworfenen
+Vorschläge des Tages (`kraftlog:suggest`) und seit 1.17.2 die Stelle im Training
+(`kraftlog:session`) mit Reiter, Fokus-Modus, Plan, Übung und den eingestellten
+Werten.
+
+Startet die App neu, kommt sie damit still dorthin zurück, wo sie war, ohne
+Nachfrage. Der Eintrag verfällt nach vier Stunden, ein Reiter aus einem Shortcut
+oder aus einem geteilten Backup schlägt ihn, und ein Plan oder eine Übung, die
+es nicht mehr gibt, bleibt leer. Anlass war der Fokus-Modus: dort ist der Inhalt
+kürzer als der Bildschirm, ein Wisch nach unten löste deshalb Chromes
+Pull-to-refresh aus und warf einen in den leeren Trainingsreiter. Die Geste
+selbst ist inzwischen abgestellt (`overscroll-behavior-y: contain` auf
+`html, body`); die App holt nichts vom Server, es gab dort also nie etwas
+aufzufrischen. Ein neues Update kommt weiterhin über den Knopf.
+
 ## Zurück-Geste
 
 Im installierten Fenster gibt es keine Adressleiste und keine Seite, auf die
@@ -115,6 +134,11 @@ sofort die ganze App, auch mitten im Fokus-Modus. Deshalb legt die App für den
 Fokus-Modus, die Zusammenfassung und ein aufgeklapptes Diagramm im Verlauf je
 einen History-Eintrag an (`navOpen`/`navBack` in `index.html`). Zurück schließt
 damit erst die offene Ansicht, und erst aus der Grundansicht heraus die App.
+
+Wird der Fokus-Modus nach einem Neustart wiederhergestellt, zieht
+`restoreSession()` diesen Eintrag nach. Trägt der Eintrag, auf dem die App wieder
+hochkommt, schon eine Tiefe, wird nur der Stapel darauf gebracht statt ein
+zweiter Eintrag gelegt, sonst bräuchte es zwei Gesten für eine Ebene.
 
 ## Signal am Ende der Pause
 

@@ -29,7 +29,14 @@ html[data-theme="dark"] {
   --shadow:none;
 }
 * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-html, body { margin:0; background:var(--bg); }
+/* Kein Pull-to-refresh. Die App holt nichts vom Server, die Geste kann also
+   nichts auffrischen, wohl aber mitten im Training die Seite neu laden. Im
+   Fokus-Modus passiert das besonders leicht: dort ist der Inhalt kürzer als der
+   Bildschirm, der Scroll-Container steht also immer am oberen Anschlag, und ein
+   leicht schräger Wisch auf der Rep-Reihe (touch-action:pan-y, siehe .repsrow)
+   geht direkt in die Browser-Geste. Ein neues Update kommt weiterhin über den
+   Knopf, siehe applyUpdate(). */
+html, body { margin:0; background:var(--bg); overscroll-behavior-y:contain; }
 body {
   color:var(--ink); padding-bottom:calc(96px + env(safe-area-inset-bottom));
   font-family:"SF Pro Text", "Segoe UI", Roboto, ui-sans-serif, system-ui, sans-serif;
@@ -339,7 +346,10 @@ textarea.note { width:100%; margin-top:8px; padding:11px 12px; border-radius:13p
   flex:0 1 auto; font-style:normal; white-space:nowrap; overflow:hidden;
   text-overflow:ellipsis; }
 .fx .prog { margin:0 18px 18px; }
-.fx-body { flex:1 1 auto; min-height:0; overflow-y:auto; padding:0 20px; }
+/* overscroll-behavior: der Ausschlag am Ende der Liste bleibt in diesem Kasten,
+   statt an das Dokument weitergereicht zu werden, siehe html/body oben. */
+.fx-body { flex:1 1 auto; min-height:0; overflow-y:auto; padding:0 20px;
+  overscroll-behavior:contain; }
 .fx-body.pad { padding-top:2px; }
 .fx-blank { padding:20px 0; text-align:center; }
 .fx-blank .save { margin-top:16px; }
@@ -766,12 +776,12 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.17.1";
+var APP_VERSION = "1.17.2";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
     CATS_KEY = "kraftlog:cats", REST_KEY = "kraftlog:rest",
-    SUGGEST_KEY = "kraftlog:suggest",
+    SUGGEST_KEY = "kraftlog:suggest", SESSION_KEY = "kraftlog:session",
     COLOR_KEY = "kraftlog:plancolors",
     EXMETA_KEY = "kraftlog:exmeta", NOTES_KEY = "kraftlog:notes";
 
@@ -1453,6 +1463,77 @@ function persistKey(key, value) {
    laufenden Tag und hat im Backup nichts verloren, genau wie der Pausentimer.
    Beim Lesen bleibt deshalb nur übrig, was zum heutigen Datum gehört. */
 function saveSuggestions() { persistKey(SUGGEST_KEY, S.suggestionHandled); }
+
+/* Wo im Training man gerade steht, überlebt seit 1.17.2 einen Neustart. Anlass war
+   der Fokus-Modus: ein versehentliches Neuladen warf einen in den leeren
+   Trainingsreiter zurück, Plan, Übung und die eingestellten Werte waren weg. Die
+   Geste selbst ist inzwischen abgestellt (overscroll-behavior, siehe html/body),
+   aber ein Neustart kommt auch anders zustande - das System räumt die App im
+   Hintergrund weg, das ServiceWorker-Update lädt neu, das Fenster wird zugeklappt.
+
+   Bewusst ein eigener Schlüssel und nicht S.settings, genau wie beim Pausentimer
+   und bei den Vorschlägen: das ist Sitzungszustand, kein Datenbestand, und im
+   Backup hat er nichts verloren. Gespeichert wird nur, was die Oberfläche wieder
+   aufbaut, nichts davon ist eine Quelle für gespeicherte Sätze. */
+var SESSION_MAX_AGE = 4 * 3600 * 1000;
+var lastSessionJson = "";
+function saveSession() {
+  var d = { day:S.date, view:S.view, focus:!!S.focus, plan:S.plan,
+    exercise:S.exercise, reps:S.reps, weight:S.weight, rpe:S.rpe,
+    warm:!!S.warm, warmBase:S.warmBase, warmReps:S.warmReps };
+  var json = JSON.stringify(d);
+  /* Der Zeitstempel steht bewusst außerhalb des Vergleichs: sonst wäre jeder
+     Neuaufbau eine Änderung und schriebe. So altert der Stempel, solange sich
+     nichts tut, und misst damit "zuletzt etwas getan". */
+  if (json === lastSessionJson) return;
+  lastSessionJson = json;
+  d.ts = Date.now();
+  persistKey(SESSION_KEY, d);
+}
+function restoreSession() {
+  var d = readJson(SESSION_KEY, null);
+  if (!d || typeof d !== "object" || Array.isArray(d)) return;
+  if (typeof d.ts !== "number" || Date.now() - d.ts > SESSION_MAX_AGE) {
+    try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
+    return;
+  }
+  if (typeof d.day === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d.day)) S.date = d.day;
+  if (!startFromUrl && VIEWS.indexOf(d.view) >= 0) S.view = d.view;
+  /* Plan und Übung können seit dem Speichern gelöscht oder umbenannt worden
+     sein. Was es nicht mehr gibt, bleibt leer, statt eine Auswahl vorzutäuschen. */
+  if (typeof d.plan === "string" && S.plans[d.plan]) S.plan = d.plan;
+  if (typeof d.exercise === "string" && allNames().indexOf(d.exercise) >= 0) {
+    S.exercise = d.exercise;
+  }
+  ["reps", "weight", "rpe"].forEach(function (k) {
+    if (typeof d[k] === "string" && d[k].length <= 8) S[k] = d[k];
+  });
+  if (d.warm && S.exercise) {
+    S.warm = true;
+    S.warmBase = typeof d.warmBase === "number" ? d.warmBase : 0;
+    S.warmReps = typeof d.warmReps === "string" ? d.warmReps : "";
+  }
+  if (d.focus && !startFromUrl) {
+    S.focus = true;
+    /* Ohne eigenen History-Eintrag schließt die Zurück-Geste im installierten
+       Fenster sofort die ganze App, siehe navOpen(). Der Stapel ist nach einem
+       Neustart leer und muss nachgezogen werden - aber nicht immer durch einen
+       neuen Eintrag: wurde mitten im Fokus-Modus neu geladen, trägt der Eintrag,
+       auf dem die App wieder hochkommt, bereits ein hk. Dann noch einmal zu
+       pushen hieße zwei Zurück-Gesten, um eine Ebene zu schließen. In dem Fall
+       wird nur der Stapel auf die Tiefe gebracht, die der Verlauf schon hat.
+       Was unter der obersten Ebene lag, ist nach dem Neustart nicht mehr bekannt
+       und bleibt namenlos; navCloseTop() nimmt solche Ebenen kommentarlos ab. */
+    var hk = (history.state && typeof history.state.hk === "number") ? history.state.hk : 0;
+    if (hk > 0) {
+      navStack.length = 0;
+      while (navStack.length < hk - 1) navStack.push("");
+      navStack.push("focus");
+    } else {
+      navOpen("focus");
+    }
+  }
+}
 function loadSuggestions() {
   var raw = readJson(SUGGEST_KEY, null);
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return;
@@ -2614,10 +2695,16 @@ function queryParam(name) {
   var m = new RegExp("[?&]" + name + "=([^&]*)").exec(location.search || "");
   return m ? decodeURIComponent(m[1].replace(/\+/g, " ")) : "";
 }
+/* Hat die Adresse den Reiter vorgegeben? Dann haelt sich restoreSession() bei
+   Ansicht und Fokus-Modus zurueck. */
+var startFromUrl = false;
 function startParams() {
   var tab = queryParam("tab"), shared = queryParam("geteilt");
-  if (["tag","plaene","verlauf","daten"].indexOf(tab) >= 0) S.view = tab;
-  if (shared) S.view = "daten";
+  /* Ein Reiter aus der Adresse schlägt die wiederhergestellte Sitzung, siehe
+     restoreSession(): wer die App gezielt über einen Shortcut oder ein geteiltes
+     Backup öffnet, will dorthin und nicht in den Fokus-Modus von vorhin. */
+  if (["tag","plaene","verlauf","daten"].indexOf(tab) >= 0) { S.view = tab; startFromUrl = true; }
+  if (shared) { S.view = "daten"; startFromUrl = true; }
   /* Die Markierung wieder aus der Adresse nehmen, aber den Pfad so lassen, wie
      er ist: wird die App als .../index.html ausgeliefert, führte "./" auf das
      Verzeichnis und ein Neuladen liefe ins Leere. */
@@ -2681,6 +2768,9 @@ function render() {
   /* Frischer Tagesindex je Neuaufbau: innerhalb eines Durchlaufs ändern sich die
      Sätze nicht, danach gilt er nicht mehr, siehe entriesOn(). */
   clearDayIndex();
+  /* Jede Zustandsänderung endet in einem Neuaufbau, also ist das die eine Stelle,
+     an der sich die Sitzung festhalten lässt, siehe saveSession(). */
+  saveSession();
   if (S.showSummary) {
     document.getElementById("app").innerHTML = viewSummary();
     renderRest();
@@ -6820,6 +6910,10 @@ try {
 /* Reiter aus einem Shortcut und die Markierung des Teilen-Wegs stehen in der
    Adresse und müssen vor dem ersten Aufbau gelesen sein. */
 var sharedFlag = startParams();
+/* Wo das Training zuletzt stand, still zurückholen, siehe restoreSession().
+   Nach startParams(), damit ein Reiter aus der Adresse das letzte Wort behält
+   und der History-Eintrag des Fokus-Modus nicht gleich wieder überschrieben wird. */
+restoreSession();
 restoreRest();
 S.pwa.standalone = standalone();
 render();
