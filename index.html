@@ -604,6 +604,26 @@ textarea.note { width:100%; margin-top:8px; padding:11px 12px; border-radius:13p
 .planhead .chev { margin-left:auto; color:var(--muted); display:flex;
   transform:rotate(90deg); }
 .planhead .chev.up { transform:rotate(-90deg); }
+/* Verlauf dieser Uebung, aufgeklappt unter seinem Kopf: die Liste sitzt
+   unmittelbar daran, also kein Abstand und keine doppelte Kante zwischen beiden.
+   Die Zeilen stehen in festen Spalten, Reps und Gewicht rechtsbuendig, damit
+   Einer unter Einern stehen (die 8 unter der 0 von 10). Satznummer, Datum und
+   RPE tragen dieselbe graue Schrift wie in der Satzliste des Tages. */
+.planhead.open { border-radius:13px 13px 0 0; border-bottom:none; }
+.exhist { border:1px solid var(--line); border-top:none; border-radius:0 0 13px 13px;
+  background:var(--surface); overflow:hidden; padding:0 0 6px; }
+.exhist .hset { display:grid;
+  grid-template-columns:14px 2.6ch max-content 5ch max-content 1fr 4.6em;
+  align-items:baseline; column-gap:3px; padding:4px 13px; font-size:15px;
+  line-height:1.2; font-variant-numeric:tabular-nums; }
+.exhist .hset:first-child { padding-top:6px; }
+.exhist .no { font-size:12px; font-weight:600; color:var(--muted); }
+.exhist .val { font-weight:750; letter-spacing:-0.02em; text-align:right; }
+.exhist .val.kg { margin-left:9px; }
+.exhist .unit { font-size:11px; font-weight:600; color:var(--muted); margin-left:2px; }
+.exhist .when { font-size:12px; color:var(--muted); text-align:right; }
+.exhist .rpe { font-size:12px; color:var(--muted); text-align:right; }
+.exhist .sep { height:1px; background:var(--line); margin:4px 0; }
 .plan { margin-top:8px; border:1px solid var(--line); border-radius:16px; overflow:hidden;
   background:var(--surface); }
 .plan > button { width:100%; display:flex; align-items:center; gap:12px; padding:13px 15px;
@@ -783,7 +803,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.19.1";
+var APP_VERSION = "1.20.0";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -976,7 +996,8 @@ var DEFAULT_SETTINGS = {
   barWeight: 20, plates: DEFAULT_PLATES.slice(), hiddenEx: [], focusPlates: false,
   defSets: DEFAULT_SETS, defReps: 10, defWeight: 20, descOpen: {}, wrapNames: false,
   weekGoals: {}, weekGoalLog: {}, repFirst: true,
-  repFirstThresh: 0.05, repSpan: 2, notifySignal: true, vibeLong: false
+  repFirstThresh: 0.05, repSpan: 2, notifySignal: true, vibeLong: false,
+  exHist: true
 };
 
 /* ---------- Doppelte Progression, 1.13.0 ---------- */
@@ -1021,6 +1042,7 @@ var S = {
   prowNameOpen:"",
   restEnd:0, restTotal:0, warm:false, warmBase:0, warmReps:"", noteOpen:false,
   volRange:7, volMode:"sets", dataClosed:{}, secOpen:{}, exNoteFor:"", exOpen:"",
+  exHistFor:"",
   toast:"", pickCat:"", pickGroupBy:"cat", pickMuscle:"", focus:false, pickPlanTarget:"", pickSel:[],
   quickUndo:false, showSummary:false, summaryData:null, summaryReturn:"",
   focusEndConfirm:false, suggestionHandled:{},
@@ -1247,6 +1269,7 @@ function load() {
       Object.keys(st.descOpen).forEach(function (k) { S.settings.descOpen[k] = !!st.descOpen[k]; });
     }
     if (typeof st.wrapNames === "boolean") S.settings.wrapNames = st.wrapNames;
+    if (typeof st.exHist === "boolean") S.settings.exHist = st.exHist;
     if (typeof st.notifySignal === "boolean") S.settings.notifySignal = st.notifySignal;
     if (typeof st.vibeLong === "boolean") S.settings.vibeLong = st.vibeLong;
     if (st.weekGoals && typeof st.weekGoals === "object") {
@@ -1626,6 +1649,19 @@ function lastSession(name, before) {
     .sort(function (a,b) { return a.ts-b.ts; });
   var top = Math.max.apply(null, sets.map(function (s) { return s.weight; }));
   return { day:day, count:sets.length, top:top, sets:sets };
+}
+/* Die letzten n Trainingstage einer Uebung vor before, juengster zuerst, nur
+   Arbeitssaetze - dieselbe Quelle wie lastSession(), nur ueber mehrere Tage.
+   Grundlage fuer exHistBlock() im Trainingsreiter. */
+function lastDaysOf(name, before, n) {
+  var older = workOf(name).filter(function (e) { return before ? e.date < before : true; });
+  var days = [];
+  older.forEach(function (e) { if (days.indexOf(e.date) < 0) days.push(e.date); });
+  days.sort().reverse();
+  return days.slice(0, n).map(function (d) {
+    return { day:d, sets: older.filter(function (e) { return e.date === d; })
+      .sort(function (a, b) { return a.ts - b.ts; }) };
+  });
 }
 function bestSet(sets) {
   var top = sets[0];
@@ -3693,6 +3729,7 @@ function viewTag() {
           }).join("") + '</div>'
         : "") +
       exNoteBlock() +
+      exHistBlock() +
       '</div>' +
       /* Wie im Fokus-Modus: der Speichern-Knopf bleibt am unteren Bildschirmrand
          stehen, statt mit der Übungskarte wegzuscrollen, siehe BACKLOG. */
@@ -3834,6 +3871,40 @@ function exNoteBlock() {
         esc(n) + '" placeholder="Sitz 4, Griff eng, Polster Loch 3" ' +
         'aria-label="Geräteeinstellung für ' + esc(S.exercise) + '"></div>'
       : "");
+}
+
+/* Verlauf dieser Übung, aufklappbar über der Speichern-Zeile im Standard-
+   Trainingsreiter: die letzten drei früheren Einheiten mit ihren Arbeitssätzen,
+   rein lesend, ohne Tippfläche und ohne Löschknopf. Kein Datumskopf je Einheit,
+   der Tag steht grau in der Zeile von Satz 1, getrennt werden die Einheiten
+   durch eine Haarlinie.
+
+   Der aufgeklappte Zustand hängt wie die Notiz (S.exNoteFor) an der Übung und
+   nicht an einem eigenen Schalter: beim Wechsel der Übung klappt der Block
+   deshalb von selbst wieder zu und ist kein Teil des Backups. Abschaltbar unter
+   Daten, siehe S.settings.exHist. */
+function exHistBlock() {
+  if (!S.settings.exHist || !S.exercise) return "";
+  var days = lastDaysOf(S.exercise, S.date, 3);
+  if (!days.length) return "";
+  var open = S.exHistFor === S.exercise;
+  var h = '<button class="planhead' + (open ? " open" : "") + '" data-act="exhist" ' +
+    'aria-expanded="' + (open ? "true" : "false") + '"><b>Verlauf dieser Übung</b>' +
+    '<span>letzte ' + days.length + '</span><i class="chev' + (open ? " up" : "") +
+    '">' + svg("chev", 15) + '</i></button>';
+  if (!open) return h;
+  h += '<div class="exhist">';
+  days.forEach(function (d, di) {
+    if (di) h += '<div class="sep"></div>';
+    d.sets.forEach(function (s, si) {
+      h += '<div class="hset"><span class="no">' + s.set + '</span>' +
+        '<span class="val">' + s.reps + '</span><span class="unit">Reps</span>' +
+        '<span class="val kg">' + num(s.weight) + '</span><span class="unit">kg</span>' +
+        '<span class="when">' + (si === 0 ? tinyDate(d.day) : "") + '</span>' +
+        '<span class="rpe">' + (s.rpe != null ? "RPE " + num(s.rpe) : "") + '</span></div>';
+    });
+  });
+  return h + '</div>';
 }
 
 /* Nur noch für den Standard-Trainingsreiter, der Fokus-Modus hat dafür die
@@ -4988,6 +5059,16 @@ function viewData() {
     '<p style="margin-top:10px">Range aktuell Planziel ± ' + S.settings.repSpan +
     ' Reps.</p></div>' +
 
+    '<div class="sect"><h2>Verlauf im Training' + infoBtn("exhist") + '</h2></div>' +
+    '<div class="card">' +
+    descText("exhist", '<p>Im Trainingsreiter lässt sich über der Speichern-Zeile der ' +
+      'Verlauf der gewählten Übung aufklappen: die letzten drei früheren Einheiten mit ' +
+      'ihren Arbeitssätzen, Datum, Reps, Gewicht und RPE, nur zum Nachsehen. ' +
+      'Zugeklappt kostet er eine Zeile, und beim Wechsel der Übung klappt er von ' +
+      'selbst wieder zu. Aus heißt: der Block taucht im Training gar nicht auf.</p>') +
+    '<button class="open" data-act="exhisttoggle">Verlauf dieser Übung: ' +
+    (S.settings.exHist ? "an" : "aus") + '</button></div>' +
+
     '<div class="sect"><h2>Fokus-Modus' + infoBtn("fokus") + '</h2></div>' +
     '<div class="card">' +
     descText("fokus", '<p>Der Fokus-Modus blendet Reiter, Wochenstreifen und Planliste ' +
@@ -5427,7 +5508,7 @@ function mergeSettings(src) {
   [["rest", "number"], ["autoRest", "boolean"], ["autoProgress", "boolean"],
    ["repFirst", "boolean"], ["repFirstThresh", "number"], ["repSpan", "number"],
    ["focusPlates", "boolean"], ["wrapNames", "boolean"], ["notifySignal", "boolean"],
-   ["vibeLong", "boolean"],
+   ["vibeLong", "boolean"], ["exHist", "boolean"],
    ["barWeight", "number"],
    ["defSets", "number"], ["defReps", "number"], ["defWeight", "number"]
   ].forEach(function (f) {
@@ -5648,7 +5729,8 @@ function cleanNotes(src) {
 function cleanSettings(src) {
   if (!plainObject(src)) importError("Einstellungen sind kein gültiges Objekt.");
   var out = {};
-  ["autoRest", "autoProgress", "repFirst", "focusPlates", "wrapNames"].forEach(function (k) {
+  ["autoRest", "autoProgress", "repFirst", "focusPlates", "wrapNames",
+   "exHist"].forEach(function (k) {
     if (src[k] == null) return;
     if (typeof src[k] !== "boolean") importError("Einstellung „" + k + "“ ist ungültig.");
     out[k] = src[k];
@@ -6098,6 +6180,10 @@ document.addEventListener("click", function (ev) {
     S.exNoteFor = (S.exNoteFor === S.exercise ? "" : S.exercise);
     if (S.exNoteFor) focusAfterRender = "exNote";
   }
+  else if (act === "exhist") {
+    if (!S.exercise) return;
+    S.exHistFor = (S.exHistFor === S.exercise ? "" : S.exercise);
+  }
   else if (act === "exopen") { S.exOpen = (S.exOpen === v ? "" : v); }
   else if (act === "rendo") {
     var rin = document.getElementById("ren-name");
@@ -6344,6 +6430,9 @@ document.addEventListener("click", function (ev) {
     S.settings.repSpan = Math.max(1, Math.min(5,
       S.settings.repSpan + parseInt(el.getAttribute("data-d"), 10)));
     persist();
+  }
+  else if (act === "exhisttoggle") {
+    S.settings.exHist = !S.settings.exHist; persist();
   }
   else if (act === "focusplates") {
     S.settings.focusPlates = !S.settings.focusPlates; persist();
