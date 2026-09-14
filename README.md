@@ -227,6 +227,38 @@ und nicht in den Einstellungen, sie sollen bei jedem Besuch wieder zu sein, wie
 die einzelnen Gruppen darin (`S.dataClosed`) und die Plankarten
 (`S.planCardsFold`), siehe `secFold()`.
 
+## Planung
+
+Der fünfte Reiter, seit 1.23.0. Der Pläne-Reiter zeigt die Sätze je
+Muskelgruppe für das, was gespeichert ist. Wer wissen wollte, wie ein anderer Mix
+aussähe, musste dort die Wochenziele umstellen und **Neues Wochenziel speichern**
+drücken, also einen Eintrag in die Historie schreiben, nur um nachzusehen. Die
+Planung rechnet stattdessen auf einem Entwurf: welche Pläne wie oft pro Woche,
+dazu einzelne Übungen außerhalb der Pläne mit eigener Satzzahl und Häufigkeit.
+Gezählt wird wie überall (Primärmuskel voll, Sekundärmuskel halb), anders als im
+Pläne-Reiter stehen Gruppen ohne einen Satz rot mit dabei, und ein
+Gegenspieler-Paar wird rot, sobald eine Seite mindestens anderthalb mal so viele
+Sätze hat wie die andere oder ganz leer ausgeht (`DRAFT_PAIR_RATIO`).
+
+Der Entwurf liegt unter `kraftlog:entwurf`, nicht in den Einstellungen und nicht
+im Backup: er ist eine Überlegung, kein Datenbestand. Anders als die Sitzung
+verfällt er nicht, wer abends plant, findet ihn morgens wieder. Ein leerer Entwurf
+bedeutet die aktuellen Wochenziele, siehe `draftEntry()`. **Als Wochenziel
+übernehmen** schreibt die Häufigkeiten in die Wochenziele und in die Historie, wie
+der Knopf im Pläne-Reiter, und leert den Entwurf; die einzelnen Übungen bleiben
+stehen, in den Wochenzielen haben sie keinen Platz. **Entwurf verwerfen** setzt
+alles auf die Wochenziele zurück.
+
+Darunter lassen sich die Pläne des Entwurfs auf Tage der nächsten 14 Tage legen,
+im Raster der Kalenderwochen von Montag bis Sonntag. Ein Tag trägt höchstens einen
+Plan, gespeichert wird beim Antippen, wie bei jeder Änderung an den Plänen. Das
+landet als `planDays` in den Einstellungen und damit im Backup; beim Laden und
+beim Import fällt weg, was älter als vier Wochen ist (`PLAN_DAYS_KEEP`). Im
+Wochenstreifen des Trainings steht ein zugewiesener Tag als leerer Ring in der
+Planfarbe, bis der Plan dort als voll absolviert gilt und der Ring zum Punkt wird.
+Eine Tabelle unter dem Raster stellt je Kalenderwoche die zugewiesenen Tage der
+Häufigkeit aus dem Entwurf gegenüber.
+
 ## Timer und Datum
 
 Der Pausentimer startet nur für den heutigen Tag. Wer einen zurückliegenden Tag

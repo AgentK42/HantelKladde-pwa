@@ -21,12 +21,15 @@
   --ink:#101314; --muted:#6C736E; --line:#D2D6CE;
   --accent:#1552B8; --accent-ink:#FFFFFF; --record:#C8102E; --done:#1F7A4C;
   --shadow:0 1px 0 rgba(16,19,20,0.06);
+  /* Einzelne Übungen im Entwurf der Planung, neben den Planfarben, siehe draftSources() */
+  --extra:#0E7C86;
 }
 html[data-theme="dark"] {
   --bg:#151816; --surface:#1E2320; --raise:#262C28;
   --ink:#ECEEE9; --muted:#98A099; --line:#333A36;
   --accent:#5B93F5; --accent-ink:#0B1220; --record:#F0637A; --done:#5CC48D;
   --shadow:none;
+  --extra:#3FB7C2;
 }
 * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 /* Kein Pull-to-refresh. Die App holt nichts vom Server, die Geste kann also
@@ -53,8 +56,10 @@ button { cursor:pointer; }
   align-items:center; }
 .brand .hmark { display:inline-flex; color:var(--accent); margin-right:1px; }
 .brand .hmark svg { stroke-width:2.1; }
+/* Fünf Reiter seit 1.23.0: 9px statt 10px seitlich, damit die Leiste auch auf
+   360px neben der Marke Platz hat. */
 .seg { display:flex; gap:2px; margin-left:auto; }
-.seg button { border:none; background:none; padding:6px 10px 8px; color:var(--muted);
+.seg button { border:none; background:none; padding:6px 9px 8px; color:var(--muted);
   border-bottom:2px solid transparent; display:flex; align-items:center; }
 .seg button.on { color:var(--ink); border-bottom-color:var(--accent); }
 
@@ -91,6 +96,9 @@ button { cursor:pointer; }
 .wday.has .dot { background:var(--accent); }
 .wday.part .dot { border:1.5px solid var(--muted); }
 .wday.on { border-color:var(--ink); background:var(--raise); }
+/* In der Planung zugewiesener Plan, noch nicht absolviert: leerer Ring, die Farbe
+   kommt inline vom Plan, siehe weekStrip() und planDayCell(). */
+.wday.plan .dot { border:1.5px solid var(--accent); }
 
 .plansgoalcap { font-size:15px; font-weight:700; letter-spacing:-0.01em; color:var(--ink);
   margin:0 0 10px 2px; }
@@ -455,7 +463,10 @@ textarea.note { width:100%; margin-top:8px; padding:11px 12px; border-radius:13p
    gestapelt, damit sichtbar ist, welcher Plan wie viel beiträgt. */
 /* Nicht ".plan": die Klasse gehört der Planliste im Training und bringt
    overflow:hidden mit. */
-.vol.bymuscle .volrow { grid-template-columns:104px 1fr 36px; }
+/* 118px statt 104px seit 1.23.0: "Schulter seitlich" wurde sonst abgeschnitten. */
+.vol.bymuscle .volrow { grid-template-columns:118px 1fr 34px; }
+/* Planung: Gruppe ohne einen Satz im Entwurf, siehe muscleBars() */
+.volrow.zero .vn, .volrow.zero .vv { color:var(--record); }
 .volrow .vb.stack { display:flex; gap:1px; padding:2px 0; }
 .volrow .vb.stack i { display:block; height:10px; border-radius:5px; }
 .planlegend { display:flex; flex-wrap:wrap; gap:6px 14px; margin-top:12px;
@@ -463,6 +474,8 @@ textarea.note { width:100%; margin-top:8px; padding:11px 12px; border-radius:13p
 .planlegend span { display:inline-flex; align-items:center; gap:6px; }
 .pairline { margin:12px 0 0; font-size:12.5px; color:var(--muted); line-height:1.6; }
 .pairline b { color:var(--ink); font-weight:700; }
+.pairline b.off { color:var(--record); }
+.pairline .why { display:block; margin-top:6px; font-size:11.5px; }
 /* Zeitraum 7/30 Tage: Veränderung gegenüber der Vorperiode, je Gruppe eigene Skala */
 .vb2 { display:flex; align-items:center; gap:6px; }
 .vb2 .bar { position:relative; flex:1; height:14px; border-radius:7px;
@@ -787,6 +800,84 @@ textarea.note { width:100%; margin-top:8px; padding:11px 12px; border-radius:13p
 .tools button.mode.on { border-color:var(--accent); color:var(--accent); font-weight:700; }
 .tools button.wide { grid-column:1 / -1; }
 .tools button:disabled { opacity:0.4; }
+
+/* ---------- Planung, Reiter 5 ---------- */
+/* Zeile je Plan im Entwurf: Schalter, Name, Häufigkeit. Der Schalter folgt Auge
+   und Sperre in .phead (28px-Kreis), mit Haken statt Symbol, siehe draftBlock(). */
+.drow { display:grid; grid-template-columns:28px 1fr auto; gap:10px; align-items:center;
+  padding:10px 12px; border-top:1px solid var(--line); }
+.drow:first-child { border-top:none; }
+.drow .nm { font-size:14px; font-weight:650; display:flex; align-items:center; gap:8px;
+  min-width:0; flex-wrap:wrap; row-gap:1px; }
+.drow .nm .t { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.drow .nm s { text-decoration:none; font-size:11px; font-weight:600; color:var(--record);
+  white-space:nowrap; flex-basis:100%; padding-left:16px; }
+.drow.off .nm { color:var(--muted); }
+.drow.off .step { opacity:0.35; pointer-events:none; }
+.tog { width:28px; height:28px; border-radius:50%; padding:0; display:inline-flex;
+  align-items:center; justify-content:center; background:none; border:1.5px solid var(--line);
+  color:transparent; }
+.tog[aria-checked="true"] { background:var(--accent); border-color:var(--accent);
+  color:var(--accent-ink); }
+/* Minus, Wert, Plus, siehe stepper() */
+.step { display:inline-flex; align-items:center; height:34px; border:1px solid var(--line);
+  border-radius:10px; background:var(--raise); overflow:hidden; }
+.step button { width:30px; height:100%; border:none; background:none; color:var(--muted);
+  font-size:16px; font-weight:600; padding:0; }
+.step button:disabled { opacity:0.3; }
+.step b { min-width:44px; text-align:center; font-size:12.5px; font-weight:700; }
+.step b small { font-weight:600; color:var(--muted); font-size:10.5px; }
+/* Einzelne Übungen im Entwurf: Name und Muskelgruppe oben, die beiden Zähler
+   darunter; nebeneinander wären sie auf 360px zu eng, siehe draftExtrasBlock(). */
+.xrow { padding:10px 12px; border-top:1px solid var(--line); display:grid; gap:8px; }
+.xrow:first-child { border-top:none; }
+.xtop { display:flex; align-items:center; gap:8px; min-width:0; }
+.xtop .nm { font-size:14px; font-weight:650; white-space:nowrap; overflow:hidden;
+  text-overflow:ellipsis; }
+.xtop .mm { margin-left:auto; font-size:11.5px; color:var(--muted); white-space:nowrap;
+  overflow:hidden; text-overflow:ellipsis; }
+.xtop .xdel { width:28px; height:28px; border:none; background:none; color:var(--muted);
+  padding:0; display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto; }
+.xsteps { display:flex; gap:8px; flex-wrap:wrap; }
+.xsteps label { display:inline-flex; align-items:center; gap:7px; font-size:11.5px;
+  color:var(--muted); font-weight:600; }
+.dempty { padding:14px 12px; font-size:12.5px; color:var(--muted); }
+/* Zuweisen: Kalenderwochen als Raster Mo bis So, Zellen wie im Wochenstreifen.
+   Vergangene Tage und Tage hinter dem 14. bleiben sichtbar, damit das Raster
+   stimmt, sind aber nicht wählbar, siehe planDayCell(). */
+.cal { display:grid; grid-template-columns:repeat(7,1fr); gap:5px; }
+.cal .wday { flex:none; min-width:0; }
+.cal .wday:disabled { opacity:0.45; cursor:default; }
+.cal .wday.today .wd { color:var(--accent); font-weight:700; }
+.cal .wday.we .dd { color:var(--muted); }
+.kw { display:flex; justify-content:space-between; font-size:11px; font-weight:700;
+  letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin:10px 2px 6px; }
+.kw:first-child { margin-top:0; }
+/* Die Auswahl steht direkt unter der Woche des angetippten Tags; zwischen zwei
+   Wochen ist sie auch unten abgesetzt, die nächste KW-Zeile rückt ohne eigenen
+   Abstand nach. */
+.assign { margin-top:14px; padding-top:12px; border-top:1px solid var(--line); }
+.assign.mid { margin-bottom:14px; padding-bottom:12px; border-bottom:1px solid var(--line); }
+.assign.mid + .kw { margin-top:0; }
+.assign .lab { font-size:12.5px; color:var(--muted); margin-bottom:8px; }
+.assign .lab b { color:var(--ink); font-weight:700; }
+.chips { display:flex; flex-wrap:wrap; gap:6px; }
+.chips button { padding:7px 10px; border-radius:10px; border:1px solid var(--line);
+  background:var(--surface); font-size:12.5px; font-weight:650; display:inline-flex;
+  align-items:center; gap:6px; }
+.chips button.on { background:var(--raise); border-width:1.5px; }
+.chips button.frei { color:var(--muted); }
+/* Zugewiesen gegen Entwurf je Kalenderwoche; die Spaltenzahl kommt inline mit. */
+.wsum { margin-top:14px; display:grid; gap:4px 8px; font-size:12.5px; align-items:center; }
+.wsum .h { font-size:10.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+  color:var(--muted); text-align:right; padding-bottom:4px; }
+.wsum .h.l { text-align:left; }
+.wsum .n { display:flex; align-items:center; gap:7px; font-weight:650; min-width:0; }
+.wsum .n span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.wsum .c { text-align:right; font-weight:700; }
+.wsum .c.ok { color:var(--done); }
+.wsum .c.low { color:var(--muted); }
+.wsum .c.over { color:var(--record); }
 textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radius:13px;
   border:1px solid var(--line); background:var(--surface); font-size:12px;
   font-family:ui-monospace, SFMono-Regular, monospace; }
@@ -815,7 +906,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.22.1";
+var APP_VERSION = "1.23.0";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -1035,7 +1126,10 @@ var DEFAULT_SETTINGS = {
   defSets: DEFAULT_SETS, defReps: 10, defWeight: 20, descOpen: {}, wrapNames: false,
   weekGoals: {}, weekGoalLog: {}, repFirst: true,
   repFirstThresh: 0.05, repSpan: 2, notifySignal: true, vibeLong: false,
-  exHist: true
+  exHist: true,
+  /* Planung: Tag (ISO) auf Planname, siehe planDaysBlock(). In den Einstellungen,
+     damit es ins Backup kommt; der Entwurf daneben bleibt außen vor, siehe DRAFT_KEY. */
+  planDays: {}
 };
 
 /* ---------- Doppelte Progression, 1.13.0 ---------- */
@@ -1084,6 +1178,9 @@ var S = {
   toast:"", pickCat:"", pickGroupBy:"cat", pickMuscle:"", focus:false, pickPlanTarget:"", pickSel:[],
   quickUndo:false, showSummary:false, summaryData:null, summaryReturn:"",
   focusEndConfirm:false, suggestionHandled:{},
+  /* Planung: der Entwurf (eigener Schlüssel, siehe loadDraft()) und der im
+     Zuweisen-Raster angetippte Tag, nur für die Sitzung. */
+  draft:{ plans:{}, extras:[] }, planDaySel:"",
   /* Alles, was an der App als App hängt: Speicherzusage, Belegung, die Fassung
      des ServiceWorkers, ein bereitliegendes Update, die Installierbarkeit.
      Reine Anzeige, nichts davon wird gespeichert oder gesichert. */
@@ -1325,6 +1422,9 @@ function load() {
         });
       });
     }
+    if (st.planDays && typeof st.planDays === "object") {
+      S.settings.planDays = cleanPlanDays(st.planDays);
+    }
   }
   var em = readJson(EXMETA_KEY, null);
   if (em && typeof em === "object") {
@@ -1385,6 +1485,7 @@ function load() {
   });
   if (seedChanged) { S.meta.seeded = seeded; persist(); }
   loadSuggestions();
+  loadDraft();
   repairNote();
 }
 /* Was beim Lesen repariert oder verworfen wurde, kommt einmal als Hinweis oben
@@ -2706,7 +2807,7 @@ function startParams() {
   /* Ein Reiter aus der Adresse schlägt die wiederhergestellte Sitzung, siehe
      restoreSession(): wer die App gezielt über einen Shortcut oder ein geteiltes
      Backup öffnet, will dorthin und nicht in den Fokus-Modus von vorhin. */
-  if (["tag","plaene","verlauf","daten"].indexOf(tab) >= 0) { S.view = tab; startFromUrl = true; }
+  if (["tag","plaene","planung","verlauf","daten"].indexOf(tab) >= 0) { S.view = tab; startFromUrl = true; }
   if (shared) { S.view = "daten"; startFromUrl = true; }
   /* Die Markierung wieder aus der Adresse nehmen, aber den Pfad so lassen, wie
      er ist: wird die App als .../index.html ausgeliefert, führte "./" auf das
@@ -2795,7 +2896,8 @@ function render() {
   var h = '<div class="bar"><div class="bar-top"><div class="brand">' +
     '<i class="hmark" role="img" aria-label="H">' + svg("hantelh", 17) + '</i>antelKladde</div>' +
     '<div class="seg">' + seg("tag","Training","training") + seg("plaene","Pläne","plaene") +
-    seg("verlauf","Verlauf","verlauf") + seg("daten","Daten","daten") +
+    seg("planung","Planung","planung") + seg("verlauf","Verlauf","verlauf") +
+    seg("daten","Daten","daten") +
     '</div></div></div><div class="wrap">';
 
   if (S.storeOk === false) {
@@ -2816,6 +2918,7 @@ function render() {
 
   if (S.view === "tag") h += viewTag();
   else if (S.view === "plaene") h += (S.pickPlanTarget ? viewPicker() : viewPlans());
+  else if (S.view === "planung") h += (S.pickPlanTarget ? viewPicker() : viewPlanung());
   else if (S.view === "verlauf") h += viewHistory();
   else h += viewData();
 
@@ -3048,6 +3151,33 @@ function weekGoalPending() {
     return weekGoal(p) !== lastVal;
   });
 }
+/* Schreibt die aktuellen Wochenziele als Log-Einträge für die laufende Woche fest,
+   siehe weekGoalAt(). Gemeinsam für "Neues Wochenziel speichern" im Pläne-Reiter
+   und "Als Wochenziel übernehmen" in der Planung. Liefert, ob sich etwas getan hat. */
+function writeWeekGoalLog() {
+  var mon = mondayOf(todayISO()), any = false;
+  weekGoalPlans().forEach(function (p) {
+    var val = weekGoal(p);
+    var log = S.settings.weekGoalLog[p] || [];
+    var last = log.length ? log[log.length - 1] : null;
+    if (last && last.value === val) return;
+    /* Ein Plan ohne Ziel und ohne Historie bekommt keinen Eintrag mit Wert 0.
+       Der wäre für die Auswertung wirkungslos (weekGoalAt() > 0) und stünde nur
+       als Ballast in jedem Backup. */
+    if (!val && !last) return;
+    if (!S.settings.weekGoalLog[p]) S.settings.weekGoalLog[p] = log;
+    if (last && last.since === mon) last.value = val;
+    else log.push({ since:mon, value:val });
+    any = true;
+  });
+  return any;
+}
+/* Der in der Planung für einen Tag zugewiesene Plan, leer ohne Zuweisung oder
+   wenn es den Plan nicht mehr gibt, siehe planDaysBlock(). */
+function plannedPlan(iso) {
+  var p = S.settings.planDays[iso];
+  return (p && S.plans[p]) ? p : "";
+}
 function mondayOf(iso) {
   var dow = new Date(iso + "T12:00:00").getDay();
   return shiftISO(iso, -((dow + 6) % 7));
@@ -3193,6 +3323,7 @@ function volUnmapped(fromISO, toISO) {
 var ICONS = {
   training:'<g transform="rotate(-45 12 12)"><path d="M2.8 12h18.4"/><path d="M8 7.8v8.4M16 7.8v8.4M5.4 9.6v4.8M18.6 9.6v4.8"/></g>',
   plaene:'<path d="M9.2 4.8H7.4A2.4 2.4 0 0 0 5 7.2v11.4A2.4 2.4 0 0 0 7.4 21h9.2a2.4 2.4 0 0 0 2.4-2.4V7.2a2.4 2.4 0 0 0-2.4-2.4h-1.8"/><rect x="8.4" y="3" width="7.2" height="4" rx="1.7"/><path d="M8.6 11.6h6.8M8.6 14.8h6.8M8.6 18h4"/>',
+  planung:'<rect x="4" y="5" width="16" height="16" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/><path d="M9 15.6l2 2 4-4.2"/>',
   verlauf:'<path d="M4 4v16h16"/><path d="M7 15l4-5 3 3 5-6"/>',
   daten:'<path d="M7 10h3V7L6.5 3.5a6 6 0 0 1 8 8l6 6a2 2 0 0 1-3 3l-6-6a6 6 0 0 1-8-8L7 10z"/>',
   hell:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/>',
@@ -3267,6 +3398,9 @@ function weekStrip() {
     var dt = new Date(d + "T12:00:00");
     var wd = ["So","Mo","Di","Mi","Do","Fr","Sa"][dt.getDay()];
     var dp = dayPlan(d);
+    /* In der Planung zugewiesen und noch nicht als voll absolviert erkannt: leerer
+       Ring in der Planfarbe, der Punkt danach kommt aus dayPlan() wie bisher. */
+    var planned = plannedPlan(d);
     var cls = "wday" + (d === S.date ? " on" : "");
     var dot = "";
     if (dp && dp.planDone) {
@@ -3274,12 +3408,16 @@ function weekStrip() {
       dot = ' style="background:' + planColor(dp.plan) + '"';
     } else if (dp && dp.done) {
       cls += " has";
+    } else if (planned) {
+      cls += " plan";
+      dot = ' style="border-color:' + planColor(planned) + '"';
     } else if (dp) {
       cls += " part";
     }
+    var tip = dp ? esc(dp.plan ? dp.plan : "Training") + ', ' + dp.total + ' Übungen' : "";
+    if (planned && !(dp && dp.planDone)) tip += (tip ? ", " : "") + "geplant: " + esc(planned);
     cells += '<button class="' + cls + '" data-act="pickday" data-v="' + d + '"' +
-      (dp ? ' title="' + esc(dp.plan ? dp.plan : "Training") + ', ' + dp.total +
-        ' Übungen"' : "") + '>' +
+      (tip ? ' title="' + tip + '"' : "") + '>' +
       '<span class="wd">' + wd + '</span><span class="dd">' + dt.getDate() + '</span>' +
       '<span class="dot"' + dot + '></span></button>';
   }
@@ -3477,11 +3615,14 @@ function exBars(name) {
 function exCard(n, opts) {
   opts = opts || {};
   var planCheck = opts.multi ? opts.plan : S.plan;
-  var inPlan = !!(planCheck && S.plans[planCheck] &&
+  /* Ziel Entwurf (Planung): "im Plan" heißt hier "schon als einzelne Übung drin" */
+  var inDraft = !!(opts.multi && planCheck === DRAFT_TARGET &&
+    S.draft.extras.some(function (x) { return x.name === n; }));
+  var inPlan = inDraft || !!(planCheck && S.plans[planCheck] &&
     S.plans[planCheck].some(function (i) { return i.name === n; }));
   var ls = lastSession(n, null), flat = plateau(n);
   var bars = exBars(n);
-  var tag = inPlan ? "IM PLAN" : catOf(n).toUpperCase();
+  var tag = inDraft ? "IM ENTWURF" : (inPlan ? "IM PLAN" : catOf(n).toUpperCase());
   /* Steht die Gruppe schon in der Abschnittsüberschrift darüber (aktive Kategorie-
      oder Muskel-Pille, keine Suche), wäre sie auf jeder Karte noch einmal doppelt. */
   var showTag = inPlan || !opts.hideTag || catOf(n) !== opts.hideTag;
@@ -3550,7 +3691,10 @@ function viewPicker() {
   var h = '<div class="pkhead">' +
     '<button data-act="' + (multi ? "pickmulticlose" : "pickclose") +
     '" aria-label="Zurück">' + svg("zurueck", 22) + '</button><b>' +
-    (multi ? "Für " + esc(S.pickPlanTarget) + " wählen" : "Übung wählen") +
+    (multi
+      ? (S.pickPlanTarget === DRAFT_TARGET ? "Für den Entwurf wählen"
+        : "Für " + esc(S.pickPlanTarget) + " wählen")
+      : "Übung wählen") +
     '</b></div>';
   h += '<div class="seg2">' +
     '<button class="' + (byMuscle ? "" : "on") + '" data-act="pickgroupby" data-v="cat">' +
@@ -4177,31 +4321,100 @@ function viewSummary() {
    wie volByMuscle(): Primärmuskel voll, jeder Sekundärmuskel halb. Ein Plan mit
    Wochenziel geht so oft ein, wie er pro Woche vorgesehen ist, ohne Ziel einmal.
    Ausgeblendete Pläne bleiben außen vor, die werden gerade nicht trainiert. */
+/* Sätze je Muskelgruppe aus einer Liste von Quellen, jede mit Übungen (name,
+   sets) und einer Häufigkeit pro Woche. Zählt wie volByMuscle(): Primärmuskel
+   voll, jeder Sekundärmuskel halb. Gemeinsame Rechnung für den Pläne-Reiter
+   (Pläne mit Wochenziel, siehe planMuscleBlock()) und die Planung (Entwurf mit
+   einzelnen Übungen, siehe draftMuscleBlock()). */
+function muscleTally(sources) {
+  var by = {}, unassigned = [];
+  MUSCLE_LIST.forEach(function (m) { by[m] = { total:0, src:{} }; });
+  sources.forEach(function (sc) {
+    sc.items.forEach(function (i) {
+      var mo = muscleOf(i.name);
+      if (!mo) { if (unassigned.indexOf(i.name) < 0) unassigned.push(i.name); return; }
+      var n = (i.sets > 0 ? i.sets : defaultSets()) * sc.times;
+      by[mo.primary].total += n;
+      by[mo.primary].src[sc.key] = (by[mo.primary].src[sc.key] || 0) + n;
+      mo.secondary.forEach(function (sm) {
+        by[sm].total += n * 0.5;
+        by[sm].src[sc.key] = (by[sm].src[sc.key] || 0) + n * 0.5;
+      });
+    });
+  });
+  return { by:by, unassigned:unassigned };
+}
+/* Karte mit gestapelten Balken je Muskelgruppe in den Farben der Quellen, Legende,
+   Gegenspieler-Paare und der Liste der Übungen ohne Zuordnung.
+   opts.showZero: Gruppen ohne Satz rot mit aufführen statt weglassen (Planung).
+   opts.flagRatio: ein Paar rot markieren, sobald eine Seite so viel mal mehr hat
+   als die andere oder ganz leer ausgeht (Planung). Ohne beides genau die Karte,
+   die der Pläne-Reiter seit 1.21.0 zeigt. */
+function muscleBars(res, sources, opts) {
+  var by = res.by;
+  var groups = MUSCLE_LIST.filter(function (m) { return opts.showZero || by[m].total > 0; });
+  var max = Math.max.apply(null, MUSCLE_LIST.map(function (m) { return by[m].total; })) || 1;
+  var h = '<div class="card"><div class="vol bymuscle" style="margin-top:0">';
+  groups.forEach(function (m) {
+    h += '<div class="volrow' + (by[m].total ? "" : " zero") + '"><span class="vn">' +
+      esc(m) + '</span><div class="vb stack">' +
+      sources.filter(function (sc) { return by[m].src[sc.key]; }).map(function (sc) {
+        return '<i style="width:' + (by[m].src[sc.key] / max * 100).toFixed(1) +
+          '%;background:' + sc.color + '" title="' + esc(sc.label) + ': ' +
+          fmtCount(by[m].src[sc.key]) + '"></i>';
+      }).join("") + '</div>' +
+      '<span class="vv">' + fmtCount(by[m].total) + '</span></div>';
+  });
+  h += '</div>' +
+    '<div class="planlegend">' + sources.map(function (sc) {
+      return '<span><span class="pdot" style="background:' + sc.color + '"></span>' +
+        esc(sc.label) + (sc.times > 1 ? ' ×' + sc.times : '') + '</span>';
+    }).join("") + '</div>';
+  /* Dieselben Gegenspieler-Paare wie die Warnung im Verlauf. Im Pläne-Reiter nur
+     als Zahlenpaar ohne Schwelle: die Planung soll das Verhältnis zeigen, bewerten
+     kann man es erst am tatsächlichen Training. Der Entwurf markiert ab flagRatio,
+     dort geht es um genau die Frage, ob der Mix aufgeht. */
+  var pairs = MUSCLE_PAIRS.filter(function (pr) {
+    return by[pr[0]].total > 0 || by[pr[1]].total > 0;
+  });
+  if (pairs.length) {
+    var flagged = 0;
+    h += '<p class="pairline">' + pairs.map(function (pr) {
+      var a = by[pr[0]].total, b = by[pr[1]].total, off = false;
+      if (opts.flagRatio) off = !a || !b || a / b >= opts.flagRatio || b / a >= opts.flagRatio;
+      if (off) flagged++;
+      return esc(pr[0]) + ' zu ' + esc(pr[1]) + ' <b' + (off ? ' class="off"' : "") + '>' +
+        fmtCount(a) + ' : ' + fmtCount(b) + '</b>';
+    }).join('<br>') +
+      (flagged ? '<span class="why">Rot ab ' + fmtCount(opts.flagRatio) +
+        ' : 1 oder wenn eine Seite leer ausgeht.</span>' : "") + '</p>';
+  }
+  if (opts.showZero) {
+    var zero = MUSCLE_LIST.filter(function (m) { return !by[m].total; });
+    if (zero.length) {
+      h += '<p class="pairline">Ohne Satz im Entwurf: ' + zero.map(esc).join(', ') + '.</p>';
+    }
+  }
+  if (res.unassigned.length) {
+    h += '<p class="pairline">Ohne Muskelgruppe, hier nicht gezählt: ' +
+      res.unassigned.map(esc).join(', ') + '. Zuordnen lässt sich das unter Daten, ' +
+      'Muskelgruppen.</p>';
+  }
+  return h + '</div>';
+}
 function planMuscleBlock() {
   /* Nur Pläne mit einem aktiven Wochenziel (mind. 1): ein sichtbarer Plan ohne
      Ziel wird nicht notwendig regelmäßig trainiert, seine Sätze in die Summe
      zu rechnen würde eine Regelmäßigkeit vorspiegeln, die es nicht gibt. Wer
-     hier auftauchen will, setzt sein Wochenziel. */
+     hier auftauchen will, setzt sein Wochenziel. Wer nur nachsehen will, wie ein
+     anderer Mix aussähe, nimmt den Reiter Planung. */
   var plans = visiblePlans().filter(function (p) {
     return S.plans[p] && S.plans[p].length && weekGoal(p) > 0;
   });
-  var by = {}, unassigned = [];
-  MUSCLE_LIST.forEach(function (m) { by[m] = { total:0, plans:{} }; });
-  plans.forEach(function (p) {
-    var times = weekGoal(p);
-    S.plans[p].forEach(function (i) {
-      var mo = muscleOf(i.name);
-      if (!mo) { if (unassigned.indexOf(i.name) < 0) unassigned.push(i.name); return; }
-      var n = (i.sets > 0 ? i.sets : defaultSets()) * times;
-      by[mo.primary].total += n;
-      by[mo.primary].plans[p] = (by[mo.primary].plans[p] || 0) + n;
-      mo.secondary.forEach(function (sm) {
-        by[sm].total += n * 0.5;
-        by[sm].plans[p] = (by[sm].plans[p] || 0) + n * 0.5;
-      });
-    });
+  var sources = plans.map(function (p) {
+    return { key:p, label:p, color:planColor(p), times:weekGoal(p), items:S.plans[p] };
   });
-  var groups = MUSCLE_LIST.filter(function (m) { return by[m].total > 0; });
+  var res = muscleTally(sources);
   var open = secOpen("plansets");
   var h = '<div class="sect"><h2>Sätze je Muskelgruppe' + infoBtn("plansets") + '</h2>' +
     secFold("plansets", "pro Woche") + '</div>' +
@@ -4209,51 +4422,18 @@ function planMuscleBlock() {
       'einem Wochenziel, gezählt wie im Verlauf: Primärmuskel voll, Sekundärmuskel halb, ' +
       'jeder Plan so oft wie sein Wochenziel es vorsieht. Pläne ohne Wochenziel oder ' +
       'ausgeblendete Pläne fehlen, sie laufen ja nicht notwendig regelmäßig. Der Balken ' +
-      'zeigt in den Planfarben, welcher Plan wie viel beiträgt.</p>');
+      'zeigt in den Planfarben, welcher Plan wie viel beiträgt. Einen anderen Mix ' +
+      'durchspielen, ohne die Wochenziele anzufassen, geht im Reiter Planung.</p>');
   if (!open) return h;
   if (!plans.length) {
     return h + '<p class="notice">Kein eingeblendeter Plan hat ein Wochenziel. Unter ' +
       'Wochenziele oben lässt sich eines setzen.</p>';
   }
-  if (!groups.length) {
+  if (!MUSCLE_LIST.some(function (m) { return res.by[m].total > 0; })) {
     return h + '<p class="notice">Kein eingeblendeter Plan mit Wochenziel enthält eine ' +
       'Übung mit Muskelgruppe.</p>';
   }
-  var max = Math.max.apply(null, groups.map(function (m) { return by[m].total; })) || 1;
-  h += '<div class="card"><div class="vol bymuscle" style="margin-top:0">';
-  groups.forEach(function (m) {
-    h += '<div class="volrow"><span class="vn">' + esc(m) + '</span>' +
-      '<div class="vb stack">' +
-      plans.filter(function (p) { return by[m].plans[p]; }).map(function (p) {
-        return '<i style="width:' + (by[m].plans[p] / max * 100).toFixed(1) +
-          '%;background:' + planColor(p) + '" title="' + esc(p) + ': ' +
-          fmtCount(by[m].plans[p]) + '"></i>';
-      }).join("") + '</div>' +
-      '<span class="vv">' + fmtCount(by[m].total) + '</span></div>';
-  });
-  h += '</div>' +
-    '<div class="planlegend">' + plans.map(function (p) {
-      return '<span><span class="pdot" style="background:' + planColor(p) + '"></span>' +
-        esc(p) + (weekGoal(p) > 1 ? ' ×' + weekGoal(p) : '') + '</span>';
-    }).join("") + '</div>';
-  /* Dieselben Gegenspieler-Paare wie die Warnung im Verlauf, hier nur als
-     Zahlenpaar ohne Schwelle: die Planung soll das Verhältnis zeigen, bewerten
-     kann man es erst am tatsächlichen Training. */
-  var pairs = MUSCLE_PAIRS.filter(function (pr) {
-    return by[pr[0]].total > 0 || by[pr[1]].total > 0;
-  });
-  if (pairs.length) {
-    h += '<p class="pairline">' + pairs.map(function (pr) {
-      return esc(pr[0]) + ' zu ' + esc(pr[1]) + ' <b>' + fmtCount(by[pr[0]].total) +
-        ' : ' + fmtCount(by[pr[1]].total) + '</b>';
-    }).join('<br>') + '</p>';
-  }
-  if (unassigned.length) {
-    h += '<p class="pairline">Ohne Muskelgruppe, hier nicht gezählt: ' +
-      unassigned.map(esc).join(', ') + '. Zuordnen lässt sich das unter Daten, ' +
-      'Muskelgruppen.</p>';
-  }
-  return h + '</div>';
+  return h + muscleBars(res, sources, {});
 }
 function viewPlans() {
   var h = '<div class="sect"><h2>Wochenziele' + infoBtn("wochenziele") + '</h2></div>' +
@@ -4365,6 +4545,325 @@ function viewPlans() {
     'Pläne auf Ausgangsstand zurücksetzen</button></div>' +
     "";
   return h;
+}
+
+/* ---------- Planung, Reiter 5, 1.23.0 ---------- */
+/* Der Pläne-Reiter rechnet die Sätze je Muskelgruppe aus dem, was gespeichert
+   ist. Wer wissen wollte, wie ein anderer Mix aussähe, musste dort die
+   Wochenziele umstellen und ein neues Wochenziel speichern - ein Eintrag in der
+   Historie, nur zum Nachsehen. Die Planung rechnet stattdessen auf einem
+   Entwurf: welche Pläne wie oft, dazu einzelne Übungen außerhalb der Pläne. Erst
+   "Als Wochenziel übernehmen" schreibt etwas in die Wochenziele.
+
+   Der Entwurf ist kein Datenbestand und liegt deshalb unter einem eigenen
+   Schlüssel statt in S.settings, wie Pausentimer und Sitzung - er gehört nicht
+   ins Backup. Anders als die Sitzung verfällt er nicht: wer abends plant, findet
+   ihn morgens wieder. Leer heißt: die aktuellen Wochenziele, siehe draftEntry().
+
+   Darunter lassen sich die Pläne des Entwurfs auf Tage der nächsten zwei Wochen
+   legen. Das ist ein Vorhaben und gehört ins Backup, deshalb S.settings.planDays.
+   Im Wochenstreifen des Trainings steht so ein Tag als leerer Ring in der
+   Planfarbe, bis der Plan dort als voll absolviert gilt, siehe weekStrip(). */
+var DRAFT_KEY = "kraftlog:entwurf";
+/* Ziel der Mehrfachauswahl (pickmulti), wenn Übungen in den Entwurf statt in
+   einen Plan sollen. Das führende Leerzeichen kann kein Planname tragen: addplan
+   und cleanName() trimmen. */
+var DRAFT_TARGET = " Entwurf";
+var DRAFT_MAX_TIMES = 7, DRAFT_MAX_SETS = 12;
+/* Ab diesem Verhältnis der Sätze zwischen zwei Gegenspielern wird das Paar im
+   Entwurf rot, siehe muscleBars(). Für das tatsächliche Training gilt im Verlauf
+   eine eigene Regel (imbalanceFlags), hier geht es um den Plan. */
+var DRAFT_PAIR_RATIO = 1.5;
+/* Zugewiesene Tage älter als vier Wochen fallen beim Laden weg: die Zuweisung
+   sagt, was vorhat, nicht, was war - dafür gibt es die Sätze. */
+var PLAN_DAYS_KEEP = 28;
+var PLAN_DAYS_SPAN = 14;
+
+/* Der Eintrag eines Plans im Entwurf. Ohne eigenen Eintrag gilt das Wochenziel:
+   an, wenn eines gesetzt ist, so oft wie dort. Ein leerer Entwurf zeigt damit
+   genau das, was der Pläne-Reiter zeigt. */
+function draftEntry(p) {
+  var e = S.draft.plans[p];
+  if (e) return e;
+  var g = weekGoal(p);
+  return { on:g > 0, times:g || 1 };
+}
+function draftPlans() {
+  return Object.keys(S.plans).filter(function (p) {
+    return S.plans[p].length && draftEntry(p).on;
+  });
+}
+/* Weicht der Entwurf bei einem Plan von den Wochenzielen ab? Steuert den Knopf
+   "Als Wochenziel übernehmen". */
+function draftChanged() {
+  return Object.keys(S.plans).some(function (p) {
+    var e = draftEntry(p);
+    return (e.on ? e.times : 0) !== weekGoal(p);
+  });
+}
+function saveDraft() { persistKey(DRAFT_KEY, S.draft); }
+/* Beim Start. Was nicht passt, fällt still weg: der Entwurf ist kein Datenbestand,
+   und ohne Eintrag gelten die Wochenziele. */
+function loadDraft() {
+  var d = readJson(DRAFT_KEY, null);
+  if (!d || typeof d !== "object" || Array.isArray(d)) return;
+  if (d.plans && typeof d.plans === "object") {
+    Object.keys(d.plans).forEach(function (p) {
+      var e = d.plans[p];
+      if (!safeObjectKey(p) || !e || typeof e !== "object" || typeof e.on !== "boolean") return;
+      if (!Number.isInteger(e.times) || e.times < 1 || e.times > DRAFT_MAX_TIMES) return;
+      S.draft.plans[p] = { on:e.on, times:e.times };
+    });
+  }
+  if (Array.isArray(d.extras)) {
+    d.extras.forEach(function (x) {
+      if (!x || typeof x !== "object" || typeof x.name !== "string" || !x.name) return;
+      if (!Number.isInteger(x.sets) || x.sets < 1 || x.sets > DRAFT_MAX_SETS) return;
+      if (!Number.isInteger(x.times) || x.times < 1 || x.times > DRAFT_MAX_TIMES) return;
+      if (S.draft.extras.some(function (y) { return y.name === x.name; })) return;
+      S.draft.extras.push({ name:x.name, sets:x.sets, times:x.times });
+    });
+  }
+}
+/* Zugewiesene Tage aus dem Speicher oder einem Backup: nur gültige Daten mit
+   einem Plannamen und nichts, was älter als PLAN_DAYS_KEEP ist. Ob es den Plan
+   noch gibt, entscheidet erst die Anzeige (plannedPlan()), ein Backup kann den
+   Plan noch nachliefern. */
+function cleanPlanDays(src) {
+  var out = {}, floor = shiftISO(todayISO(), -PLAN_DAYS_KEEP);
+  Object.keys(src).forEach(function (d) {
+    if (!validISODate(d) || d < floor) return;
+    var p = src[d];
+    if (typeof p !== "string" || !p.trim() || !safeObjectKey(p)) return;
+    out[d] = p;
+  });
+  return out;
+}
+
+/* Minus, Wert, Plus in einer Zeile, für Häufigkeit und Sätze im Entwurf. Die
+   Knöpfe tragen data-act, data-v und optional data-f, dazu data-d mit -1 oder 1. */
+function stepper(act, v, f, val, min, max, unit) {
+  var attrs = ' data-act="' + act + '" data-v="' + esc(v) + '"' +
+    (f ? ' data-f="' + f + '"' : "");
+  return '<span class="step">' +
+    '<button' + attrs + ' data-d="-1"' + (val <= min ? " disabled" : "") +
+    ' aria-label="weniger">−</button>' +
+    '<b>' + val + (unit ? ' <small>' + unit + '</small>' : "") + '</b>' +
+    '<button' + attrs + ' data-d="1"' + (val >= max ? " disabled" : "") +
+    ' aria-label="mehr">+</button></span>';
+}
+function draftBlock() {
+  var names = Object.keys(S.plans);
+  var h = '<div class="sect"><h2>Entwurf' + infoBtn("entwurf") + '</h2></div>' +
+    descText("entwurf", '<p class="notice">Welche Pläne wie oft pro Woche laufen sollen. ' +
+      'Vorbelegt mit den aktuellen Wochenzielen. Was hier steht, bleibt ein Entwurf und ' +
+      'ändert kein Wochenziel, bis unten „Als Wochenziel übernehmen“ gedrückt wird. ' +
+      'Ausgeblendete Pläne stehen mit dabei, damit sie sich einplanen lassen, ohne sie ' +
+      'erst einzublenden.</p>') +
+    '<div class="card" style="padding:0">';
+  if (!names.length) h += '<div class="dempty">Noch kein Plan angelegt.</div>';
+  names.forEach(function (p) {
+    var e = draftEntry(p);
+    h += '<div class="drow' + (e.on ? "" : " off") + '">' +
+      '<button class="tog" role="switch" aria-checked="' + (e.on ? "true" : "false") +
+      '" data-act="drafttoggle" data-v="' + esc(p) + '" aria-label="' + esc(p) +
+      ' im Entwurf">' + svg("haken", 14) + '</button>' +
+      '<div class="nm"><span class="pdot" style="background:' + planColor(p) + '"></span>' +
+      '<span class="t">' + esc(p) + '</span>' +
+      (planHidden(p) ? '<s>ausgeblendet</s>' : "") + '</div>' +
+      stepper("draftstep", p, "", e.times, 1, DRAFT_MAX_TIMES, "/Wo") + '</div>';
+  });
+  return h + '</div>';
+}
+function draftExtrasBlock() {
+  var xs = S.draft.extras;
+  var h = '<div class="sect"><h2>Einzelne Übungen' + infoBtn("entwurfextras") + '</h2>' +
+    (xs.length ? '<span>' + xs.length + (xs.length === 1 ? " Übung" : " Übungen") +
+      '</span>' : "") + '</div>' +
+    descText("entwurfextras", '<p class="notice">Übungen, die in keinem der gewählten ' +
+      'Pläne stehen, aber mitgerechnet werden sollen, etwa um zu sehen, was eine Gruppe ' +
+      'noch braucht. Zählen mit Satzzahl mal Häufigkeit und stehen in den Balken petrol. ' +
+      'Wer eine behalten will, nimmt sie unter Pläne in einen Plan auf, der Entwurf ' +
+      'ersetzt keinen Plan.</p>') +
+    '<div class="card" style="padding:0">';
+  if (!xs.length) h += '<div class="dempty">Noch keine einzelne Übung im Entwurf.</div>';
+  xs.forEach(function (x, i) {
+    var mo = muscleOf(x.name);
+    var mm = mo
+      ? esc(mo.primary) + (mo.secondary.length ? ", halb " + mo.secondary.map(esc).join(", ") : "")
+      : "ohne Muskelgruppe";
+    h += '<div class="xrow"><div class="xtop">' +
+      '<span class="pdot" style="background:var(--extra)"></span>' +
+      '<span class="nm">' + esc(x.name) + '</span><span class="mm">' + mm + '</span>' +
+      '<button class="xdel" data-act="draftxdel" data-v="' + i + '" aria-label="' +
+      esc(x.name) + ' aus dem Entwurf nehmen">' + svg("kreuz", 13) + '</button></div>' +
+      '<div class="xsteps"><label>Sätze ' +
+      stepper("draftxstep", String(i), "sets", x.sets, 1, DRAFT_MAX_SETS, "") + '</label>' +
+      '<label>pro Woche ' +
+      stepper("draftxstep", String(i), "times", x.times, 1, DRAFT_MAX_TIMES, "") +
+      '</label></div></div>';
+  });
+  h += '</div><div class="tools"><button class="wide" data-act="pickmulti" data-v="' +
+    esc(DRAFT_TARGET) + '">Übung hinzufügen</button></div>';
+  return h;
+}
+/* Quellen für muscleTally(): die Pläne des Entwurfs mit ihrer Häufigkeit, dazu die
+   einzelnen Übungen als eine Quelle, jede schon mit Sätzen mal Häufigkeit. */
+function draftSources() {
+  var src = draftPlans().map(function (p) {
+    return { key:p, label:p, color:planColor(p), times:draftEntry(p).times, items:S.plans[p] };
+  });
+  if (S.draft.extras.length) {
+    src.push({ key:DRAFT_TARGET, label:"Einzelne Übungen", color:"var(--extra)", times:1,
+      items:S.draft.extras.map(function (x) { return { name:x.name, sets:x.sets * x.times }; }) });
+  }
+  return src;
+}
+function draftMuscleBlock() {
+  var sources = draftSources();
+  var h = '<div class="sect"><h2>Sätze je Muskelgruppe' + infoBtn("entwurfsaetze") + '</h2>' +
+    '<span>pro Woche</span></div>' +
+    descText("entwurfsaetze", '<p class="notice">Wochensumme über den Entwurf, gezählt wie ' +
+      'im Verlauf: Primärmuskel voll, Sekundärmuskel halb, jeder Plan so oft wie oben ' +
+      'eingestellt. Gruppen ohne einen Satz stehen rot mit dabei. Ein Gegenspieler-Paar ' +
+      'wird rot, sobald eine Seite mindestens anderthalb mal so viele Sätze hat wie die ' +
+      'andere oder ganz leer ausgeht.</p>');
+  if (!sources.length) return h + '<p class="notice">Kein Plan und keine Übung im Entwurf.</p>';
+  return h + muscleBars(muscleTally(sources), sources,
+    { showZero:true, flagRatio:DRAFT_PAIR_RATIO });
+}
+
+/* Die 14 Tage ab heute in Kalenderwochen, Montag bis Sonntag: die laufende Woche
+   von ihrem Montag an, dann so viele Wochen, bis der 14. Tag drin ist. */
+function planWeeks() {
+  var td = todayISO(), last = shiftISO(td, PLAN_DAYS_SPAN - 1);
+  var weeks = [], mon = mondayOf(td);
+  while (mon <= last) {
+    var days = [];
+    for (var i = 0; i < 7; i++) days.push(shiftISO(mon, i));
+    weeks.push({ monday:mon, days:days });
+    mon = shiftISO(mon, 7);
+  }
+  return weeks;
+}
+/* ISO-Kalenderwoche: der Donnerstag derselben Woche bestimmt das Jahr. */
+function isoWeekNo(iso) {
+  var d = new Date(iso + "T12:00:00Z");
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7) + 3);
+  var first = new Date(Date.UTC(d.getUTCFullYear(), 0, 4));
+  return 1 + Math.round(((d - first) / 86400000 - 3 + ((first.getUTCDay() + 6) % 7)) / 7);
+}
+var WEEKDAY_SHORT = ["So","Mo","Di","Mi","Do","Fr","Sa"];
+function planDayLabel(iso) {
+  var dt = new Date(iso + "T12:00:00");
+  return WEEKDAY_SHORT[dt.getDay()] + " " + dt.getDate() + "." + (dt.getMonth() + 1) + ".";
+}
+/* Eine Zelle im Zuweisen-Raster, dieselbe Optik wie der Wochenstreifen: gefüllter
+   Punkt für einen absolvierten Tag, leerer Ring in der Planfarbe für einen
+   zugewiesenen. Tage vor heute und hinter dem 14. sind nicht wählbar. */
+function planDayCell(d, td, last, sel) {
+  var dt = new Date(d + "T12:00:00"), wd = WEEKDAY_SHORT[dt.getDay()];
+  var out = d < td || d > last;
+  var planned = plannedPlan(d);
+  var dp = d <= td ? dayPlan(d) : null;
+  var cls = "wday" + (d === sel ? " on" : "") + (d === td ? " today" : "") +
+    (wd === "Sa" || wd === "So" ? " we" : "");
+  var dot = "";
+  if (dp && dp.planDone) {
+    cls += " has";
+    dot = ' style="background:' + planColor(dp.plan) + '"';
+  } else if (dp && dp.done) {
+    cls += " has";
+  } else if (planned) {
+    cls += " plan";
+    dot = ' style="border-color:' + planColor(planned) + '"';
+  }
+  var tip = planned ? esc(planned) : (out ? "" : "frei");
+  return '<button class="' + cls + '"' +
+    (out ? ' disabled' : ' data-act="planday" data-v="' + d + '"') +
+    (tip ? ' title="' + tip + '"' : "") + '>' +
+    '<span class="wd">' + wd + '</span><span class="dd">' + dt.getDate() + '</span>' +
+    '<span class="dot"' + dot + '></span></button>';
+}
+function assignPanel(sel, plans, mid) {
+  var cur = plannedPlan(sel);
+  var h = '<div class="assign' + (mid ? " mid" : "") + '"><div class="lab"><b>' +
+    planDayLabel(sel) + '</b>' + (cur ? ', ' + esc(cur) : ', frei') + '</div>' +
+    '<div class="chips">' +
+    plans.map(function (p) {
+      return '<button class="' + (cur === p ? "on" : "") + '" data-act="planassign" data-v="' +
+        esc(p) + '"' + (cur === p ? ' style="border-color:' + planColor(p) + '"' : "") + '>' +
+        '<span class="pdot" style="background:' + planColor(p) + '"></span>' + esc(p) +
+        '</button>';
+    }).join("") +
+    '<button class="frei' + (cur ? "" : " on") + '" data-act="planassign" data-v="">Frei' +
+    '</button></div>';
+  if (!plans.length) {
+    h += '<p class="pairline" style="margin-top:8px">Kein Plan im Entwurf. Oben einen ' +
+      'einschalten, dann lässt er sich hier zuweisen.</p>';
+  }
+  return h + '</div>';
+}
+function planDaysBlock() {
+  var td = todayISO(), last = shiftISO(td, PLAN_DAYS_SPAN - 1);
+  var weeks = planWeeks();
+  var sel = S.planDaySel;
+  if (!sel || sel < td || sel > last) sel = S.planDaySel = td;
+  var plans = draftPlans(), cur = plannedPlan(sel);
+  /* Ein zugewiesener Plan, der nicht (mehr) im Entwurf steht, bleibt wählbar,
+     sonst ließe er sich an diesem Tag nur noch auf Frei setzen. */
+  var choices = (cur && plans.indexOf(cur) < 0) ? plans.concat([cur]) : plans;
+  var h = '<div class="sect"><h2>Zuweisen' + infoBtn("zuweisen") + '</h2>' +
+    '<span>' + tinyDate(td) + ' bis ' + tinyDate(last) + '</span></div>' +
+    descText("zuweisen", '<p class="notice">Tag antippen, die Auswahl erscheint direkt ' +
+      'unter seiner Woche. Ein Tag trägt höchstens einen Plan, gespeichert wird beim ' +
+      'Antippen. Zugewiesene Tage stehen im Wochenstreifen des Trainings als leerer Ring ' +
+      'in der Planfarbe, der sich nach dem Training füllt. Die Tabelle zeigt je ' +
+      'Kalenderwoche, wie oft ein Plan zugewiesen ist, gegen die Häufigkeit aus dem ' +
+      'Entwurf: grün passt, grau fehlt noch, rot ist mehr.</p>') +
+    '<div class="card">';
+  weeks.forEach(function (w, wi) {
+    h += '<div class="kw"><span>KW ' + isoWeekNo(w.monday) + '</span>' +
+      (wi === 0 ? '<span>heute ' + tinyDate(td) + '</span>' : "") + '</div>' +
+      '<div class="cal">' + w.days.map(function (d) {
+        return planDayCell(d, td, last, sel);
+      }).join("") + '</div>';
+    if (w.days.indexOf(sel) >= 0) h += assignPanel(sel, choices, wi < weeks.length - 1);
+  });
+  if (plans.length) {
+    h += '<div class="wsum" style="grid-template-columns:1fr repeat(' + weeks.length +
+      ',56px)"><span class="h l">Zugewiesen / Entwurf</span>' +
+      weeks.map(function (w) {
+        return '<span class="h">KW ' + isoWeekNo(w.monday) + '</span>';
+      }).join("");
+    plans.forEach(function (p) {
+      var goal = draftEntry(p).times;
+      h += '<div class="n"><span class="pdot" style="background:' + planColor(p) + '"></span>' +
+        '<span>' + esc(p) + '</span></div>';
+      weeks.forEach(function (w) {
+        var n = w.days.filter(function (d) { return S.settings.planDays[d] === p; }).length;
+        h += '<span class="c ' + (n === goal ? "ok" : (n < goal ? "low" : "over")) + '">' +
+          n + ' / ' + goal + '</span>';
+      });
+    });
+    h += '</div>';
+  }
+  return h + '</div>';
+}
+function draftToolsBlock() {
+  var stored = Object.keys(S.draft.plans).length > 0 || S.draft.extras.length > 0;
+  return '<div class="sect"><h2>Übernehmen</h2></div>' +
+    '<div class="tools">' +
+    '<button' + (draftChanged() ? "" : " disabled") + ' data-act="drafttake" ' +
+    'title="Schreibt die Häufigkeiten aus dem Entwurf als Wochenziele fest, wie der Knopf ' +
+    'Neues Wochenziel speichern unter Pläne">Als Wochenziel übernehmen</button>' +
+    '<button' + (stored ? "" : " disabled") + ' data-act="draftreset" ' +
+    'title="Setzt den Entwurf auf die aktuellen Wochenziele zurück und nimmt die ' +
+    'einzelnen Übungen heraus">Entwurf verwerfen</button></div>';
+}
+function viewPlanung() {
+  return draftBlock() + draftExtrasBlock() + draftMuscleBlock() + planDaysBlock() +
+    draftToolsBlock();
 }
 
 /* Last je Muskelgruppe für 7, 30 oder 90 Tage, wählbar über den Zeitraum-Schalter.
@@ -5692,6 +6191,14 @@ function mergeSettings(src) {
       if (clean.length) st.weekGoalLog[k] = clean;
     });
   }
+  /* Zugewiesene Tage: nur Tage, die hier noch frei sind, und nichts Altes,
+     siehe cleanPlanDays(). */
+  if (src.planDays && typeof src.planDays === "object") {
+    var pdays = cleanPlanDays(src.planDays);
+    Object.keys(pdays).forEach(function (d) {
+      if (st.planDays[d] == null) st.planDays[d] = pdays[d];
+    });
+  }
 }
 
 /* ---------- Sichere Backup-Prüfung, 1.13.6 ---------- */
@@ -5925,6 +6432,14 @@ function cleanSettings(src) {
         }
         return { since:x.since, value:x.value };
       }).sort(function (a, b) { return a.since < b.since ? -1 : (a.since > b.since ? 1 : 0); });
+    });
+  }
+  if (src.planDays != null) {
+    if (!plainObject(src.planDays)) importError("Zugewiesene Tage sind ungültig.");
+    out.planDays = {};
+    Object.keys(src.planDays).forEach(function (d) {
+      if (!validISODate(d)) importError("Ein zugewiesener Tag hat ein ungültiges Datum.");
+      out.planDays[d] = cleanName(src.planDays[d], "Ein zugewiesener Tag");
     });
   }
   return out;
@@ -6167,9 +6682,18 @@ document.addEventListener("click", function (ev) {
     S.pickOpen = false; S.pickPlanTarget = ""; S.pickSel = []; S.search = "";
   }
   else if (act === "pickmultidone") {
-    var mplan = S.pickPlanTarget;
+    var mplan = S.pickPlanTarget, mdraft = mplan === DRAFT_TARGET;
     var addedN = 0, alreadyN = 0;
-    if (mplan && S.plans[mplan]) {
+    if (mdraft) {
+      /* In den Entwurf der Planung statt in einen Plan, siehe draftExtrasBlock():
+         mit der Standard-Satzzahl, einmal pro Woche, beides dort änderbar. */
+      S.pickSel.forEach(function (name) {
+        if (S.draft.extras.some(function (x) { return x.name === name; })) { alreadyN++; return; }
+        S.draft.extras.push({ name:name, sets:defaultSets(), times:1 });
+        addedN++;
+      });
+      if (addedN) saveDraft();
+    } else if (mplan && S.plans[mplan]) {
       S.pickSel.forEach(function (name) {
         if (S.plans[mplan].some(function (i) { return i.name === name; })) { alreadyN++; return; }
         var d = planItemDefaults(name);
@@ -6181,15 +6705,17 @@ document.addEventListener("click", function (ev) {
     /* Waren ausschließlich Übungen ausgewählt, die schon im Plan stehen, ist
        "Keine Übung ausgewählt" schlicht falsch - ausgewählt war etwas, es kam nur
        nichts dazu. Deshalb drei Fälle statt zwei. */
+    var mTo = mdraft ? "in den Entwurf" : "zu " + mplan;
+    var mIn = mdraft ? "im Entwurf" : "in " + mplan;
     S.note = addedN
-      ? addedN + (addedN === 1 ? " Übung zu " : " Übungen zu ") + mplan + " hinzugefügt." +
+      ? addedN + (addedN === 1 ? " Übung " : " Übungen ") + mTo + " hinzugefügt." +
         (alreadyN ? " " + alreadyN + (alreadyN === 1 ? " stand" : " standen") +
-          " schon im Plan." : "")
+          " schon " + (mdraft ? "im Entwurf" : "im Plan") + "." : "")
       : alreadyN
         ? alreadyN + (alreadyN === 1 ? " Übung stand" : " Übungen standen") +
-          " schon in " + mplan + "."
+          " schon " + mIn + "."
         : "Keine Übung ausgewählt.";
-    if (addedN) persist();
+    if (addedN && !mdraft) persist();
   }
   else if (act === "pickcat") { S.pickCat = v; S.search = ""; }
   else if (act === "pickmuscle") { S.pickMuscle = v; S.search = ""; }
@@ -6699,25 +7225,71 @@ document.addEventListener("click", function (ev) {
     persist();
   }
   else if (act === "weekgoalrestart") {
-    var wgMon = mondayOf(todayISO()), wgAny = false;
-    weekGoalPlans().forEach(function (p) {
-      var wgVal = weekGoal(p);
-      var wgLog = S.settings.weekGoalLog[p] || [];
-      var wgLast = wgLog.length ? wgLog[wgLog.length - 1] : null;
-      if (wgLast && wgLast.value === wgVal) return;
-      /* Ein Plan ohne Ziel und ohne Historie bekommt keinen Eintrag mit Wert 0.
-         Der wäre für die Auswertung wirkungslos (weekGoalAt() > 0) und stünde nur
-         als Ballast in jedem Backup. */
-      if (!wgVal && !wgLast) return;
-      if (!S.settings.weekGoalLog[p]) S.settings.weekGoalLog[p] = wgLog;
-      if (wgLast && wgLast.since === wgMon) wgLast.value = wgVal;
-      else wgLog.push({ since:wgMon, value:wgVal });
-      wgAny = true;
-    });
-    if (wgAny) {
+    if (writeWeekGoalLog()) {
       S.note = "Neues Wochenziel aktiviert";
       persist();
     }
+  }
+  /* ---------- Planung ---------- */
+  else if (act === "drafttoggle") {
+    var dtE = draftEntry(v);
+    S.draft.plans[v] = { on:!dtE.on, times:dtE.times };
+    saveDraft();
+  }
+  else if (act === "draftstep") {
+    var dsE = draftEntry(v), dsD = parseInt(el.getAttribute("data-d"), 10) || 0;
+    S.draft.plans[v] = { on:dsE.on,
+      times:Math.min(DRAFT_MAX_TIMES, Math.max(1, dsE.times + dsD)) };
+    saveDraft();
+  }
+  else if (act === "draftxstep") {
+    var dxX = S.draft.extras[parseInt(v, 10)];
+    var dxF = el.getAttribute("data-f"), dxD = parseInt(el.getAttribute("data-d"), 10) || 0;
+    if (dxX && (dxF === "sets" || dxF === "times")) {
+      var dxMax = dxF === "sets" ? DRAFT_MAX_SETS : DRAFT_MAX_TIMES;
+      dxX[dxF] = Math.min(dxMax, Math.max(1, dxX[dxF] + dxD));
+      saveDraft();
+    }
+  }
+  else if (act === "draftxdel") {
+    S.draft.extras.splice(parseInt(v, 10), 1);
+    saveDraft();
+  }
+  else if (act === "planday") { S.planDaySel = v; }
+  else if (act === "planassign") {
+    /* Sofort gespeichert, wie jede Änderung an den Plänen. Ein eigener
+       Speichern-Knopf hieße einen ungesicherten Zwischenstand, den es sonst
+       nirgends in der App gibt. */
+    if (S.planDaySel) {
+      if (v) S.settings.planDays[S.planDaySel] = v;
+      else delete S.settings.planDays[S.planDaySel];
+      persist();
+    }
+  }
+  else if (act === "drafttake") {
+    /* Der Entwurf wird Wochenziel: Zahl je Plan übernehmen, die Historie
+       festschreiben wie beim Knopf im Pläne-Reiter, dann den Entwurf leeren -
+       leer heißt ab jetzt genau dieser Stand, siehe draftEntry(). Die einzelnen
+       Übungen bleiben stehen, in den Wochenzielen haben sie keinen Platz. */
+    var tkList = [];
+    Object.keys(S.plans).forEach(function (p) {
+      var tkE = draftEntry(p), tkV = tkE.on ? tkE.times : 0;
+      if (tkV) tkList.push(p + " " + tkV + "×");
+      /* Kein Ballast: wer nie ein Ziel hatte und keins bekommt, bleibt ohne Eintrag. */
+      if (tkV || S.settings.weekGoals[p] != null) S.settings.weekGoals[p] = tkV;
+    });
+    writeWeekGoalLog();
+    S.draft.plans = {};
+    saveDraft();
+    persist();
+    S.note = tkList.length
+      ? "Wochenziele übernommen: " + tkList.join(", ") + "."
+      : "Wochenziele übernommen, kein Plan hat mehr ein Ziel.";
+  }
+  else if (act === "draftreset") {
+    S.draft = { plans:{}, extras:[] };
+    saveDraft();
+    S.note = "Entwurf verworfen, es gelten wieder die Wochenziele.";
   }
   else if (act === "delplan") {
     if (!window.confirm("Plan " + v + " mit " + (S.plans[v] ? S.plans[v].length : 0) +
@@ -6839,7 +7411,7 @@ document.addEventListener("pointerup", endDrag);
 document.addEventListener("pointercancel", endDrag);
 
 /* Reiter per Wischen wechseln */
-var VIEWS = ["tag","plaene","verlauf","daten"];
+var VIEWS = ["tag","plaene","planung","verlauf","daten"];
 var swipe = null;
 
 document.addEventListener("touchstart", function (ev) {
