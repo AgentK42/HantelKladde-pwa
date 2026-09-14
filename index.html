@@ -451,6 +451,18 @@ textarea.note { width:100%; margin-top:8px; padding:11px 12px; border-radius:13p
   overflow:hidden; }
 .volrow .vb i.abs { position:absolute; left:0; top:2px; height:10px; border-radius:5px;
   background:var(--accent); }
+/* Plan-Reiter, Sätze je Muskelgruppe: ein Balken je Gruppe, in Planfarben
+   gestapelt, damit sichtbar ist, welcher Plan wie viel beiträgt. */
+/* Nicht ".plan": die Klasse gehört der Planliste im Training und bringt
+   overflow:hidden mit. */
+.vol.bymuscle .volrow { grid-template-columns:104px 1fr 36px; }
+.volrow .vb.stack { display:flex; gap:1px; padding:2px 0; }
+.volrow .vb.stack i { display:block; height:10px; border-radius:5px; }
+.planlegend { display:flex; flex-wrap:wrap; gap:6px 14px; margin-top:12px;
+  font-size:11.5px; color:var(--muted); }
+.planlegend span { display:inline-flex; align-items:center; gap:6px; }
+.pairline { margin:12px 0 0; font-size:12.5px; color:var(--muted); line-height:1.6; }
+.pairline b { color:var(--ink); font-weight:700; }
 /* Zeitraum 7/30 Tage: Veränderung gegenüber der Vorperiode, je Gruppe eigene Skala */
 .vb2 { display:flex; align-items:center; gap:6px; }
 .vb2 .bar { position:relative; flex:1; height:14px; border-radius:7px;
@@ -803,7 +815,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.20.0";
+var APP_VERSION = "1.21.0";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -877,23 +889,30 @@ var DEFAULT_PLATES = [25, 20, 15, 10, 5, 2.5, 1.25];
    erhalten. Reine Stabilisatoren bleiben außen vor; messbare Aktivität allein
    reicht nicht für einen halben Satz. Eigene oder umbenannte Übungen stehen
    hier nicht drin, genau wie bei DEFAULT_EXMETA oben - für sie trägt
-   muscleRow() zwei Dropdowns ein, deren Wahl in S.exmeta landet. */
+   muscleRow() zwei Dropdowns ein, deren Wahl in S.exmeta landet.
+
+   "Rücken" meint den ziehenden Rücken, also Latissimus, Trapez und Rhomboiden,
+   der Gegenspieler zur Brust. Der Rückenstrecker steht seit 1.21.0 getrennt als
+   "Unterer Rücken", sein Gegenspieler ist der Bauch, siehe MUSCLE_PAIRS. Bis
+   dahin zählte jeder Satz Lower Back Crunch voll gegen die Brust. Kreuzheben
+   bekommt den unteren Rücken bewusst nicht als Sekundärmuskel: bei neutraler
+   Wirbelsäule hält er nur, und Stabilisatoren zählen hier nicht. */
 var MUSCLE_LIST = ["Brust", "Rücken", "Schulter", "Bizeps", "Trizeps", "Unterarm",
-  "Bauch", "Gesäß", "Quadrizeps", "Beinbeuger", "Waden", "Adduktoren"];
+  "Bauch", "Unterer Rücken", "Gesäß", "Quadrizeps", "Beinbeuger", "Waden", "Adduktoren"];
 var MUSCLE_GROUPS = {
   "Flys":                    { primary:"Brust",      secondary:["Schulter"] },
   "Benchpress Maschine":     { primary:"Brust",      secondary:["Trizeps", "Schulter"] },
   "Schrägbankdrücken":       { primary:"Brust",      secondary:["Schulter", "Trizeps"] },
   "Shoulderpress Maschine":  { primary:"Schulter",   secondary:["Trizeps"] },
   "Trizeps":                 { primary:"Trizeps",    secondary:[] },
-  "Seitheben":               { primary:"Schulter",   secondary:["Rücken"] },
+  "Seitheben":               { primary:"Schulter",   secondary:[] },
   "Trizepsdrücken über Kopf":{ primary:"Trizeps",    secondary:[] },
   "Dips":                    { primary:"Brust",      secondary:["Trizeps", "Schulter"] },
   "Reverse Flys":            { primary:"Schulter",   secondary:["Rücken"] },
   "Latzug Maschine":         { primary:"Rücken",     secondary:["Bizeps"] },
   "Preachercurls":           { primary:"Bizeps",     secondary:["Unterarm"] },
   "Hammercurls":             { primary:"Unterarm",   secondary:["Bizeps"] },
-  "Rudern Maschine":         { primary:"Rücken",     secondary:["Bizeps"] },
+  "Rudern Maschine":         { primary:"Rücken",     secondary:["Bizeps", "Schulter"] },
   "Kurzhantelrudern":        { primary:"Rücken",     secondary:["Bizeps", "Schulter"] },
   "Face Pulls":              { primary:"Schulter",   secondary:["Rücken"] },
   "Shrugs":                  { primary:"Rücken",     secondary:[] },
@@ -908,7 +927,7 @@ var MUSCLE_GROUPS = {
   "Hipadduction":            { primary:"Adduktoren", secondary:[] },
   "Wadenheben":              { primary:"Waden",      secondary:[] },
   "Bauch Crunch":            { primary:"Bauch",      secondary:[] },
-  "Lower Back Crunch":       { primary:"Rücken",     secondary:[] }
+  "Lower Back Crunch":       { primary:"Unterer Rücken", secondary:[] }
 };
 /* Für mitgelieferte Übungen aus MUSCLE_GROUPS, für eigene oder umbenannte aus
    den beiden Dropdowns unter Daten, siehe muscleRows(). */
@@ -4126,6 +4145,81 @@ function viewSummary() {
 }
 
 /* ---------- Pläne, Punkt 8 ---------- */
+/* Geplante Sätze je Muskelgruppe über alle im Training eingeblendeten Pläne,
+   zum Prüfen, wie sich eigene Pläne kombinieren, bevor trainiert wird. Zählt
+   wie volByMuscle(): Primärmuskel voll, jeder Sekundärmuskel halb. Ein Plan mit
+   Wochenziel geht so oft ein, wie er pro Woche vorgesehen ist, ohne Ziel einmal.
+   Ausgeblendete Pläne bleiben außen vor, die werden gerade nicht trainiert. */
+function planMuscleBlock() {
+  var plans = visiblePlans().filter(function (p) { return S.plans[p] && S.plans[p].length; });
+  var weekly = plans.length > 0 && plans.every(function (p) { return weekGoal(p) > 0; });
+  var by = {}, unassigned = [];
+  MUSCLE_LIST.forEach(function (m) { by[m] = { total:0, plans:{} }; });
+  plans.forEach(function (p) {
+    var times = weekGoal(p) || 1;
+    S.plans[p].forEach(function (i) {
+      var mo = muscleOf(i.name);
+      if (!mo) { if (unassigned.indexOf(i.name) < 0) unassigned.push(i.name); return; }
+      var n = (i.sets > 0 ? i.sets : defaultSets()) * times;
+      by[mo.primary].total += n;
+      by[mo.primary].plans[p] = (by[mo.primary].plans[p] || 0) + n;
+      mo.secondary.forEach(function (sm) {
+        by[sm].total += n * 0.5;
+        by[sm].plans[p] = (by[sm].plans[p] || 0) + n * 0.5;
+      });
+    });
+  });
+  var groups = MUSCLE_LIST.filter(function (m) { return by[m].total > 0; });
+  var open = secOpen("plansets");
+  var h = '<div class="sect"><h2>Sätze je Muskelgruppe' + infoBtn("plansets") + '</h2>' +
+    secFold("plansets", weekly ? "pro Woche" : "je Durchlauf") + '</div>' +
+    descText("plansets", '<p class="notice">Was die eingeblendeten Pläne zusammen je ' +
+      'Muskelgruppe vorsehen, gezählt wie im Verlauf: Primärmuskel voll, Sekundärmuskel ' +
+      'halb. Hat jeder Plan ein Wochenziel, steht hier die Wochensumme, jeder Plan so ' +
+      'oft wie vorgesehen. Sonst zählt jeder Plan einmal, Pläne mit Wochenziel ' +
+      'entsprechend oft. Ausgeblendete Pläne fehlen. Der Balken zeigt in den ' +
+      'Planfarben, welcher Plan wie viel beiträgt.</p>');
+  if (!open) return h;
+  if (!groups.length) {
+    return h + '<p class="notice">Kein eingeblendeter Plan enthält eine Übung mit ' +
+      'Muskelgruppe.</p>';
+  }
+  var max = Math.max.apply(null, groups.map(function (m) { return by[m].total; })) || 1;
+  h += '<div class="card"><div class="vol bymuscle" style="margin-top:0">';
+  groups.forEach(function (m) {
+    h += '<div class="volrow"><span class="vn">' + esc(m) + '</span>' +
+      '<div class="vb stack">' +
+      plans.filter(function (p) { return by[m].plans[p]; }).map(function (p) {
+        return '<i style="width:' + (by[m].plans[p] / max * 100).toFixed(1) +
+          '%;background:' + planColor(p) + '" title="' + esc(p) + ': ' +
+          fmtCount(by[m].plans[p]) + '"></i>';
+      }).join("") + '</div>' +
+      '<span class="vv">' + fmtCount(by[m].total) + '</span></div>';
+  });
+  h += '</div>' +
+    '<div class="planlegend">' + plans.map(function (p) {
+      return '<span><span class="pdot" style="background:' + planColor(p) + '"></span>' +
+        esc(p) + (weekGoal(p) > 1 ? ' ×' + weekGoal(p) : '') + '</span>';
+    }).join("") + '</div>';
+  /* Dieselben Gegenspieler-Paare wie die Warnung im Verlauf, hier nur als
+     Zahlenpaar ohne Schwelle: die Planung soll das Verhältnis zeigen, bewerten
+     kann man es erst am tatsächlichen Training. */
+  var pairs = MUSCLE_PAIRS.filter(function (pr) {
+    return by[pr[0]].total > 0 || by[pr[1]].total > 0;
+  });
+  if (pairs.length) {
+    h += '<p class="pairline">' + pairs.map(function (pr) {
+      return esc(pr[0]) + ' zu ' + esc(pr[1]) + ' <b>' + fmtCount(by[pr[0]].total) +
+        ' : ' + fmtCount(by[pr[1]].total) + '</b>';
+    }).join('<br>') + '</p>';
+  }
+  if (unassigned.length) {
+    h += '<p class="pairline">Ohne Muskelgruppe, hier nicht gezählt: ' +
+      unassigned.map(esc).join(', ') + '. Zuordnen lässt sich das unter Daten, ' +
+      'Muskelgruppen.</p>';
+  }
+  return h + '</div>';
+}
 function viewPlans() {
   var h = '<div class="sect"><h2>Wochenziele' + infoBtn("wochenziele") + '</h2></div>' +
     descText("wochenziele", '<p class="notice">Wie oft ein Plan pro Woche trainiert werden ' +
@@ -4144,6 +4238,8 @@ function viewPlans() {
     ' data-act="weekgoalrestart" title="Schreibt die aktuellen Zahlen für die laufende ' +
     'Woche fest, frühere Wochen behalten ihren damaligen Wert in der Auswertung">' +
     'Neues Wochenziel speichern</button></div>';
+
+  h += planMuscleBlock();
 
   h += '<div class="sect"><h2>Pläne bearbeiten' + infoBtn("plaene") +
     '<button class="wrapbtn" role="switch" aria-checked="' +
@@ -4346,7 +4442,8 @@ function imbalanceFlag(a, nameA, nameB, t, mode) {
     '-Volumen niedrig.</div>';
 }
 var CAT_PAIRS = [["Push", "Pull"]];
-var MUSCLE_PAIRS = [["Brust", "Rücken"], ["Bizeps", "Trizeps"], ["Quadrizeps", "Beinbeuger"]];
+var MUSCLE_PAIRS = [["Brust", "Rücken"], ["Bizeps", "Trizeps"], ["Quadrizeps", "Beinbeuger"],
+  ["Bauch", "Unterer Rücken"]];
 function imbalanceFlags(a, group, range, mode) {
   var pairs = group === "muscle" ? MUSCLE_PAIRS : CAT_PAIRS;
   return pairs.map(function (p) {
