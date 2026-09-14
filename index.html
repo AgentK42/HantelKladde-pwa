@@ -815,7 +815,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.21.0";
+var APP_VERSION = "1.22.0";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -896,25 +896,44 @@ var DEFAULT_PLATES = [25, 20, 15, 10, 5, 2.5, 1.25];
    "Unterer Rücken", sein Gegenspieler ist der Bauch, siehe MUSCLE_PAIRS. Bis
    dahin zählte jeder Satz Lower Back Crunch voll gegen die Brust. Kreuzheben
    bekommt den unteren Rücken bewusst nicht als Sekundärmuskel: bei neutraler
-   Wirbelsäule hält er nur, und Stabilisatoren zählen hier nicht. */
-var MUSCLE_LIST = ["Brust", "Rücken", "Schulter", "Bizeps", "Trizeps", "Unterarm",
-  "Bauch", "Unterer Rücken", "Gesäß", "Quadrizeps", "Beinbeuger", "Waden", "Adduktoren"];
+   Wirbelsäule hält er nur, und Stabilisatoren zählen hier nicht.
+
+   Die Schulter steht seit 1.22.0 dreigeteilt, weil ihre Anteile durch getrennte
+   Übungen trainiert werden und die Schieflage vorn gegen hinten durch das
+   Drücken die häufigste echte ist: vorn über Schulterpresse und als Zweitmuskel
+   jeder Brustübung, seitlich über Seitheben, hinten über Reverse Flys, Face Pulls
+   und als Zweitmuskel beim Rudern. Als eine Gruppe verdeckte "Schulter" genau
+   dieses Verhältnis. Ein gespeichertes "Schulter" aus älteren Ständen wird beim
+   Lesen zu "Schulter vorn", siehe muscleAlias(). Feiner als das, etwa einzelne
+   Muskelköpfe, geht das Zählmodell nicht her: primär voll, sekundär halb kann
+   eine Betonung nicht ausdrücken. */
+var MUSCLE_LIST = ["Brust", "Rücken", "Schulter vorn", "Schulter seitlich", "Schulter hinten",
+  "Bizeps", "Trizeps", "Unterarm", "Bauch", "Unterer Rücken", "Gesäß", "Quadrizeps",
+  "Beinbeuger", "Waden", "Adduktoren"];
+/* Gruppennamen, die es nicht mehr gibt, auf ihren Nachfolger: "Schulter" war bis
+   1.21.0 eine Gruppe. Eigene Übungen und Backups tragen den Namen noch, und
+   muscleOf() lässt nur Werte aus MUSCLE_LIST durch - ohne die Übersetzung fiele
+   so eine Übung stumm aus jeder Auswertung. Vorn, weil die meisten eigenen
+   Schulterübungen Drückbewegungen sind; wer Seitheben oder hintere Schulter
+   meint, stellt es unter Daten, Muskelgruppen einmal um. */
+var MUSCLE_ALIAS = { "Schulter": "Schulter vorn" };
+function muscleAlias(v) { return MUSCLE_ALIAS[v] || v; }
 var MUSCLE_GROUPS = {
-  "Flys":                    { primary:"Brust",      secondary:["Schulter"] },
-  "Benchpress Maschine":     { primary:"Brust",      secondary:["Trizeps", "Schulter"] },
-  "Schrägbankdrücken":       { primary:"Brust",      secondary:["Schulter", "Trizeps"] },
-  "Shoulderpress Maschine":  { primary:"Schulter",   secondary:["Trizeps"] },
+  "Flys":                    { primary:"Brust",      secondary:["Schulter vorn"] },
+  "Benchpress Maschine":     { primary:"Brust",      secondary:["Trizeps", "Schulter vorn"] },
+  "Schrägbankdrücken":       { primary:"Brust",      secondary:["Schulter vorn", "Trizeps"] },
+  "Shoulderpress Maschine":  { primary:"Schulter vorn", secondary:["Trizeps"] },
   "Trizeps":                 { primary:"Trizeps",    secondary:[] },
-  "Seitheben":               { primary:"Schulter",   secondary:[] },
+  "Seitheben":               { primary:"Schulter seitlich", secondary:[] },
   "Trizepsdrücken über Kopf":{ primary:"Trizeps",    secondary:[] },
-  "Dips":                    { primary:"Brust",      secondary:["Trizeps", "Schulter"] },
-  "Reverse Flys":            { primary:"Schulter",   secondary:["Rücken"] },
+  "Dips":                    { primary:"Brust",      secondary:["Trizeps", "Schulter vorn"] },
+  "Reverse Flys":            { primary:"Schulter hinten", secondary:["Rücken"] },
   "Latzug Maschine":         { primary:"Rücken",     secondary:["Bizeps"] },
   "Preachercurls":           { primary:"Bizeps",     secondary:["Unterarm"] },
   "Hammercurls":             { primary:"Unterarm",   secondary:["Bizeps"] },
-  "Rudern Maschine":         { primary:"Rücken",     secondary:["Bizeps", "Schulter"] },
-  "Kurzhantelrudern":        { primary:"Rücken",     secondary:["Bizeps", "Schulter"] },
-  "Face Pulls":              { primary:"Schulter",   secondary:["Rücken"] },
+  "Rudern Maschine":         { primary:"Rücken",     secondary:["Bizeps", "Schulter hinten"] },
+  "Kurzhantelrudern":        { primary:"Rücken",     secondary:["Bizeps", "Schulter hinten"] },
+  "Face Pulls":              { primary:"Schulter hinten", secondary:["Rücken"] },
   "Shrugs":                  { primary:"Rücken",     secondary:[] },
   "Deadlifts":               { primary:"Beinbeuger", secondary:["Gesäß", "Quadrizeps"] },
   "Beincurls":               { primary:"Beinbeuger", secondary:["Waden"] },
@@ -1308,7 +1327,15 @@ function load() {
     }
   }
   var em = readJson(EXMETA_KEY, null);
-  if (em && typeof em === "object") S.exmeta = em;
+  if (em && typeof em === "object") {
+    S.exmeta = em;
+    Object.keys(S.exmeta).forEach(function (k) {
+      var x = S.exmeta[k];
+      if (!x || typeof x !== "object") return;
+      if (x.musclePrimary) x.musclePrimary = muscleAlias(x.musclePrimary);
+      if (x.muscleSecondary) x.muscleSecondary = muscleAlias(x.muscleSecondary);
+    });
+  }
   var nt = readJson(NOTES_KEY, null);
   if (nt && typeof nt === "object") S.notes = nt;
   var cl = readJson(COLOR_KEY, null);
@@ -4443,7 +4470,7 @@ function imbalanceFlag(a, nameA, nameB, t, mode) {
 }
 var CAT_PAIRS = [["Push", "Pull"]];
 var MUSCLE_PAIRS = [["Brust", "Rücken"], ["Bizeps", "Trizeps"], ["Quadrizeps", "Beinbeuger"],
-  ["Bauch", "Unterer Rücken"]];
+  ["Bauch", "Unterer Rücken"], ["Schulter vorn", "Schulter hinten"]];
 function imbalanceFlags(a, group, range, mode) {
   var pairs = group === "muscle" ? MUSCLE_PAIRS : CAT_PAIRS;
   return pairs.map(function (p) {
@@ -5797,8 +5824,8 @@ function cleanExmeta(src) {
       }
       c[k] = v;
     });
-    var primary = x.musclePrimary == null ? "" : x.musclePrimary;
-    var secondary = x.muscleSecondary == null ? "" : x.muscleSecondary;
+    var primary = x.musclePrimary == null ? "" : muscleAlias(x.musclePrimary);
+    var secondary = x.muscleSecondary == null ? "" : muscleAlias(x.muscleSecondary);
     if (typeof primary !== "string" || (primary && MUSCLE_LIST.indexOf(primary) < 0)) {
       importError("Primärmuskel für „" + name + "“ ist ungültig.");
     }
