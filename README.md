@@ -60,7 +60,7 @@ ausliefert und nichts annehmen kann.
 | `sw.js` | ServiceWorker für den Offline-Betrieb und für das Entgegennehmen geteilter Backups |
 | `icons/` | App-Icons in 192 und 512 Pixel, je randlos und maskierbar |
 | `screenshots/` | drei Bilder für den Installationsdialog von Chrome |
-| `tools/` | drei Helfer für das Ausrollen und zum Prüfen, siehe unten |
+| `tools/` | Helfer für das Ausrollen und zum Prüfen, siehe unten |
 
 ## Hosting
 
@@ -243,9 +243,22 @@ im Fokus-Modus über der Übung, siehe `restOffNote()`.
 
 `index.html` austauschen und in `sw.js` die Zeile `APP_VERSION` auf die neue
 Nummer setzen. Dieselbe Nummer steht in `index.html`, sie wird dort angezeigt.
-`tools/check-version.sh` vergleicht beide und meldet sich, wenn sie
-auseinanderlaufen. Der alte Cache wird beim Aktivieren verworfen. Die
-Trainingsdaten im `localStorage` bleiben davon unberührt.
+Der alte Cache wird beim Aktivieren verworfen. Die Trainingsdaten im
+`localStorage` bleiben davon unberührt.
+
+Vor dem Push, in dieser Reihenfolge:
+
+```
+tools/check-version.sh                        # beide Nummern gleich?
+tools/lint.sh                                 # formale Fehler im JavaScript
+NODE_PATH=$(npm root -g) node tools/test-pwa.js   # Offline, Update, Signal, Teilen
+```
+
+Jeder Schritt meldet Erfolg mit Rückgabewert 0, und der nächste lohnt sich erst,
+wenn der vorige durch ist: eine abweichende Versionsnummer macht den Update-Test
+sinnlos, ein Tippfehler im Skript den Browsertest. Was die drei im Einzelnen tun
+und was sie brauchen, steht unter **Prüfen**. Die beiden ersten laufen in unter
+einer Sekunde, der dritte braucht unter einer halben Minute.
 
 Die neue Fassung wird im Hintergrund geladen und wartet dann. Die laufende App
 zeigt oben **Ein Update ist vorhanden** mit einem Knopf; ohne einen Tipp darauf
@@ -290,6 +303,15 @@ Rand. Sie sind 412 auf 915 Pixel groß und als `form_factor: narrow` im Manifest
 eingetragen; ändert sich die Oberfläche deutlich, gehören sie neu aufgenommen.
 
 ## Prüfen
+
+`tools/lint.sh` lässt ESLint über das JavaScript laufen, mit den Grundregeln, die
+formal gültigen Code melden, der trotzdem fast immer ein Versehen ist: ein
+unbekannter Name, eine doppelte Deklaration, Code hinter einem `return`. Der
+Browser meldet nichts davon. Das Skript der App steckt in `index.html`, ESLint
+liest aber nur `.js`-Dateien; deshalb zieht das Skript den `<script>`-Block in
+eine Hilfsdatei, mit so vielen Leerzeilen davor, dass die gemeldeten
+Zeilennummern denen in `index.html` entsprechen. Die Regeln stehen in
+`tools/eslint.config.js`. Braucht `npm i -g eslint`, sonst nichts.
 
 Offline-Betrieb, Update-Weg, Zurück-Geste, Speicherzusage, Kurzbefehle und das
 Entgegennehmen eines geteilten Backups lassen sich nicht durch Hinsehen prüfen.

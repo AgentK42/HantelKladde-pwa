@@ -6327,10 +6327,13 @@ document.addEventListener("click", function (ev) {
   }
   else if (act === "step") {
     var f = el.getAttribute("data-f"), d = parseFloat(el.getAttribute("data-d"));
-    var cur = deci(S[f]) || 0;
-    if (f === "reps") S.reps = String(Math.max(1, Math.round(cur + d)));
-    else if (f === "weight") S.weight = comma(Math.max(0, Math.round((cur + d)*100)/100));
-    else S.rpe = comma(Math.min(10, Math.max(1, Math.round((cur + d)*2)/2)));
+    /* Nicht "cur": den Namen deklariert der Zweig "repwin" oben schon, und var
+       gilt in der ganzen Funktion, nicht im Block. Harmlos, solange sich die
+       Zweige ausschließen, aber ein Linter meldet es zu Recht. */
+    var stepCur = deci(S[f]) || 0;
+    if (f === "reps") S.reps = String(Math.max(1, Math.round(stepCur + d)));
+    else if (f === "weight") S.weight = comma(Math.max(0, Math.round((stepCur + d)*100)/100));
+    else S.rpe = comma(Math.min(10, Math.max(1, Math.round((stepCur + d)*2)/2)));
     if (f === "reps" || f === "weight") S.source = "";
   }
   else if (act === "save") {
