@@ -815,7 +815,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.22.0";
+var APP_VERSION = "1.22.1";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -4178,12 +4178,17 @@ function viewSummary() {
    Wochenziel geht so oft ein, wie er pro Woche vorgesehen ist, ohne Ziel einmal.
    Ausgeblendete Pläne bleiben außen vor, die werden gerade nicht trainiert. */
 function planMuscleBlock() {
-  var plans = visiblePlans().filter(function (p) { return S.plans[p] && S.plans[p].length; });
-  var weekly = plans.length > 0 && plans.every(function (p) { return weekGoal(p) > 0; });
+  /* Nur Pläne mit einem aktiven Wochenziel (mind. 1): ein sichtbarer Plan ohne
+     Ziel wird nicht notwendig regelmäßig trainiert, seine Sätze in die Summe
+     zu rechnen würde eine Regelmäßigkeit vorspiegeln, die es nicht gibt. Wer
+     hier auftauchen will, setzt sein Wochenziel. */
+  var plans = visiblePlans().filter(function (p) {
+    return S.plans[p] && S.plans[p].length && weekGoal(p) > 0;
+  });
   var by = {}, unassigned = [];
   MUSCLE_LIST.forEach(function (m) { by[m] = { total:0, plans:{} }; });
   plans.forEach(function (p) {
-    var times = weekGoal(p) || 1;
+    var times = weekGoal(p);
     S.plans[p].forEach(function (i) {
       var mo = muscleOf(i.name);
       if (!mo) { if (unassigned.indexOf(i.name) < 0) unassigned.push(i.name); return; }
@@ -4199,17 +4204,20 @@ function planMuscleBlock() {
   var groups = MUSCLE_LIST.filter(function (m) { return by[m].total > 0; });
   var open = secOpen("plansets");
   var h = '<div class="sect"><h2>Sätze je Muskelgruppe' + infoBtn("plansets") + '</h2>' +
-    secFold("plansets", weekly ? "pro Woche" : "je Durchlauf") + '</div>' +
-    descText("plansets", '<p class="notice">Was die eingeblendeten Pläne zusammen je ' +
-      'Muskelgruppe vorsehen, gezählt wie im Verlauf: Primärmuskel voll, Sekundärmuskel ' +
-      'halb. Hat jeder Plan ein Wochenziel, steht hier die Wochensumme, jeder Plan so ' +
-      'oft wie vorgesehen. Sonst zählt jeder Plan einmal, Pläne mit Wochenziel ' +
-      'entsprechend oft. Ausgeblendete Pläne fehlen. Der Balken zeigt in den ' +
-      'Planfarben, welcher Plan wie viel beiträgt.</p>');
+    secFold("plansets", "pro Woche") + '</div>' +
+    descText("plansets", '<p class="notice">Wochensumme über alle eingeblendeten Pläne mit ' +
+      'einem Wochenziel, gezählt wie im Verlauf: Primärmuskel voll, Sekundärmuskel halb, ' +
+      'jeder Plan so oft wie sein Wochenziel es vorsieht. Pläne ohne Wochenziel oder ' +
+      'ausgeblendete Pläne fehlen, sie laufen ja nicht notwendig regelmäßig. Der Balken ' +
+      'zeigt in den Planfarben, welcher Plan wie viel beiträgt.</p>');
   if (!open) return h;
+  if (!plans.length) {
+    return h + '<p class="notice">Kein eingeblendeter Plan hat ein Wochenziel. Unter ' +
+      'Wochenziele oben lässt sich eines setzen.</p>';
+  }
   if (!groups.length) {
-    return h + '<p class="notice">Kein eingeblendeter Plan enthält eine Übung mit ' +
-      'Muskelgruppe.</p>';
+    return h + '<p class="notice">Kein eingeblendeter Plan mit Wochenziel enthält eine ' +
+      'Übung mit Muskelgruppe.</p>';
   }
   var max = Math.max.apply(null, groups.map(function (m) { return by[m].total; })) || 1;
   h += '<div class="card"><div class="vol bymuscle" style="margin-top:0">';
