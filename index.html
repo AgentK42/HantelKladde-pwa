@@ -906,7 +906,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.23.0";
+var APP_VERSION = "1.23.1";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -3177,6 +3177,33 @@ function writeWeekGoalLog() {
 function plannedPlan(iso) {
   var p = S.settings.planDays[iso];
   return (p && S.plans[p]) ? p : "";
+}
+/* Plan im Trainingsreiter wählen: Liste einklappen und die erste noch offene
+   Übung des Plans vorschlagen. Gemeinsam für den Tipp auf einen Plan und die
+   Vorauswahl aus der Planung, siehe preselectPlan(). */
+function selectPlan(p) {
+  S.plan = p; S.pickOpen = false; S.editId = ""; S.plansFold = true;
+  var plist = S.plans[p] || [];
+  var pday = dayEntries();
+  var firstOpen = plist.filter(function (i) {
+    return !pday.some(function (e) { return e.exercise === i.name; });
+  })[0] || plist[0];
+  if (firstOpen) {
+    S.exercise = firstOpen.name;
+    applySuggestion(firstOpen.name);
+  }
+}
+/* Vorauswahl aus der Planung, seit 1.23.1: trägt der angezeigte Tag einen
+   zugewiesenen Plan, ist er im Trainingsreiter schon gewählt. Wechseln geht
+   weiter wie immer über die Planauswahl. Greift beim Start ohne gemerkte
+   Sitzung, bei jedem Datumswechsel und beim Zuweisen für den gerade angezeigten
+   Tag - nicht bei jedem Neuaufbau: wer den Plan abwählt, soll ihn nicht sofort
+   wieder vorfinden. Ein im Training ausgeblendeter Plan bleibt außen vor, der
+   lässt sich dort auch von Hand nicht wählen (planvis räumt ihn ab). */
+function preselectPlan() {
+  var p = plannedPlan(S.date);
+  if (!p || planHidden(p) || S.plan === p) return;
+  selectPlan(p);
 }
 function mondayOf(iso) {
   var dow = new Date(iso + "T12:00:00").getDay();
@@ -6577,7 +6604,7 @@ document.addEventListener("click", function (ev) {
     if (S.openEx) { navBack("openex"); S.openEx = ""; }
     S.view = v; S.pickOpen = false; S.pickPlanTarget = ""; S.pickSel = []; S.note = "";
   }
-  else if (act === "pickday") { S.date = v; S.editId = ""; S.note = ""; }
+  else if (act === "pickday") { S.date = v; S.editId = ""; S.note = ""; preselectPlan(); }
   else if (act === "plansfold") { S.plansFold = !S.plansFold; }
   else if (act === "planfoldall") { S.planCardsFold = !S.planCardsFold; }
   else if (act === "wraptoggle") { S.settings.wrapNames = !S.settings.wrapNames; persist(); }
@@ -6628,18 +6655,7 @@ document.addEventListener("click", function (ev) {
   }
   else if (act === "plan") {
     if (S.plan === v) { S.plan = ""; S.plansFold = false; }
-    else {
-      S.plan = v; S.pickOpen = false; S.editId = ""; S.plansFold = true;
-      var plist = S.plans[v] || [];
-      var pday = dayEntries();
-      var firstOpen = plist.filter(function (i) {
-        return !pday.some(function (e) { return e.exercise === i.name; });
-      })[0] || plist[0];
-      if (firstOpen) {
-        S.exercise = firstOpen.name;
-        applySuggestion(firstOpen.name);
-      }
-    }
+    else selectPlan(v);
   }
   else if (act === "planpick" || act === "opt") {
     S.exercise = v; S.pickOpen = false; S.editId = ""; S.search = "";
@@ -7142,7 +7158,7 @@ document.addEventListener("click", function (ev) {
   }
   else if (act === "restplus") { addRest(15); return; }
   else if (act === "reststop") { stopRest(); return; }
-  else if (act === "today") { S.date = todayISO(); S.editId = ""; S.note = ""; }
+  else if (act === "today") { S.date = todayISO(); S.editId = ""; S.note = ""; preselectPlan(); }
   else if (act === "exdel") {
     if (!removable(v)) return;
     var ci = -1;
@@ -7264,6 +7280,10 @@ document.addEventListener("click", function (ev) {
       if (v) S.settings.planDays[S.planDaySel] = v;
       else delete S.settings.planDays[S.planDaySel];
       persist();
+      /* Gilt die Zuweisung dem Tag, der im Training gerade offen ist, steht der
+         Plan dort sofort gewählt, siehe preselectPlan(). "Frei" nimmt eine
+         bestehende Wahl nicht weg, trainiert werden darf ja trotzdem. */
+      if (v && S.planDaySel === S.date) preselectPlan();
     }
   }
   else if (act === "drafttake") {
@@ -7556,7 +7576,7 @@ document.addEventListener("input", function (ev) {
 document.addEventListener("change", function (ev) {
   var el = ev.target;
   var act = el.getAttribute ? el.getAttribute("data-act") : null;
-  if (act === "date" && el.value) { S.date = el.value; S.editId = ""; render(); }
+  if (act === "date" && el.value) { S.date = el.value; S.editId = ""; preselectPlan(); render(); }
   else if (act === "newmuscleprimary") {
     var secondary = document.getElementById(el.getAttribute("data-target"));
     if (!secondary) return;
@@ -7685,6 +7705,9 @@ var sharedFlag = startParams();
    Nach startParams(), damit ein Reiter aus der Adresse das letzte Wort behält
    und der History-Eintrag des Fokus-Modus nicht gleich wieder überschrieben wird. */
 restoreSession();
+/* Hat die Sitzung keinen Plan zurückgebracht, gilt der für den Tag zugewiesene,
+   siehe preselectPlan(). Ein Plan aus der Sitzung hat Vorrang: der war gewählt. */
+if (!S.plan) preselectPlan();
 restoreRest();
 S.pwa.standalone = standalone();
 render();

@@ -259,6 +259,13 @@ Planfarbe, bis der Plan dort als voll absolviert gilt und der Ring zum Punkt wir
 Eine Tabelle unter dem Raster stellt je Kalenderwoche die zugewiesenen Tage der
 Häufigkeit aus dem Entwurf gegenüber.
 
+Seit 1.23.1 ist der zugewiesene Plan im Trainingsreiter schon gewählt, sobald der
+Tag dort offen ist: beim Start ohne gemerkte Sitzung, bei jedem Datumswechsel und
+beim Zuweisen für den gerade angezeigten Tag (`preselectPlan()`). Wechseln geht
+wie immer über die Planauswahl, und wer den Plan abwählt, bekommt ihn nicht beim
+nächsten Neuaufbau wieder vorgesetzt, erst beim nächsten Datumswechsel. Ein im
+Training ausgeblendeter Plan wird nicht vorgewählt.
+
 ## Timer und Datum
 
 Der Pausentimer startet nur für den heutigen Tag. Wer einen zurückliegenden Tag
