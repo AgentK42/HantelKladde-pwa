@@ -291,6 +291,7 @@ textarea.note { width:100%; margin-top:8px; padding:11px 12px; border-radius:13p
 
 /* Reps und RPE als zwei Stepper nebeneinander, nur im Standard-Trainingsreiter */
 .steprow { display:grid; grid-template-columns:1fr 1fr; gap:9px; margin-top:18px; }
+.steprow.one { grid-template-columns:1fr; }
 .stepbox { display:flex; align-items:center; justify-content:space-between; gap:6px;
   padding:8px 10px; border-radius:14px; border:1px solid var(--line); background:var(--raise); }
 .stepbox button { width:32px; height:32px; flex:0 0 auto; border-radius:10px; border:none;
@@ -933,7 +934,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.27.0";
+var APP_VERSION = "1.27.1";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -1218,7 +1219,8 @@ var S = {
   search:"", undo:null, hsearch:"", planOpen:false, plansFold:false, planCardsFold:false,
   volGroup:"cat",
   prowNameOpen:"",
-  restEnd:0, restTotal:0, warm:false, warmBase:0, warmReps:"", noteOpen:false,
+  restEnd:0, restTotal:0, warm:false, warmBase:0, warmReps:"", warmRpe:"",
+  noteOpen:false,
   volRange:7, volMode:"sets", dataClosed:{}, secOpen:{}, exNoteFor:"", exOpen:"",
   exHistFor:"",
   toast:"", pickCat:"", pickGroupBy:"cat", pickMuscle:"", focus:false, pickPlanTarget:"", pickSel:[],
@@ -1604,7 +1606,7 @@ var lastSessionJson = "";
 function saveSession() {
   var d = { day:S.date, view:S.view, focus:!!S.focus, plan:S.plan,
     exercise:S.exercise, reps:S.reps, weight:S.weight, rpe:S.rpe,
-    warm:!!S.warm, warmBase:S.warmBase, warmReps:S.warmReps };
+    warm:!!S.warm, warmBase:S.warmBase, warmReps:S.warmReps, warmRpe:S.warmRpe };
   var json = JSON.stringify(d);
   /* Der Zeitstempel steht bewusst außerhalb des Vergleichs: sonst wäre jeder
      Neuaufbau eine Änderung und schriebe. So altert der Stempel, solange sich
@@ -1636,6 +1638,7 @@ function restoreSession() {
     S.warm = true;
     S.warmBase = typeof d.warmBase === "number" ? d.warmBase : 0;
     S.warmReps = typeof d.warmReps === "string" ? d.warmReps : "";
+    S.warmRpe = typeof d.warmRpe === "string" ? d.warmRpe : "";
   }
   if (d.focus && !startFromUrl) {
     S.focus = true;
@@ -2272,19 +2275,24 @@ function suggestFor(name) {
         (confirmAvg != null ? " @ RPE " + num(confirmAvg) : "")
   };
 }
-/* Zurück auf Gewicht und Wiederholungen des Arbeitssatzes, von dem die Rampe stammt */
+/* Zurück auf Gewicht, Wiederholungen und RPE des Arbeitssatzes, von dem die Rampe
+   stammt. Der RPE kommt seit 1.27.1 mit: Aufwärmsätze führen keinen, und nach dem
+   letzten Rampensatz soll wieder der Zielwert dastehen. */
 function backToWork() {
   if (S.warmBase > 0) S.weight = comma(S.warmBase);
   if (S.warmReps) S.reps = S.warmReps;
+  if (S.warmRpe) S.rpe = S.warmRpe;
   S.warm = false;
   S.warmBase = 0;
   S.warmReps = "";
+  S.warmRpe = "";
   repWinCenter = null;
 }
 function applySuggestion(name) {
   S.warm = false;
   S.warmBase = 0;
   S.warmReps = "";
+  S.warmRpe = "";
   repWinCenter = null;
   /* Der Merker hält nur, solange an diesem Tag noch kein Arbeitssatz dieser Übung
      steht. Sobald einer da ist, gilt die Fortsetzungsregel aus suggestFor(): weiter
@@ -3683,6 +3691,16 @@ function heroWeightDial(name) {
    Pillen-Reihen aus repPills()/rpePills(). */
 function heroSteppers() {
   var rpeVal = deci(S.rpe);
+  /* Beim Aufwärmen steht nur die Wiederholungszahl da, über die volle Breite.
+     Ein RPE-Feld, das nichts speichert, wäre ein leeres Versprechen. */
+  if (S.warm) {
+    return '<div class="steprow one">' +
+      '<div class="stepbox"><button data-act="step" data-f="reps" data-d="-1" ' +
+      'aria-label="weniger Reps">&minus;</button>' +
+      '<div class="mid"><b>' + esc(S.reps) + '</b><span>Reps</span></div>' +
+      '<button data-act="step" data-f="reps" data-d="1" aria-label="mehr Reps">+</button>' +
+      '</div></div>';
+  }
   /* Die Ziel-Range stand hier eine Zeit lang in der Beschriftung unter der
      Zahl ("Reps 8-12"). Sie steht schon in der Zielzeile darüber, deshalb bleibt
      es hier bei der schlichten Beschriftung. */
@@ -4034,7 +4052,7 @@ function viewTag() {
         (ed.rpe != null ? ', RPE ' + num(ed.rpe) : '') + '.</div>' +
         weightDial(ed.exercise) +
         '<div class="fieldlab">REPS</div>' + repPills() +
-        '<div class="fieldlab">RPE</div>' + rpePills() +
+        (ed.warm ? "" : '<div class="fieldlab">RPE</div>' + rpePills()) +
         '<div class="savearea">' +
         '<button class="save" data-act="update">Änderung speichern</button>' +
         '<button class="ghost" data-act="canceledit">Abbrechen</button></div></div>';
@@ -4393,7 +4411,7 @@ function viewFocus() {
       (split.rest > 0.001 ? '<b> und ' + num(split.rest) + ' kg fehlen</b>' : '') +
       '</div>' : "") +
     '<div class="fieldlab">REPS</div>' + focusRepPills() +
-    '<div class="fieldlab">RPE</div>' + rpePills() +
+    (S.warm ? "" : '<div class="fieldlab">RPE</div>' + rpePills()) +
     (showPlates && ramp.length
       ? '<div class="warmrow"><span>Warmup</span>' +
         ramp.map(function (r, ri) {
@@ -7093,6 +7111,7 @@ document.addEventListener("click", function (ev) {
     if (!S.warm) {
       S.warmBase = deci(S.weight) || 0;
       S.warmReps = S.reps;
+      S.warmRpe = S.rpe;
       S.warm = true;
       /* Gleiche Rundung wie warmupPlan(): auf die Schrittweite der Übung, nach
          unten durch die Stangenlast begrenzt, damit kein unmögliches Gewicht
@@ -7202,7 +7221,7 @@ document.addEventListener("click", function (ev) {
     var base = S.warm && S.warmBase > 0 ? S.warmBase : (deci(S.weight) || 0);
     var wr = warmupPlan(S.exercise, base)[parseInt(el.getAttribute("data-i"),10)];
     if (!wr) return;
-    if (!S.warm) { S.warmBase = base; S.warmReps = S.reps; }
+    if (!S.warm) { S.warmBase = base; S.warmReps = S.reps; S.warmRpe = S.rpe; }
     S.warm = true;
     S.weight = comma(wr.weight);
     S.reps = String(wr.reps);
@@ -7236,8 +7255,11 @@ document.addEventListener("click", function (ev) {
     var prevBest = wasWarm ? null : bestOf(S.exercise);
     var prevE1 = wasWarm ? null : bestE1rm(S.exercise);
     var id = Date.now() + "-" + Math.random().toString(36).slice(2,7);
+    /* Ein Aufwärmsatz trägt seit 1.27.1 keinen RPE mehr. Er ist bewusst leicht,
+       eine Anstrengungsangabe dazu sagt nichts und stand vorher nur als Zahl in
+       der Satzliste. Gezählt hat sie ohnehin nie, siehe isWork(). */
     var rec0 = { id:id, date:S.date, exercise:S.exercise, set:nextSet(), weight:w,
-      reps:r, rpe:isNaN(p) ? null : p, ts:Date.now() };
+      reps:r, rpe:(wasWarm || isNaN(p)) ? null : p, ts:Date.now() };
     if (wasWarm) rec0.warm = true;
     else if (S.plan && S.plans[S.plan]) rec0.plan = S.plan;
     S.entries.push(rec0);
@@ -7297,7 +7319,7 @@ document.addEventListener("click", function (ev) {
     S.reps = String(e0.reps); S.weight = comma(e0.weight);
     S.rpe = e0.rpe == null ? "7" : comma(e0.rpe);
     S.pickOpen = false;
-    S.warm = false; S.warmBase = 0; S.warmReps = "";
+    S.warm = false; S.warmBase = 0; S.warmReps = ""; S.warmRpe = "";
     window.scrollTo({ top:0, behavior:"smooth" });
   }
   else if (act === "update") {
@@ -7307,7 +7329,9 @@ document.addEventListener("click", function (ev) {
       render(); return;
     }
     S.entries.forEach(function (e) {
-      if (e.id === S.editId) { e.weight = w2; e.reps = r2; e.rpe = isNaN(p2) ? null : p2; }
+      if (e.id !== S.editId) return;
+      e.weight = w2; e.reps = r2;
+      e.rpe = (e.warm || isNaN(p2)) ? null : p2;
     });
     S.freshId = S.editId; S.editId = ""; S.note = "";
     persist();

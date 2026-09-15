@@ -174,6 +174,21 @@ auch den mitgelieferten: Er schreibt eine Null, und `exMeta()` liest die Null
 als „hat keine eigene Pause“. Ein Wert, der von der Einstellung abweicht, steht
 als eigene Zeile unter der Übung.
 
+## Aufwärmsätze
+
+Ein Aufwärmsatz trägt keinen RPE. Das Feld verschwindet, solange aufgewärmt
+wird, im Trainingsreiter, im Fokus-Modus und beim Bearbeiten eines bereits
+gespeicherten Aufwärmsatzes. Gespeichert wird `rpe: null`, auch wenn im Feld
+noch ein Wert von vorher stand. Gezählt hat er ohnehin nie: Aufwärmsätze sind
+über `isWork()` aus Volumen, effektiven Sätzen und Rekorden ausgenommen, die
+Zahl stand nur in der Satzliste.
+
+Beim Wechsel ins Aufwärmen merkt sich die App Gewicht, Reps und RPE des
+Arbeitssatzes (`S.warmBase`, `S.warmReps`, `S.warmRpe`). `backToWork()` holt
+alle drei zurück, nach jedem gespeicherten Rampensatz und beim Abbrechen über
+*Doch ein Arbeitssatz*. Die drei Werte liegen auch im Sitzungszustand, ein
+Neustart mitten in der Rampe verliert das Ziel also nicht.
+
 ## Signal am Ende der Pause
 
 Drei Wege, je nachdem, wo die App steht.
