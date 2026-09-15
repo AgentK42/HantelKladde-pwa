@@ -279,7 +279,11 @@ ein `notificationclick`-Handler in `sw.js`.
 
 Die Reihenfolge folgt dem, was am häufigsten gebraucht wird: Darstellung,
 Speicher, Backup, Pause, danach die selteneren Einstellungen und ganz unten die
-Fassung.
+Fassung. Seit 1.30.1 ist jeder Abschnitt eine eigene Funktion (`dataDisplay()`,
+`dataStorage()`, ... `dataVersion()`), `viewData()` reiht sie nur noch auf.
+Der Trainingsreiter ist genauso zerlegt: `tagHeader()`, `planChooser()`,
+`heroBlock()` mit `editHero()`, `exerciseHero()` und `blankHero()`,
+`planListBlock()`, `daySetsBlock()`.
 
 Zwei Abschnitte sind lang und starten deshalb zugeklappt, die Übungen mit allen
 Gruppen und die Muskelgruppen mit jeder Übung einzeln. Zusammen machen sie den

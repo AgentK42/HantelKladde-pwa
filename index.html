@@ -940,7 +940,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.30.0";
+var APP_VERSION = "1.30.1";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -4032,12 +4032,19 @@ function restOffNote() {
     (S.focus ? "" : ' Über <b>Heute</b> oben zurück zum laufenden Tag.') +
     '</div>';
 }
+/* Der Trainingsreiter, von oben nach unten: Datumszeile mit Wochenstreifen,
+   Planauswahl, die Karte zur gewählten Übung (oder zum Satz in Bearbeitung, oder
+   der leere Einstieg), die Planliste und die erfassten Sätze des Tages. Bis 1.30.0
+   stand das alles in einer Funktion mit 224 Zeilen und einer Komplexität von 70. */
 function viewTag() {
   if (S.pickOpen) return viewPicker();
   if (S.weekOverview) return viewWeekOverview();
-
-  var day = dayEntries(), h = "";
-
+  return tagHeader() + planChooser() + heroBlock() + planListBlock() +
+    daySetsBlock(dayEntries());
+}
+/* Backup-Hinweis, Datumszeile, Wochenstreifen und der Hinweis zur Pause */
+function tagHeader() {
+  var h = "";
   var due = backupDue();
   if (due) {
     h += '<div class="notice act">' + esc(due) +
@@ -4049,7 +4056,11 @@ function viewTag() {
     '<span class="dact">' +
     (S.date === todayISO() ? "" : '<button class="today" data-act="today">Heute</button>') +
     '</span></div>' + weekStrip() + restOffNote();
-
+  return h;
+}
+/* Eingeklappt nur der gewählte Plan, sonst die Liste; darunter der Fokus-Knopf */
+function planChooser() {
+  var h = "";
   if (S.plan && S.plans[S.plan] && S.plansFold) {
     /* Eingeklappt: nur der gewählte Plan, ein Tipp öffnet die Auswahl wieder */
     var lpc = lastPlanDay(S.plan);
@@ -4084,116 +4095,129 @@ function viewTag() {
     h += '<button class="focusgo" data-act="focuson">' + svg("hantelh", 16) +
       '<span>Fokus Mode starten</span></button>';
   }
-
+  return h;
+}
+/* Die Karte in der Mitte: ein Satz in Bearbeitung, sonst die gewählte Übung,
+   sonst der leere Einstieg. Ein editId ohne passenden Satz zeigt nichts. */
+function heroBlock() {
   if (S.editId) {
     var ed = S.entries.filter(function (e) { return e.id === S.editId; })[0];
-    if (ed) {
-      h += '<div class="hero edit">' +
-        '<div class="setline">SATZ ' + ed.set + (ed.warm ? " AUFWÄRMEN" : "") +
-        ' BEARBEITEN</div>' +
-        '<div class="hero-ex">' + esc(ed.exercise) + '</div>' +
-        '<div class="hero-meta">Satz vom ' + shortDate(ed.date) +
-        '. Ursprünglich <b>' + ed.reps + ' Reps</b> mit <b>' + num(ed.weight) + ' kg</b>' +
-        (ed.rpe != null ? ', RPE ' + num(ed.rpe) : '') + '.</div>' +
-        weightDial(ed.exercise) +
-        '<div class="fieldlab">REPS</div>' + repPills() +
-        (ed.warm ? "" : '<div class="fieldlab">RPE</div>' + rpePills()) +
-        '<div class="savearea">' +
-        '<button class="save" data-act="update">Änderung speichern</button>' +
-        '<button class="ghost" data-act="canceledit">Abbrechen</button></div></div>';
-    }
-  } else if (S.exercise) {
-    var n = nextSet(), last = lastSession(S.exercise, S.date);
-    var tg = planTarget(S.exercise);
-    /* "Letztes Top Set" zeigt den besten Arbeitssatz der letzten früheren Einheit,
-       nicht deren chronologisch letzten Satz. Ein leichter Auslaufsatz verfälscht
-       die Zeile deshalb nicht. */
-    var lastSet = last ? bestSet(last.sets) : null;
-    var doneN = doneSets(S.exercise, S.date), needN = targetSets(S.exercise);
-    /* Vorschlag und Plateau-Warnung nur beim heutigen Training, beim Nachtragen
-       oder Korrigieren älterer Tage lenken sie nur ab */
-    var isToday = S.date === todayISO();
-    var flat = isToday ? plateau(S.exercise) : 0;
-    var curW = deci(S.weight) || 0;
-    var wBase = S.warm && S.warmBase > 0 ? S.warmBase : curW;
-    var ramp = doneSets(S.exercise, S.date) ? [] : warmupPlan(S.exercise, wBase);
-    var split = isBar(S.exercise) ? plateSplit(curW) : null;
-    var heroRng = repRangeShown(S.exercise);
-    /* Wie im Fokus-Modus: blau der aktuelle, grün die erledigten Sätze, keine
-       Textzeile "Satz X von Y" mehr daneben, siehe BACKLOG. */
-    var setBars = "";
-    for (var si = 0; si < needN; si++) {
-      setBars += '<i class="' + (si < doneN ? "done" : (si === doneN ? "cur" : "")) + '"></i>';
-    }
-
-    h += logHead() + planProgress() +
-      '<div class="hero' + (S.warm ? " warm" : "") + '">' +
-      '<div class="hero-top">' +
-      '<button class="hero-ex tap" data-act="pickopen" title="Andere Übung wählen">' +
-      '<span>' + esc(S.exercise) + '</span><i class="chev">' + svg("chev", 16) +
-      '</i></button>' +
-      '<div class="setprog"><div class="bars">' + setBars + '</div></div>' +
-      '</div>' +
-      '<div class="hero-meta">' +
-      /* Ist die doppelte Progression an, steht hier die Range statt der einen
-         Zielzahl - sonst wäre der Vorschlag "+1 Rep" nicht
-         nachvollziehbar, siehe repRangeShown(). */
-      (tg ? "Ziel <b>" + needN + "x " +
-        (heroRng ? rangeText(heroRng) : tg.reps) + " Reps</b> mit <b>" +
-        num(tg.weight) + " kg</b><br>" : "") +
-      (lastSet ? "Letztes Top Set <b>" + lastSet.reps + "x " + num(lastSet.weight) + " kg</b> am " +
-        tinyDate(last.day) + (lastSet.rpe != null ? " bei RPE " + num(lastSet.rpe) : "") +
-        "" : "Erste Aufzeichnung für diese Übung") +
-      '</div>' +
-      (isToday ? suggestionBlock() : "") +
-      (isToday && flat ? '<div class="flag">Seit ' + flat + ' Wochen unverändert bei ' +
-        num(lastSet ? lastSet.weight : 0) + ' kg. Zeit für mehr Gewicht, mehr ' +
-        'Reps oder eine andere Übung.</div>' : "") +
-      heroWeightDial(S.exercise) +
-      (split ? '<div class="plates">Stange ' + num(split.bar) + ' kg, pro Seite ' +
-        split.side.map(num).join(' + ') +
-        (split.rest > 0.001 ? '<b> und ' + num(split.rest) + ' kg fehlen</b>' : '') +
-        '</div>' : "") +
-      heroSteppers() +
-      (ramp.length
-        ? '<div class="warmrow"><span>Warmup</span>' +
-          ramp.map(function (r, ri) {
-            /* Mit Einheit, wie im Fokus-Modus: ohne "kg" steht die Zahl allein
-               neben der Wiederholungszahl und liest sich wie ein zweiter Faktor. */
-            return '<button data-act="warmpick" data-i="' + ri + '">' + num(r.weight) +
-              ' kg <s>&times;' + r.reps + '</s></button>';
-          }).join("") + '</div>'
-        : "") +
-      exNoteBlock() +
-      exHistBlock() +
-      '</div>' +
-      /* Wie im Fokus-Modus: der Speichern-Knopf bleibt am unteren Bildschirmrand
-         stehen, statt mit der Übungskarte wegzuscrollen, siehe BACKLOG. */
-      '<div class="savearea main">' +
-      (S.toast ? '<div class="toast">' + S.toast + '</div>' : "") +
-      '<button class="save' + (S.warm ? " warm" : "") + '" data-act="save">' +
-      (S.warm ? "Aufwärmsatz speichern" : "Satz " + n + " speichern") + ': ' +
-      esc(S.weight) + ' kg × ' + esc(S.reps) + '</button>' +
-      /* Im Standard-Trainingsreiter bleibt nur die Rückzugsmöglichkeit aus einem
-         Zustand stehen, in den man geraten ist (Aufwärmen, letzte Planübung).
-         Der aktive Einstieg dorthin (manuell Aufwärmen erfassen, eine Übung
-         bewusst überspringen) ist hier entfernt, siehe BACKLOG. */
-      (S.warm || !(planIndex() >= 0 && planIndex() < S.plans[S.plan].length - 1)
-        ? '<div class="subacts">' +
-          (S.warm ? '<button data-act="warmoff">Doch ein Arbeitssatz</button>' : "") +
-          (!(planIndex() >= 0 && planIndex() < S.plans[S.plan].length - 1)
-            ? '<button data-act="pickopen">Andere Übung</button>' : "") +
-          '</div>'
-        : "") + '</div>' +
-      planNav();
-  } else {
-    h += '<div class="hero blank"><div class="hero-ex">Bereit für den ersten Satz</div>' +
-      '<div class="hero-meta">Wähle einen Plan oder eine einzelne Übung. Reps ' +
-      'und Gewicht werden dann aus deinem letzten Training vorgeschlagen.</div>' +
-      '<div class="savearea"><button class="save" data-act="pickopen">Übung wählen</button>' +
-      '</div></div>';
+    return ed ? editHero(ed) : "";
+  }
+  return S.exercise ? exerciseHero() : blankHero();
+}
+function editHero(ed) {
+  return '<div class="hero edit">' +
+    '<div class="setline">SATZ ' + ed.set + (ed.warm ? " AUFWÄRMEN" : "") +
+    ' BEARBEITEN</div>' +
+    '<div class="hero-ex">' + esc(ed.exercise) + '</div>' +
+    '<div class="hero-meta">Satz vom ' + shortDate(ed.date) +
+    '. Ursprünglich <b>' + ed.reps + ' Reps</b> mit <b>' + num(ed.weight) + ' kg</b>' +
+    (ed.rpe != null ? ', RPE ' + num(ed.rpe) : '') + '.</div>' +
+    weightDial(ed.exercise) +
+    '<div class="fieldlab">REPS</div>' + repPills() +
+    (ed.warm ? "" : '<div class="fieldlab">RPE</div>' + rpePills()) +
+    '<div class="savearea">' +
+    '<button class="save" data-act="update">Änderung speichern</button>' +
+    '<button class="ghost" data-act="canceledit">Abbrechen</button></div></div>';
+}
+/* Die Übungskarte: Ziel, letztes Top Set, Vorschlag, Gewicht, Reps und RPE,
+   Aufwärmrampe, Notiz und Verlauf, darunter die feste Speichern-Zeile. */
+function exerciseHero() {
+  var n = nextSet(), last = lastSession(S.exercise, S.date);
+  var tg = planTarget(S.exercise);
+  /* "Letztes Top Set" zeigt den besten Arbeitssatz der letzten früheren Einheit,
+     nicht deren chronologisch letzten Satz. Ein leichter Auslaufsatz verfälscht
+     die Zeile deshalb nicht. */
+  var lastSet = last ? bestSet(last.sets) : null;
+  var doneN = doneSets(S.exercise, S.date), needN = targetSets(S.exercise);
+  /* Vorschlag und Plateau-Warnung nur beim heutigen Training, beim Nachtragen
+     oder Korrigieren älterer Tage lenken sie nur ab */
+  var isToday = S.date === todayISO();
+  var flat = isToday ? plateau(S.exercise) : 0;
+  var curW = deci(S.weight) || 0;
+  var wBase = S.warm && S.warmBase > 0 ? S.warmBase : curW;
+  var ramp = doneSets(S.exercise, S.date) ? [] : warmupPlan(S.exercise, wBase);
+  var split = isBar(S.exercise) ? plateSplit(curW) : null;
+  var heroRng = repRangeShown(S.exercise);
+  /* Wie im Fokus-Modus: blau der aktuelle, grün die erledigten Sätze, keine
+     Textzeile "Satz X von Y" mehr daneben, siehe BACKLOG. */
+  var setBars = "";
+  for (var si = 0; si < needN; si++) {
+    setBars += '<i class="' + (si < doneN ? "done" : (si === doneN ? "cur" : "")) + '"></i>';
   }
 
+  return logHead() + planProgress() +
+    '<div class="hero' + (S.warm ? " warm" : "") + '">' +
+    '<div class="hero-top">' +
+    '<button class="hero-ex tap" data-act="pickopen" title="Andere Übung wählen">' +
+    '<span>' + esc(S.exercise) + '</span><i class="chev">' + svg("chev", 16) +
+    '</i></button>' +
+    '<div class="setprog"><div class="bars">' + setBars + '</div></div>' +
+    '</div>' +
+    '<div class="hero-meta">' +
+    /* Ist die doppelte Progression an, steht hier die Range statt der einen
+       Zielzahl - sonst wäre der Vorschlag "+1 Rep" nicht
+       nachvollziehbar, siehe repRangeShown(). */
+    (tg ? "Ziel <b>" + needN + "x " +
+      (heroRng ? rangeText(heroRng) : tg.reps) + " Reps</b> mit <b>" +
+      num(tg.weight) + " kg</b><br>" : "") +
+    (lastSet ? "Letztes Top Set <b>" + lastSet.reps + "x " + num(lastSet.weight) + " kg</b> am " +
+      tinyDate(last.day) + (lastSet.rpe != null ? " bei RPE " + num(lastSet.rpe) : "") +
+      "" : "Erste Aufzeichnung für diese Übung") +
+    '</div>' +
+    (isToday ? suggestionBlock() : "") +
+    (isToday && flat ? '<div class="flag">Seit ' + flat + ' Wochen unverändert bei ' +
+      num(lastSet ? lastSet.weight : 0) + ' kg. Zeit für mehr Gewicht, mehr ' +
+      'Reps oder eine andere Übung.</div>' : "") +
+    heroWeightDial(S.exercise) +
+    (split ? '<div class="plates">Stange ' + num(split.bar) + ' kg, pro Seite ' +
+      split.side.map(num).join(' + ') +
+      (split.rest > 0.001 ? '<b> und ' + num(split.rest) + ' kg fehlen</b>' : '') +
+      '</div>' : "") +
+    heroSteppers() +
+    (ramp.length
+      ? '<div class="warmrow"><span>Warmup</span>' +
+        ramp.map(function (r, ri) {
+          /* Mit Einheit, wie im Fokus-Modus: ohne "kg" steht die Zahl allein
+             neben der Wiederholungszahl und liest sich wie ein zweiter Faktor. */
+          return '<button data-act="warmpick" data-i="' + ri + '">' + num(r.weight) +
+            ' kg <s>&times;' + r.reps + '</s></button>';
+        }).join("") + '</div>'
+      : "") +
+    exNoteBlock() +
+    exHistBlock() +
+    '</div>' +
+    /* Wie im Fokus-Modus: der Speichern-Knopf bleibt am unteren Bildschirmrand
+       stehen, statt mit der Übungskarte wegzuscrollen, siehe BACKLOG. */
+    '<div class="savearea main">' +
+    (S.toast ? '<div class="toast">' + S.toast + '</div>' : "") +
+    '<button class="save' + (S.warm ? " warm" : "") + '" data-act="save">' +
+    (S.warm ? "Aufwärmsatz speichern" : "Satz " + n + " speichern") + ': ' +
+    esc(S.weight) + ' kg × ' + esc(S.reps) + '</button>' +
+    /* Im Standard-Trainingsreiter bleibt nur die Rückzugsmöglichkeit aus einem
+       Zustand stehen, in den man geraten ist (Aufwärmen, letzte Planübung).
+       Der aktive Einstieg dorthin (manuell Aufwärmen erfassen, eine Übung
+       bewusst überspringen) ist hier entfernt, siehe BACKLOG. */
+    (S.warm || !(planIndex() >= 0 && planIndex() < S.plans[S.plan].length - 1)
+      ? '<div class="subacts">' +
+        (S.warm ? '<button data-act="warmoff">Doch ein Arbeitssatz</button>' : "") +
+        (!(planIndex() >= 0 && planIndex() < S.plans[S.plan].length - 1)
+          ? '<button data-act="pickopen">Andere Übung</button>' : "") +
+        '</div>'
+      : "") + '</div>' +
+    planNav();
+}
+function blankHero() {
+  return '<div class="hero blank"><div class="hero-ex">Bereit für den ersten Satz</div>' +
+    '<div class="hero-meta">Wähle einen Plan oder eine einzelne Übung. Reps ' +
+    'und Gewicht werden dann aus deinem letzten Training vorgeschlagen.</div>' +
+    '<div class="savearea"><button class="save" data-act="pickopen">Übung wählen</button>' +
+    '</div></div>';
+}
+/* Kopfzeile des Plans mit offenen Übungen, aufklappbar zur Liste */
+function planListBlock() {
+  var h = "";
   if (S.plan && S.plans[S.plan]) {
     var items = S.plans[S.plan];
     var offen = items.filter(function (i) {
@@ -4220,7 +4244,11 @@ function viewTag() {
       h += '</div>';
     }
   }
-
+  return h;
+}
+/* Erfasste Sätze des Tages nach Übung, Summenzeile, Tagesnotiz und Abschluss */
+function daySetsBlock(day) {
+  var h = "";
   h += '<div class="sect"><h2>Erfasste Sätze</h2><span>' +
     (day.length ? day.length + (day.length === 1 ? " Satz" : " Sätze") : "noch keine") +
     '</span></div>';
@@ -5924,11 +5952,17 @@ function volChart(days, byDay) {
 }
 
 /* ---------- Daten ---------- */
+/* Der Daten-Reiter, ein Abschnitt je Funktion. Die Reihenfolge folgt dem, was am
+   häufigsten gebraucht wird: Darstellung, Speicher, Backup, Pause, danach die
+   selteneren Einstellungen und ganz unten die Fassung, siehe README. Bis 1.30.0
+   war das ein einziger Ausdruck über 254 Zeilen. */
 function viewData() {
-  var lb = S.meta.lastBackup
-    ? new Date(S.meta.lastBackup).toLocaleString("de-DE",
-        { day:"2-digit", month:"2-digit", year:"2-digit", hour:"2-digit", minute:"2-digit" })
-    : "noch nie";
+  return dataDisplay() + dataStorage() + dataBackup() + dataPause() + dataColors() +
+    dataExercises() + dataProgression() + dataExHist() + dataFocus() + dataBarbell() +
+    dataMuscles() + dataVersion();
+}
+/* Darstellung */
+function dataDisplay() {
   return '<div class="sect"><h2>Darstellung' + infoBtn("darstellung") + '</h2></div>' +
     '<div class="tools" style="grid-template-columns:1fr 1fr 1fr">' +
     '<button class="mode' + (!S.themeAuto && theme() === "light" ? " on" : "") +
@@ -5938,9 +5972,15 @@ function viewData() {
     '<button class="mode' + (S.themeAuto ? " on" : "") +
     '" data-act="theme" data-v="auto">System</button></div>' +
     descText("darstellung", '<p class="notice">System übernimmt die Einstellung des Handys ' +
-      'und wechselt mit, sobald der Nachtmodus umschaltet.</p>') +
-
-    '<div class="sect"><h2>Speicher' + infoBtn("speicher") + '</h2></div>' +
+      'und wechselt mit, sobald der Nachtmodus umschaltet.</p>');
+}
+/* Speicher */
+function dataStorage() {
+  var lb = S.meta.lastBackup
+    ? new Date(S.meta.lastBackup).toLocaleString("de-DE",
+        { day:"2-digit", month:"2-digit", year:"2-digit", hour:"2-digit", minute:"2-digit" })
+    : "noch nie";
+  return '<div class="sect"><h2>Speicher' + infoBtn("speicher") + '</h2></div>' +
     '<div class="card"><p>' +
     (S.storeOk
       ? "Gespeichert auf diesem Gerät sind:"
@@ -5956,9 +5996,11 @@ function viewData() {
       'installierten App sagt Chrome das in der Regel ohne Nachfrage zu, im Browser ' +
       'hängt es davon ab, wie oft die Seite benutzt wird. Gegen bewusstes Löschen über ' +
       'die Browser- oder App-Einstellungen hilft der Schutz nicht, dagegen hilft nur ' +
-      'ein Backup.</p>') +
-
-    '<div class="sect"><h2>Backup' + infoBtn("backup") + '</h2></div>' +
+      'ein Backup.</p>');
+}
+/* Backup */
+function dataBackup() {
+  return '<div class="sect"><h2>Backup' + infoBtn("backup") + '</h2></div>' +
     '<div class="tools">' +
     '<button class="solid" data-act="savefile">Backup speichern</button>' +
     (canShareBackup()
@@ -5984,9 +6026,11 @@ function viewData() {
     'übernommen wird nur, was hier noch auf dem Ausgangswert steht.</p>') +
     (S.out ? '<textarea id="out">' + esc(S.out) + '</textarea>' +
       '<div class="tools"><button data-act="importtext">Text einlesen</button>' +
-      '<button data-act="clear">Feld leeren</button></div>' : "") +
-
-    '<div class="sect"><h2>Pause' + infoBtn("pause") + '</h2></div>' +
+      '<button data-act="clear">Feld leeren</button></div>' : "");
+}
+/* Pause */
+function dataPause() {
+  return '<div class="sect"><h2>Pause' + infoBtn("pause") + '</h2></div>' +
     '<div class="card">' +
     descText("pause", '<p>Länge der Pause nach einem Arbeitssatz, solange die Übung ' +
       'keine eigene hinterlegt hat. Mehrgelenksübungen bringen ' + mmss(REST_COMPOUND) +
@@ -6029,9 +6073,11 @@ function viewData() {
       'HantelKladde, auch bei der installierten App, und ist auf einem neuen Gerät ' +
       'wieder zu setzen. Bei kurzen Pausen fällt es nicht auf, weil das Gerät erst ' +
       'nach etwa einer Minute wirklich einschläft.</p>') +
-    '</div>' +
-
-    '<div class="sect"><h2>Farben der Pläne' + infoBtn("farben") + '</h2></div>' +
+    '</div>';
+}
+/* Farben der Pläne */
+function dataColors() {
+  return '<div class="sect"><h2>Farben der Pläne' + infoBtn("farben") + '</h2></div>' +
     descText("farben", '<p class="notice">Bestimmt die Punktfarbe im Wochenstreifen für ' +
       'Tage, an denen du den Plan absolviert hast.</p>') +
     '<div class="card" style="padding:0">' +
@@ -6041,9 +6087,11 @@ function viewData() {
         esc(p) + '</div>' +
         '<input type="color" value="' + planColor(p) + '" data-act="colorset" data-v="' +
         esc(p) + '"></div>';
-    }).join("") + '</div>' +
-
-    '<div class="sect"><h2>Übungen' + infoBtn("uebungen") + '</h2>' +
+    }).join("") + '</div>';
+}
+/* Übungen */
+function dataExercises() {
+  return '<div class="sect"><h2>Übungen' + infoBtn("uebungen") + '</h2>' +
     secFold("uebungen", allNames().length + " Übungen") + '</div>' +
     descText("uebungen", '<p class="notice">Die Überschrift zeigt die Gruppe, unter der eine ' +
       'Übung im Auswahlmenü steht, ein Tipp darauf klappt sie zu. Die Schrittweite gilt für ' +
@@ -6083,9 +6131,11 @@ function viewData() {
     '<select id="dataNewMuscleSecondary" aria-label="Sekundäre Muskelgruppe" disabled>' +
     muscleOptionList("Sekundär") + '</select></div></div></div>' +
     '<div class="newrow"><button data-act="addexdata">Anlegen</button></div>' +
-    '</div></div>' : "") +
-
-    '<div class="sect"><h2>Progression' + infoBtn("progression") + '</h2></div>' +
+    '</div></div>' : "");
+}
+/* Progression */
+function dataProgression() {
+  return '<div class="sect"><h2>Progression' + infoBtn("progression") + '</h2></div>' +
     '<div class="card">' +
     descText("progression", '<p>Für einen Gewichtssprung zählt der höchste vollständige ' +
       'Arbeitsblock einer Einheit. Einzelne Topsätze und leichtere Back-off-Sätze ändern ' +
@@ -6125,9 +6175,11 @@ function viewData() {
     '<button data-act="repspan" data-d="-1">Range schmaler</button>' +
     '<button data-act="repspan" data-d="1">Range breiter</button></div>' +
     '<p style="margin-top:10px">Range aktuell Planziel ± ' + S.settings.repSpan +
-    ' Reps.</p></div>' +
-
-    '<div class="sect"><h2>Verlauf im Training' + infoBtn("exhist") + '</h2></div>' +
+    ' Reps.</p></div>';
+}
+/* Verlauf im Training */
+function dataExHist() {
+  return '<div class="sect"><h2>Verlauf im Training' + infoBtn("exhist") + '</h2></div>' +
     '<div class="card">' +
     descText("exhist", '<p>Im Trainingsreiter lässt sich über der Speichern-Zeile der ' +
       'Verlauf der gewählten Übung aufklappen: die letzten drei früheren Einheiten mit ' +
@@ -6135,18 +6187,22 @@ function viewData() {
       'Zugeklappt kostet er eine Zeile, und beim Wechsel der Übung klappt er von ' +
       'selbst wieder zu. Aus heißt: der Block taucht im Training gar nicht auf.</p>') +
     '<button class="open" data-act="exhisttoggle">Verlauf dieser Übung: ' +
-    (S.settings.exHist ? "an" : "aus") + '</button></div>' +
-
-    '<div class="sect"><h2>Fokus-Modus' + infoBtn("fokus") + '</h2></div>' +
+    (S.settings.exHist ? "an" : "aus") + '</button></div>';
+}
+/* Fokus-Modus */
+function dataFocus() {
+  return '<div class="sect"><h2>Fokus-Modus' + infoBtn("fokus") + '</h2></div>' +
     '<div class="card">' +
     descText("fokus", '<p>Der Fokus-Modus blendet Reiter, Wochenstreifen und Planliste ' +
       'aus und zeigt nur die gerade gewählte Übung, über „Fokus Mode starten" bei einem ' +
       'gewählten Plan. Scheibenrechner und Aufwärmrampe stehen dort standardmäßig nicht ' +
       'mit da, weil sie schnell wieder überladen wirken.</p>') +
     '<button class="open" data-act="focusplates">Scheibenrechner und Warmup im ' +
-    'Fokus-Modus: ' + (S.settings.focusPlates ? "an" : "aus") + '</button></div>' +
-
-    '<div class="sect"><h2>Langhantel' + infoBtn("langhantel") + '</h2></div>' +
+    'Fokus-Modus: ' + (S.settings.focusPlates ? "an" : "aus") + '</button></div>';
+}
+/* Langhantel */
+function dataBarbell() {
+  return '<div class="sect"><h2>Langhantel' + infoBtn("langhantel") + '</h2></div>' +
     '<div class="card">' +
     descText("langhantel", '<p>Grundlage für den Scheibenrechner. Vorhandene Scheiben ' +
       'werden paarweise gerechnet, je eine pro Seite.</p>') +
@@ -6158,9 +6214,11 @@ function viewData() {
       var on = S.settings.plates.some(function (x) { return Math.abs(x - p) < 0.001; });
       return '<button class="' + (on ? "on" : "") + '" data-act="plate" data-v="' + p +
         '">' + num(p) + ' kg</button>';
-    }).join("") + '</div></div>' +
-
-    '<div class="sect"><h2>Muskelgruppen' + infoBtn("muskeln") + '</h2>' +
+    }).join("") + '</div></div>';
+}
+/* Muskelgruppen */
+function dataMuscles() {
+  return '<div class="sect"><h2>Muskelgruppen' + infoBtn("muskeln") + '</h2>' +
     secFold("muskeln", allNames().length + " Übungen") + '</div>' +
     descText("muskeln", '<p class="notice">Primäre und sekundäre Muskelgruppe je Übung, ' +
       'Grundlage für die Verteilung im Verlauf. Bei eigenen oder umbenannten Übungen lässt ' +
@@ -6169,9 +6227,11 @@ function viewData() {
       'Bewegung nur stabilisieren, zählen nicht als Sekundärmuskel.</p>') +
     (secOpen("muskeln")
       ? '<div class="card" style="padding:0">' + muscleRows() + '</div>'
-      : "") +
-
-    '<div class="sect"><h2>App Version' + infoBtn("app") + '</h2></div>' +
+      : "");
+}
+/* App Version */
+function dataVersion() {
+  return '<div class="sect"><h2>App Version' + infoBtn("app") + '</h2></div>' +
     '<div class="card">' +
     descText("app", '<p>Installiert läuft HantelKladde ohne Adressleiste in einem ' +
       'eigenen Fenster, startet auch ohne Netz und steht in den Android-Einstellungen ' +
@@ -6195,8 +6255,7 @@ function viewData() {
         '<p style="margin-top:10px">Das Update liegt vollständig auf dem Gerät. ' +
         'Der Start lädt die Seite neu, gespeicherte Sätze bleiben unberührt.</p>'
       : "") +
-    '</div>' +
-    "";
+    '</div>';
 }
 /* Vier Zustände im Abschnitt Pause. "denied" ist der unangenehme: Chrome fragt
    danach nicht mehr von selbst, zurückholen lässt es sich nur über die
