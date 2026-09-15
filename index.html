@@ -766,7 +766,8 @@ textarea.note { width:100%; margin-top:8px; padding:11px 12px; border-radius:13p
    das dank margin-left:auto weiterhin ganz rechts bleibt. */
 .plancount { font-size:12px; color:var(--muted); white-space:nowrap; }
 .phead h3 .nm { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.phead h3 .eye, .phead h3 .lock { width:28px; height:28px; border-radius:50%; padding:0;
+.phead h3 .eye, .phead h3 .lock, .phead h3 .dup { width:28px; height:28px;
+  border-radius:50%; padding:0;
   flex:0 0 auto; margin-left:0; display:flex; align-items:center; justify-content:center;
   background:none; border:1.5px solid var(--line); color:var(--muted);
   transition:background .15s, color .15s; }
@@ -934,7 +935,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.27.1";
+var APP_VERSION = "1.28.0";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -3459,6 +3460,8 @@ var ICONS = {
   zurueck:'<path d="M15 5l-7 7 7 7"/>',
   haken:'<path d="M4 12.5l5 5L20 6.5"/>',
   kreuz:'<path d="M6 6l12 12M18 6L6 18"/>',
+  kopie:'<rect x="9" y="9" width="11" height="11" rx="2"/>' +
+    '<path d="M15 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3"/>',
   trend:'<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>',
   griff:'<path d="M4 8h16M4 12h16M4 16h16"/>',
   griffgesperrt:'<path d="M4 8h16M4 12h16M4 16h16"/><path d="M4 4l16 16"/>',
@@ -4670,7 +4673,9 @@ function viewPlans() {
       'Training gibt. Reihenfolge ändern: den Griff links gedrückt halten und ziehen, ' +
       'ein kurzer Tipp schiebt die Übung eine Position nach oben. Der Griff-Knopf neben ' +
       'dem Plannamen sperrt die Reihenfolge gegen versehentliches Umordnen. Das Auge ' +
-      'daneben blendet einen Plan im Training aus oder wieder ein.</p>') +
+      'daneben blendet einen Plan im Training aus oder wieder ein. Das dritte Symbol ' +
+      'legt eine Kopie des Plans an, als Vorlage für eine Variante: die Übungen samt ' +
+      'Zielwerten kommen mit, Wochenziel und Farbe nicht.</p>') +
     '<div class="tools"><button class="wide" data-act="planfoldall">' +
     (S.planCardsFold ? "Alle Pläne ausklappen" : "Alle Pläne einklappen") + '</button></div>';
 
@@ -4703,7 +4708,14 @@ function viewPlans() {
       (planHidden(p) ? "Im Training ausgeblendet, tippen zum Einblenden"
                      : "Im Training sichtbar, tippen zum Ausblenden") +
       '" data-act="planvis" data-v="' + esc(p) + '">' +
-      svg(planHidden(p) ? "augeaus" : "auge", 16) + '</button></h3>' +
+      svg(planHidden(p) ? "augeaus" : "auge", 16) + '</button>' +
+      /* Nicht im eingeklappten Zustand: dort steht neben dem Namen schon die
+         Übungszahl, und ein drittes Symbol schnitt "Push Day" auf "Push ..." ab.
+         Kopieren gehört ohnehin zum Bearbeiten, also zur offenen Karte. */
+      (S.planCardsFold ? "" :
+        '<button class="dup" aria-label="' + esc(p) + ' duplizieren" title="' +
+        esc(p) + ' als Vorlage kopieren" data-act="dupplan" data-v="' + esc(p) + '">' +
+        svg("kopie", 15) + '</button>') + '</h3>' +
       (S.planCardsFold ? '<span class="plancount">' + list.length +
         (list.length === 1 ? " Übung" : " Übungen") + '</span>' : "") +
       '<button data-act="delplan" data-v="' + esc(p) + '">Plan löschen</button></div>';
@@ -7567,6 +7579,30 @@ document.addEventListener("click", function (ev) {
       hp.push(v);
       if (S.plan === v) { S.plan = ""; S.plansFold = false; }
     }
+    persist();
+  }
+  else if (act === "dupplan") {
+    if (!S.plans[v]) return;
+    var dupBase = v + " Kopie", dupName = dupBase, dupN = 2;
+    while (S.plans[dupName]) { dupName = dupBase + " " + dupN; dupN += 1; }
+    /* Die Kopie bekommt eine eigene Farbe, sonst wäre sie im Wochenstreifen nicht
+       vom Original zu unterscheiden. Gesucht ist die erste Palettenfarbe, die noch
+       kein Plan trägt; ist keine mehr frei, bleibt es bei der Reihenfolge-Regel aus
+       planColor(). Deshalb vor dem Einfügen, sonst zählte die Kopie sich selbst. */
+    var dupUsed = Object.keys(S.plans).map(planColor);
+    for (var dupC = 0; dupC < PALETTE.length; dupC++) {
+      if (dupUsed.indexOf(PALETTE[dupC]) < 0) { S.colors[dupName] = PALETTE[dupC]; break; }
+    }
+    /* Ans Ende der Liste, nicht hinter das Original: ohne eigene Farbe greift
+       planColor() auf den Platz in der Reihenfolge zurück, ein Einschub gäbe
+       jedem Plan dahinter eine andere Farbe. */
+    S.plans[dupName] = JSON.parse(JSON.stringify(S.plans[v]));
+    /* Wochenziel, Sichtbarkeit und Sperre bleiben außen vor. Ein mitkopiertes
+       Wochenziel würde das Wochenpensum stillschweigend verdoppeln. */
+    var dupLen = S.plans[dupName].length;
+    S.note = dupName + " angelegt, " + dupLen +
+      (dupLen === 1 ? " Übung übernommen." : " Übungen übernommen.") +
+      " Wochenziel bleibt frei.";
     persist();
   }
   else if (act === "planlock") {

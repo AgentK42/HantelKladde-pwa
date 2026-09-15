@@ -383,6 +383,23 @@ wie immer über die Planauswahl, und wer den Plan abwählt, bekommt ihn nicht be
 nächsten Neuaufbau wieder vorgesetzt, erst beim nächsten Datumswechsel. Ein im
 Training ausgeblendeter Plan wird nicht vorgewählt.
 
+## Plan duplizieren
+
+Das dritte Symbol in der Kopfzeile einer Plankarte legt eine Kopie an, als
+Vorlage für eine Variante. Mit kommen alle Übungen samt Sätzen, Reps und
+Zielgewichten. Nicht mit kommen Wochenziel, Sichtbarkeit und Sperre: ein
+mitkopiertes Wochenziel würde das Wochenpensum stillschweigend verdoppeln.
+
+Der Name ist `<Original> Kopie`, bei Bedarf durchnummeriert. Die Kopie landet
+am Ende der Liste, nicht hinter dem Original. Grund ist `planColor()`: ohne
+eigene Farbe bestimmt der Platz in der Reihenfolge die Farbe, ein Einschub in
+der Mitte färbte alle Pläne dahinter um. Zusätzlich bekommt die Kopie die erste
+Palettenfarbe, die noch kein Plan trägt, damit sie im Wochenstreifen
+unterscheidbar bleibt.
+
+Bei eingeklappten Karten fehlt der Knopf. Dort steht neben dem Namen schon die
+Übungszahl, und ein drittes Symbol schnitt „Push Day“ auf „Push ...“ ab.
+
 ## Timer und Datum
 
 Der Pausentimer startet nur für den heutigen Tag. Wer einen zurückliegenden Tag
