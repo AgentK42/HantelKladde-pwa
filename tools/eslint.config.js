@@ -59,7 +59,7 @@ var rules = {
      eine Warnung verschwindet, ist der eine Weg, der die Regel entwertet.
 
      Stand 1.30.0 ueber der Schwelle: complexity 40 trifft viewTag (70), load (68),
-     viewFocus (50), suggestFor (47) und den change-Verteiler; max-lines 150
+     viewFocus (50), suggestFor (47) und den input-Verteiler; max-lines 150
      trifft viewTag (224) und viewData (254). */
   "complexity": ["warn", 40],
   "max-lines-per-function": ["warn", { max: 150, skipComments: true, skipBlankLines: true }]
