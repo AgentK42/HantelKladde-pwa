@@ -62,6 +62,23 @@ ausliefert und nichts annehmen kann.
 | `screenshots/` | drei Bilder für den Installationsdialog von Chrome |
 | `tools/` | Helfer für das Ausrollen und zum Prüfen, siehe unten |
 
+## Aktionen
+
+Jeder Tipp auf ein Element mit `data-act` landet im Klick-Verteiler am Ende von
+`index.html`. Der schlägt die Aktion in der Tabelle `ACTIONS` nach, eine
+Funktion je Aktion, und baut danach die Seite neu auf. Gibt die Funktion
+`false` zurück, unterbleibt der Neuaufbau: entweder hat sie ihn schon selbst
+erledigt (etwa nach einer Fehlermeldung), oder es gibt nichts neu aufzubauen
+(Pausentimer, Update, Dateidialog).
+
+Eine neue Aktion ist damit ein Eintrag `ACTIONS.name = function (v, el) { ... };`
+mit `v` aus `data-v` und `el` als angetipptem Element. Bis 1.29.1 war der
+Verteiler eine else-if-Kette mit 106 Zweigen in einer Funktion; weil `var` für
+die ganze Funktion gilt, brauchte jeder Zweig Namen, die in keinem anderen
+vorkamen. Felder, die über `change` statt `click` laufen (Eingabefelder,
+Auswahllisten), stehen in der Ausschlussliste am Anfang des Verteilers und
+haben ihren eigenen, kleineren Verteiler darunter.
+
 ## Hosting
 
 Ausgeliefert über GitHub Pages aus dem Wurzelverzeichnis des `main`-Branch.

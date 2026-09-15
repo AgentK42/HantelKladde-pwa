@@ -940,7 +940,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.29.1";
+var APP_VERSION = "1.30.0";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -7014,6 +7014,843 @@ function mergeBackup(raw) {
 }
 
 /* ---------- Ereignisse ---------- */
+/* Jede Aktion der Oberfläche ist eine eigene Funktion in dieser Tabelle, der
+   Schlüssel ist das data-act des angetippten Elements. Bis 1.29.1 war das eine
+   else-if-Kette mit 106 Zweigen in einer 840-Zeilen-Funktion; weil var für die
+   ganze Funktion gilt, brauchte jeder Zweig Namen, die in keinem anderen vorkamen
+   (dupBase, dsMon, dxX). Jetzt hat jede Aktion ihren eigenen Gültigkeitsbereich.
+
+   Nach der Aktion baut der Verteiler die Seite neu auf. Gibt die Funktion false
+   zurück, unterbleibt das: entweder hat sie schon selbst neu aufgebaut (etwa nach
+   einer Fehlermeldung), oder es gibt nichts neu aufzubauen (Pausentimer, Update,
+   Dateidialog). Das entspricht dem früheren return mitten im Zweig.
+   Object.create(null): ein data-act wie "constructor" darf nichts vom Prototyp
+   treffen. */
+var ACTIONS = Object.create(null);
+ACTIONS.theme = function (v) {
+  if (v === "auto") useSystemTheme();
+  else setTheme(v || (theme() === "dark" ? "light" : "dark"));
+};
+ACTIONS.planlist = function () { S.planOpen = !S.planOpen; };
+ACTIONS.tab = function (v) {
+  if (S.openEx) { navBack("openex"); S.openEx = ""; }
+  closeWeekOverview();
+  S.view = v; S.pickOpen = false; S.pickPlanTarget = ""; S.pickSel = []; S.note = "";
+};
+ACTIONS.pickday = function (v) { S.date = v; S.editId = ""; S.note = ""; preselectPlan(); };
+ACTIONS.ovrday = function (v) { S.ovrDay = v; };
+ACTIONS.weekovr = function () {
+  S.weekOverview = true; S.ovrDay = todayISO();
+  navOpen("weekovr"); window.scrollTo({ top:0 });
+};
+ACTIONS.weekovrclose = function () { closeWeekOverview(); };
+ACTIONS.plansfold = function () { S.plansFold = !S.plansFold; };
+ACTIONS.planfoldall = function () { S.planCardsFold = !S.planCardsFold; };
+ACTIONS.wraptoggle = function () { S.settings.wrapNames = !S.settings.wrapNames; persist(); };
+ACTIONS.focuson = function () {
+  S.editId = ""; S.pickOpen = false;
+  /* Ohne gewählte Übung oder eine, die nicht zu diesem Plan gehört, wird die
+     erste noch offene Übung des Plans vorgeschlagen, wie beim Wählen des Plans. */
+  var flist = S.plans[S.plan] || [];
+  if (!S.exercise || !flist.some(function (i) { return i.name === S.exercise; })) {
+    var fday = dayEntries();
+    var fopen = flist.filter(function (i) {
+      return !fday.some(function (e) { return e.exercise === i.name; });
+    })[0] || flist[0];
+    if (fopen) {
+      S.exercise = fopen.name;
+      applySuggestion(fopen.name);
+    }
+  }
+  repWinCenter = null;
+  S.focus = true;
+  navOpen("focus");
+};
+ACTIONS.focusoff = function () { navBack("focus"); clearQuickUndo(); S.focus = false; };
+ACTIONS.focusfinishask = function () { S.focusEndConfirm = true; };
+ACTIONS.focusfinishcancel = function () { S.focusEndConfirm = false; };
+ACTIONS.focusfinish = function () {
+  S.focusEndConfirm = false;
+  /* Derselbe Abschluss wie außerhalb des Fokus-Modus: Pause immer stoppen,
+     Zusammenfassung aber erst zeigen, wenn das verlangte Backup erstellt wurde. */
+  var focusSaved = saveBackup();
+  stopRest();
+  if (focusSaved) {
+    clearQuickUndo();
+    S.summaryData = trainingSummary(S.date);
+    S.showSummary = true;
+    S.summaryReturn = "";
+    S.focus = false;
+    navSwap("summary");
+  } else {
+    showToast(S.note);
+  }
+};
+ACTIONS.repwin = function (v, el) {
+  var cur = parseInt(S.reps, 10);
+  if (!(cur > 0)) cur = 10;
+  var center = repWinCenter != null ? repWinCenter : cur;
+  repWinCenter = Math.max(3, center + parseInt(el.getAttribute("data-d"), 10));
+};
+ACTIONS.plan = function (v) {
+  if (S.plan === v) { S.plan = ""; S.plansFold = false; }
+  else selectPlan(v);
+};
+ACTIONS.planpick = function (v) {
+  S.exercise = v; S.pickOpen = false; S.editId = ""; S.search = "";
+  applySuggestion(v);
+};
+ACTIONS.opt = ACTIONS.planpick;
+ACTIONS.planstep = function (v, el) {
+  var idx = planIndex();
+  if (idx < 0) return false;
+  var target = S.plans[S.plan][idx + parseInt(el.getAttribute("data-d"),10)];
+  if (!target) return false;
+  S.exercise = target.name; S.pickOpen = false; S.editId = "";
+  applySuggestion(target.name);
+  /* Im Standard-Trainingsreiter bleibt die Scrollposition, wo sie ist - der
+     Sprung zurück an den Seitenanfang war ungewollt. Der Fokus-Modus hat
+     seine eigene, feste Fußzeile und braucht das ohnehin nicht. */
+};
+ACTIONS.pickopen = function () {
+  S.pickOpen = true; S.search = ""; S.editId = "";
+  S.pickCat = S.exercise ? catOf(S.exercise) : "";
+  var openMo = S.exercise ? muscleOf(S.exercise) : null;
+  S.pickMuscle = openMo ? openMo.primary : "";
+  /* Die gewählte Einteilung bleibt, wie sie zuletzt stand. Sie jedes Mal auf
+     Kategorien zurückzustellen hieß: wer nach Muskelgruppe sucht, schaltet vor
+     jeder Übungswahl neu um - obwohl S.pickMuscle daneben schon passend
+     vorbelegt wird. */
+  window.scrollTo({ top:0 });
+};
+ACTIONS.pickclose = function () { S.pickOpen = false; S.search = ""; };
+
+/* Mehrfachauswahl im Pläne-Reiter, siehe pickmulti-Knopf in viewPlans() */
+ACTIONS.pickmulti = function (v) {
+  S.pickPlanTarget = v; S.pickSel = []; S.pickOpen = true; S.search = "";
+  S.pickCat = ""; S.pickMuscle = ""; S.editId = "";
+  window.scrollTo({ top:0 });
+};
+ACTIONS.picktoggle = function (v) {
+  var pix = S.pickSel.indexOf(v);
+  if (pix >= 0) S.pickSel.splice(pix, 1); else S.pickSel.push(v);
+};
+ACTIONS.pickmulticlose = function () {
+  S.pickOpen = false; S.pickPlanTarget = ""; S.pickSel = []; S.search = "";
+};
+ACTIONS.pickmultidone = function () {
+  var plan = S.pickPlanTarget, toDraft = plan === DRAFT_TARGET;
+  var addedN = 0, alreadyN = 0;
+  if (toDraft) {
+    /* In den Entwurf der gewählten Woche statt in einen Plan, siehe
+       draftExtrasBlock(): mit der Standard-Satzzahl, einmal pro Woche, beides
+       dort änderbar. */
+    var wk = weekDraftEdit(selWeek());
+    S.pickSel.forEach(function (name) {
+      if (wk.extras.some(function (x) { return x.name === name; })) { alreadyN++; return; }
+      wk.extras.push({ name:name, sets:defaultSets(), times:1 });
+      addedN++;
+    });
+    if (addedN) saveDraft();
+  } else if (plan && S.plans[plan]) {
+    S.pickSel.forEach(function (name) {
+      if (S.plans[plan].some(function (i) { return i.name === name; })) { alreadyN++; return; }
+      var d = planItemDefaults(name);
+      S.plans[plan].push({ name: name, reps: d.reps, weight: d.weight, sets: d.sets });
+      addedN++;
+    });
+  }
+  S.pickOpen = false; S.pickPlanTarget = ""; S.pickSel = []; S.search = "";
+  /* Waren ausschließlich Übungen ausgewählt, die schon im Plan stehen, ist
+     "Keine Übung ausgewählt" schlicht falsch - ausgewählt war etwas, es kam nur
+     nichts dazu. Deshalb drei Fälle statt zwei. */
+  var mTo = toDraft ? "in den Entwurf" : "zu " + plan;
+  var mIn = toDraft ? "im Entwurf" : "in " + plan;
+  S.note = addedN
+    ? addedN + (addedN === 1 ? " Übung " : " Übungen ") + mTo + " hinzugefügt." +
+      (alreadyN ? " " + alreadyN + (alreadyN === 1 ? " stand" : " standen") +
+        " schon " + (toDraft ? "im Entwurf" : "im Plan") + "." : "")
+    : alreadyN
+      ? alreadyN + (alreadyN === 1 ? " Übung stand" : " Übungen standen") +
+        " schon " + mIn + "."
+      : "Keine Übung ausgewählt.";
+  if (addedN && !toDraft) persist();
+};
+ACTIONS.pickcat = function (v) { S.pickCat = v; S.search = ""; };
+ACTIONS.pickmuscle = function (v) { S.pickMuscle = v; S.search = ""; };
+ACTIONS.pickgroupby = function (v) { S.pickGroupBy = v; S.search = ""; };
+ACTIONS.suggestaccept = function () {
+  var acceptTarget = planTarget(S.exercise);
+  var acceptWeight = deci(S.weight), acceptReps = parseInt(S.reps, 10);
+  if (acceptTarget) {
+    /* Die Rep-Spanne bleibt um das bewusst gesetzte Planziel zentriert. Deshalb
+       wird bei doppelter Progression nur das neue Gewicht übernommen; eine
+       einzelne vorgeschlagene Wiederholung verschiebt die Range nicht. */
+    var hadRange = !!repRange(S.exercise, acceptTarget.weight);
+    if (isFinite(acceptWeight) && acceptWeight >= 0) acceptTarget.weight = acceptWeight;
+    if (!hadRange && acceptReps > 0) acceptTarget.reps = acceptReps;
+    persist();
+  }
+  var acceptRpe = deci(S.rpe);
+  S.suggestionHandled[S.date + "\n" + S.exercise] = {
+    reps:acceptReps, weight:acceptWeight, rpe:isNaN(acceptRpe) ? null : acceptRpe
+  };
+  saveSuggestions();
+  S.source = "";
+  repWinCenter = null;
+};
+ACTIONS.suggestreject = function () {
+  var rejectTarget = planTarget(S.exercise);
+  var previous = lastSession(S.exercise, S.date);
+  var rejectGoalSets = rejectTarget && rejectTarget.sets > 0
+    ? rejectTarget.sets : (previous ? previous.sets.length : 1);
+  var previousBlock = mainWorkBlock(previous, rejectGoalSets,
+    rejectTarget ? rejectTarget.weight : NaN);
+  var previousSet = previousBlock ? previousBlock.last : null;
+  if (previousSet) {
+    S.reps = String(previousSet.reps);
+    S.weight = comma(previousSet.weight);
+    if (previousSet.rpe != null) S.rpe = comma(previousSet.rpe);
+  } else if (rejectTarget) {
+    S.reps = String(rejectTarget.reps);
+    S.weight = comma(rejectTarget.weight);
+  }
+  var rejectWeight = deci(S.weight), rejectReps = parseInt(S.reps, 10);
+  var rejectRpe = deci(S.rpe);
+  S.suggestionHandled[S.date + "\n" + S.exercise] = {
+    reps:rejectReps, weight:rejectWeight, rpe:isNaN(rejectRpe) ? null : rejectRpe
+  };
+  saveSuggestions();
+  S.source = "";
+  repWinCenter = null;
+};
+ACTIONS.pillrep = function (v) { S.reps = v; S.source = ""; repWinCenter = null; };
+ACTIONS.pillrpe = function (v) { S.rpe = v; };
+ACTIONS.warmon = function () {
+  if (!S.warm) {
+    enterWarm(deci(S.weight) || 0);
+    /* Gleiche Rundung wie warmupPlan(): auf die Schrittweite der Übung, nach
+       unten durch die Stangenlast begrenzt, damit kein unmögliches Gewicht
+       herauskommt. */
+    var st = stepOf(S.exercise), min = isBar(S.exercise) ? (S.settings.barWeight || 20) : st;
+    var half = Math.round(S.warmBase * 0.5 / st) * st;
+    if (half < min) half = min;
+    half = Math.round(half * 100) / 100;
+    if (half > 0) S.weight = comma(half);
+  }
+};
+ACTIONS.addex = function () {
+  var inp = document.getElementById("newName");
+  var selc = document.getElementById("newCat");
+  var name = inp ? inp.value.trim() : "";
+  if (!name) return false;
+  /* Eine früher weggebenannte mitgelieferte Übung kommt über ihren Namen zurück */
+  var ahx = S.settings.hiddenEx.indexOf(name);
+  if (ahx >= 0) S.settings.hiddenEx.splice(ahx, 1);
+  if (allNames().indexOf(name) < 0) {
+    S.custom.push({ name:name, cat:(selc && selc.value) ? selc.value : "Sonstige" });
+    setExStart(name, document.getElementById("newSets"),
+      document.getElementById("newReps"), document.getElementById("newWeight"));
+    setExMuscle(name, document.getElementById("newMusclePrimary"),
+      document.getElementById("newMuscleSecondary"));
+  }
+  if (S.pickPlanTarget) {
+    /* Mehrfachauswahl: neu angelegte Übung direkt mit auswählen, Picker bleibt
+       offen, damit weitere Übungen dazukommen können. */
+    if (S.pickSel.indexOf(name) < 0) S.pickSel.push(name);
+  } else {
+    S.exercise = name; S.pickOpen = false; S.editId = ""; S.search = "";
+    applySuggestion(name);
+  }
+  persist();
+};
+
+/* Punkt 12: dieselbe Übungsanlage wie addex(), aber ohne die Nebenwirkungen auf
+   S.exercise/S.pickOpen, die im Daten-Reiter keinen Sinn ergeben. */
+ACTIONS.addexdata = function () {
+  var dinp = document.getElementById("dataNewName");
+  var dselc = document.getElementById("dataNewCat");
+  var dname = dinp ? dinp.value.trim() : "";
+  if (!dname) return false;
+  var dahx = S.settings.hiddenEx.indexOf(dname);
+  if (dahx >= 0) S.settings.hiddenEx.splice(dahx, 1);
+  if (allNames().indexOf(dname) < 0) {
+    S.custom.push({ name:dname, cat:(dselc && dselc.value) ? dselc.value : "Sonstige" });
+    setExStart(dname, document.getElementById("dataNewSets"),
+      document.getElementById("dataNewReps"), document.getElementById("dataNewWeight"));
+    setExMuscle(dname, document.getElementById("dataNewMusclePrimary"),
+      document.getElementById("dataNewMuscleSecondary"));
+    S.note = dname + " angelegt.";
+  } else {
+    S.note = dname + " gibt es schon.";
+  }
+  persist();
+};
+ACTIONS.descToggle = function (v) {
+  S.settings.descOpen[v] = !descOpen(v);
+  persist();
+};
+ACTIONS.noteopen = function () { S.noteOpen = !S.noteOpen; };
+ACTIONS.exnote = function () {
+  if (!S.exercise) return false;
+  S.exNoteFor = (S.exNoteFor === S.exercise ? "" : S.exercise);
+  if (S.exNoteFor) focusAfterRender = "exNote";
+};
+ACTIONS.exhist = function () {
+  if (!S.exercise) return false;
+  S.exHistFor = (S.exHistFor === S.exercise ? "" : S.exercise);
+};
+ACTIONS.exopen = function (v) { S.exOpen = (S.exOpen === v ? "" : v); };
+ACTIONS.rendo = function (v) {
+  var rin = document.getElementById("ren-name");
+  var to = rin ? rin.value.trim() : "";
+  if (!to) { S.note = "Der neue Name darf nicht leer sein."; render(); return false; }
+  if (to === v) { S.exOpen = ""; render(); return false; }
+  var merge = allNames().indexOf(to) >= 0;
+  if (merge) {
+    var uf = exUsage(v).sets, ut = exUsage(to).sets;
+    if (!window.confirm("„" + to + "“ gibt es bereits.\n\n" +
+        v + ": " + uf + (uf === 1 ? " Satz" : " Sätze") + "\n" +
+        to + ": " + ut + (ut === 1 ? " Satz" : " Sätze") + "\n" +
+        "ergibt " + (uf + ut) + " Sätze unter „" + to + "“.\n\n" +
+        "Rekorde und Verlauf werden neu berechnet. Schrittweite, Langhantel und " +
+        "Geräteeinstellung von „" + to + "“ bleiben erhalten. " +
+        "Rückgängig über Wiederherstellen.")) return false;
+  }
+  /* Pläne, eigene Übungen, Gruppen und Einstellungen sind klein genug, um sie
+     vollständig zu sichern. Bei den Sätzen genügen die verschobenen IDs. */
+  S.undo = { kind:"rename", from:v, to:to, ids:[],
+    plans:JSON.parse(JSON.stringify(S.plans)),
+    custom:JSON.parse(JSON.stringify(S.custom)),
+    cats:JSON.parse(JSON.stringify(S.cats)),
+    exmeta:JSON.parse(JSON.stringify(S.exmeta)),
+    hiddenEx:S.settings.hiddenEx.slice(),
+    exercise:S.exercise,
+    label:(merge ? v + " mit " + to + " zusammengeführt."
+                 : v + " heißt jetzt " + to + ".") };
+  S.undo.ids = renameExercise(v, to);
+  S.exOpen = "";
+  S.note = "";
+  persist();
+};
+ACTIONS.warmoff = function () { backToWork(); };
+ACTIONS.warmpick = function (v, el) {
+  var base = S.warm && S.warmBase > 0 ? S.warmBase : (deci(S.weight) || 0);
+  var wr = warmupPlan(S.exercise, base)[parseInt(el.getAttribute("data-i"),10)];
+  if (!wr) return false;
+  enterWarm(base);
+  S.weight = comma(wr.weight);
+  S.reps = String(wr.reps);
+  repWinCenter = null;
+};
+ACTIONS.step = function (v, el) {
+  var f = el.getAttribute("data-f"), d = parseFloat(el.getAttribute("data-d"));
+  var cur = deci(S[f]) || 0;
+  if (f === "reps") S.reps = String(Math.max(1, Math.round(cur + d)));
+  else if (f === "weight") S.weight = comma(Math.max(0, Math.round((cur + d)*100)/100));
+  else S.rpe = comma(Math.min(10, Math.max(1, Math.round((cur + d)*2)/2)));
+  if (f === "reps" || f === "weight") S.source = "";
+};
+ACTIONS.save = function () {
+  var w = deci(S.weight), r = parseInt(S.reps,10), p = deci(S.rpe);
+  if (!S.exercise) { S.note = "Wähle zuerst eine Übung."; render(); return false; }
+  if (isNaN(r) || r < 1) {
+    S.note = "Reps fehlen oder sind keine Zahl."; render(); return false;
+  }
+  if (!isFinite(w) || w < 0) {
+    S.note = "Das Gewicht muss eine Zahl ab 0 kg sein."; render(); return false;
+  }
+  if (Date.now() - lastSave < 900) {
+    S.note = "Der Satz wurde eben schon gespeichert."; render(); return false;
+  }
+  lastSave = Date.now();
+  var wasWarm = S.warm;
+  var prevBest = wasWarm ? null : bestOf(S.exercise);
+  var prevE1 = wasWarm ? null : bestE1rm(S.exercise);
+  var id = Date.now() + "-" + Math.random().toString(36).slice(2,7);
+  /* Ein Aufwärmsatz trägt seit 1.27.1 keinen RPE mehr. Er ist bewusst leicht,
+     eine Anstrengungsangabe dazu sagt nichts und stand vorher nur als Zahl in
+     der Satzliste. Gezählt hat sie ohnehin nie, siehe isWork(). */
+  var rec0 = { id:id, date:S.date, exercise:S.exercise, set:nextSet(), weight:w,
+    reps:r, rpe:(wasWarm || isNaN(p)) ? null : p, ts:Date.now() };
+  if (wasWarm) rec0.warm = true;
+  else if (S.plan && S.plans[S.plan]) rec0.plan = S.plan;
+  S.entries.push(rec0);
+  S.freshId = id; S.note = "";
+  /* Punkt 9: nur im Fokus-Modus, dort und nur dort für 5s als eigener Knopf
+     sichtbar, siehe showQuickUndo(). Im Standard-Trainingsreiter bleibt ein
+     gespeicherter Satz wie bisher ohne eigenen Rückgängig-Hinweis. */
+  if (S.focus) {
+    S.undo = { kind:"newset", item:rec0,
+      label:"Satz " + rec0.set + " bei " + rec0.exercise + " gespeichert." };
+    showQuickUndo();
+  } else {
+    S.undo = null;
+  }
+  /* Nach einem Aufwärmsatz zurück auf das Arbeitsgewicht */
+  if (wasWarm) {
+    backToWork();
+    showToast("Aufwärmsatz gesichert: " + num(w) + " kg × " + r);
+  } else {
+    /* Ein Rekord bekommt in der Meldung eigenes Gewicht, siehe .toast .hit: die
+       Bestätigung eines Satzes ist Routine, ein Rekord ist der Moment, der
+       auffallen soll. */
+    var extra = "";
+    /* Ohne früheren Satz ist nichts geschlagen: der erste Satz einer Übung ist
+       seit 1.26.1 kein Rekord, siehe trainingSummary(). */
+    if (prevBest && (w > prevBest.weight ||
+        (Math.abs(w - prevBest.weight) < 0.001 && r > prevBest.reps))) {
+      extra = '<b class="hit">Neuer Rekord</b>';
+    } else if (prevE1 && e1rm(w, r) > e1rm(prevE1.weight, prevE1.reps)) {
+      extra = '<b class="hit">Bestes ~1RM ' + num(e1rm(w, r)) + ' kg</b>';
+    }
+    var doneNow = doneSets(S.exercise, S.date), needNow = targetSets(S.exercise);
+    if (doneNow === needNow) {
+      extra = (extra ? extra + " · " : "") + "alle " + needNow + " Zielsätze erledigt";
+    }
+    showToast("Satz " + rec0.set + " gesichert: " + num(w) + " kg × " + r +
+      (extra ? "<br>" + extra : ""));
+    S.note = "";
+    /* Nur im Fokus-Modus: die gewählte Wiederholungszahl bleibt erhalten. Der
+       sichtbare Ausschnitt der Reps-Reihe springt aber wieder zum Planziel,
+       damit die Zielregion für den nächsten Satz direkt erreichbar ist. */
+    if (S.focus) {
+      var tgt = planTarget(S.exercise);
+      var tgtReps = tgt ? parseInt(tgt.reps, 10) : 0;
+      repWinCenter = tgtReps > 0 ? tgtReps : null;
+    }
+  }
+  persist();
+  if (S.settings.autoRest && S.date === todayISO()) {
+    startRest(wasWarm ? warmRest(S.exercise) : exRest(S.exercise));
+  }
+};
+ACTIONS.edit = function (v) {
+  var e0 = S.entries.filter(function (e) { return e.id === v; })[0];
+  if (!e0) return false;
+  S.editId = v; S.exercise = e0.exercise;
+  S.reps = String(e0.reps); S.weight = comma(e0.weight);
+  S.rpe = e0.rpe == null ? "7" : comma(e0.rpe);
+  S.pickOpen = false;
+  clearWarm();
+  window.scrollTo({ top:0, behavior:"smooth" });
+};
+ACTIONS.update = function () {
+  var w2 = deci(S.weight), r2 = parseInt(S.reps,10), p2 = deci(S.rpe);
+  if (isNaN(r2) || r2 < 1 || !isFinite(w2) || w2 < 0) {
+    S.note = "Reps müssen mindestens 1 und das Gewicht mindestens 0 kg sein.";
+    render(); return false;
+  }
+  S.entries.forEach(function (e) {
+    if (e.id !== S.editId) return;
+    e.weight = w2; e.reps = r2;
+    e.rpe = (e.warm || isNaN(p2)) ? null : p2;
+  });
+  S.freshId = S.editId; S.editId = ""; S.note = "";
+  persist();
+};
+ACTIONS.canceledit = function () { S.editId = ""; };
+ACTIONS.del = function (v) {
+  var pos = -1;
+  S.entries.forEach(function (e, i) { if (e.id === v) pos = i; });
+  if (pos < 0) return false;
+  var gone = S.entries[pos];
+  S.undo = { kind:"set", index:pos, item:gone,
+    label:"Satz " + gone.set + " bei " + gone.exercise + " gelöscht." };
+  S.entries.splice(pos, 1);
+  renumber(gone.date, gone.exercise);
+  if (S.editId === v) S.editId = "";
+  S.note = "";
+  persist();
+};
+ACTIONS.undo = function () {
+  var u = S.undo;
+  S.undo = null;
+  S.quickUndo = false;
+  if (quickUndoTimer) { clearTimeout(quickUndoTimer); quickUndoTimer = null; }
+  if (!u) return false;
+  if (u.kind === "set") {
+    S.entries.splice(Math.min(u.index, S.entries.length), 0, u.item);
+    renumber(u.item.date, u.item.exercise);
+  } else if (u.kind === "newset") {
+    var ni = -1;
+    S.entries.forEach(function (e, i) { if (e.id === u.item.id) ni = i; });
+    if (ni >= 0) {
+      S.entries.splice(ni, 1);
+      renumber(u.item.date, u.item.exercise);
+    }
+  } else if (u.kind === "custom") {
+    S.custom.splice(Math.min(u.index, S.custom.length), 0, u.item);
+    var un = typeof u.item === "string" ? u.item : (u.item && u.item.name);
+    if (un && u.meta) S.exmeta[un] = u.meta;
+  } else if (u.kind === "planrow" && S.plans[u.plan]) {
+    S.plans[u.plan].splice(Math.min(u.index, S.plans[u.plan].length), 0, u.item);
+  } else if (u.kind === "plan") {
+    S.plans[u.plan] = u.item;
+    if (u.color) S.colors[u.plan] = u.color;
+    if (typeof u.goal === "number") S.settings.weekGoals[u.plan] = u.goal;
+    if (Array.isArray(u.goalLog)) S.settings.weekGoalLog[u.plan] = u.goalLog;
+  } else if (u.kind === "rename") {
+    var back = {}, renameDays = Object.create(null);
+    u.ids.forEach(function (i) { back[i] = 1; });
+    S.entries.forEach(function (e) {
+      if (back[e.id]) { e.exercise = u.from; renameDays[e.date] = 1; }
+    });
+    /* Auch nach dem Rückgängigmachen beide getrennten Übungen wieder sauber
+       nummerieren; die zeitliche Reihenfolge der Sätze bleibt dabei erhalten. */
+    Object.keys(renameDays).forEach(function (date) {
+      renumber(date, u.from);
+      renumber(date, u.to);
+    });
+    S.plans = u.plans;
+    S.custom = u.custom;
+    S.cats = u.cats;
+    S.exmeta = u.exmeta;
+    S.settings.hiddenEx = u.hiddenEx;
+    S.exercise = u.exercise;
+    if (S.openEx === u.to) S.openEx = u.from;
+    if (S.exNoteFor === u.to) S.exNoteFor = u.from;
+    S.exOpen = "";
+  }
+  S.note = u.kind === "newset" ? "Letzten Satz gelöscht." : "Wiederhergestellt.";
+  persist();
+};
+ACTIONS.finish = function () {
+  /* Der Abschluss geht bewusst direkt über den Download und nicht über das
+     Teilen: hier soll sicher ein Backup entstehen, ohne dass sich ein
+     Auswahldialog dazwischenschiebt, den man wegwischen kann. */
+  var saved = saveBackup();
+  stopRest();
+  if (saved) {
+    S.summaryData = trainingSummary(S.date);
+    S.showSummary = true;
+    S.summaryReturn = "daten";
+    navOpen("summary");
+  }
+};
+ACTIONS.summaryok = function () {
+  navBack("summary");
+  S.showSummary = false;
+  S.summaryData = null;
+  /* S.note trägt bereits die Rückmeldung von saveBackup() (Dateiname oder
+     Download blockiert), die bleibt beim Wechsel zurück zu Daten stehen. */
+  if (S.summaryReturn) { S.view = S.summaryReturn; S.summaryReturn = ""; }
+};
+ACTIONS.sharefile = function () { if (!shareBackup()) saveBackup(); };
+ACTIONS.install = function () { runInstall(); };
+ACTIONS.swupdate = function () { applyUpdate(); return false; };
+ACTIONS.autoprog = function () { S.settings.autoProgress = !S.settings.autoProgress; persist(); };
+ACTIONS.repfirst = function () { S.settings.repFirst = !S.settings.repFirst; persist(); };
+ACTIONS.repthresh = function (v, el) {
+  /* In Prozentpunkten rechnen und erst am Ende durch 100 teilen, sonst
+     akkumuliert sich durch die 0,5-Schritte binärer Rundungsfehler in der
+     gespeicherten Bruchzahl. */
+  var pctNow = Math.round(S.settings.repFirstThresh * 1000) / 10;
+  var pctNext = Math.max(1, Math.min(25, pctNow + parseFloat(el.getAttribute("data-d"))));
+  S.settings.repFirstThresh = Math.round(pctNext * 10) / 1000;
+  persist();
+};
+ACTIONS.repspan = function (v, el) {
+  S.settings.repSpan = Math.max(1, Math.min(5,
+    S.settings.repSpan + parseInt(el.getAttribute("data-d"), 10)));
+  persist();
+};
+ACTIONS.exhisttoggle = function () {
+  S.settings.exHist = !S.settings.exHist; persist();
+};
+ACTIONS.focusplates = function () {
+  S.settings.focusPlates = !S.settings.focusPlates; persist();
+};
+ACTIONS.volrange = function (v) { S.volRange = parseInt(v, 10); };
+ACTIONS.volmode = function (v) { S.volMode = v; };
+ACTIONS.volgroup = function (v) { S.volGroup = v; };
+ACTIONS.datacat = function (v) { S.dataClosed[v] = !S.dataClosed[v]; };
+ACTIONS.secfold = function (v) { S.secOpen[v] = !S.secOpen[v]; };
+ACTIONS.barw = function (v, el) {
+  var bw = S.settings.barWeight + parseFloat(el.getAttribute("data-d"));
+  S.settings.barWeight = Math.min(40, Math.max(2.5, Math.round(bw * 100) / 100));
+  persist();
+};
+ACTIONS.plate = function (v) {
+  var pv = parseFloat(v);
+  var pi2 = -1;
+  S.settings.plates.forEach(function (x, ix) { if (Math.abs(x - pv) < 0.001) pi2 = ix; });
+  if (pi2 >= 0) { if (S.settings.plates.length > 1) S.settings.plates.splice(pi2, 1); }
+  else S.settings.plates.push(pv);
+  S.settings.plates.sort(function (a,b) { return b - a; });
+  persist();
+};
+ACTIONS.barset = function (v) {
+  if (!S.exmeta[v]) S.exmeta[v] = {};
+  S.exmeta[v].bar = !exMeta(v).bar;
+  persist();
+};
+ACTIONS.savefile = function () { saveBackup(); };
+ACTIONS.loadfile = function () { document.getElementById("filein").click(); return false; };
+ACTIONS.dlcsv = function () {
+  download("hantelkladde-" + todayISO() + ".csv", csvText(), "text/csv");
+  S.note = "CSV gespeichert.";
+};
+ACTIONS.showtext = function () { S.out = backupText(); S.note = ""; };
+ACTIONS.clear = function () { S.out = ""; S.note = ""; };
+ACTIONS.importtext = function () {
+  var ta = document.getElementById("out");
+  try {
+    var added = mergeBackup(ta.value);
+    S.note = added + " Sätze ergänzt, " + S.entries.length + " insgesamt.";
+  } catch (e) {
+    S.note = e && e.message && e.message.indexOf("Backup ungültig:") === 0
+      ? e.message : "Der Text ist kein gültiges Backup.";
+  }
+};
+ACTIONS.restplus = function () { addRest(15); return false; };
+ACTIONS.reststop = function () { stopRest(); return false; };
+ACTIONS.today = function () { S.date = todayISO(); S.editId = ""; S.note = ""; preselectPlan(); };
+ACTIONS.exdel = function (v) {
+  if (!removable(v)) return false;
+  var ci = -1;
+  S.custom.forEach(function (c, i) {
+    if ((typeof c === "string" ? c : c.name) === v) ci = i;
+  });
+  if (ci < 0) return false;
+  S.undo = { kind:"custom", index:ci, item:S.custom[ci], meta:S.exmeta[v],
+    label:v + " gelöscht." };
+  S.custom.splice(ci, 1);
+  delete S.cats[v];
+  delete S.exmeta[v];
+  if (S.exercise === v) S.exercise = "";
+  S.note = "";
+  persist();
+};
+ACTIONS.restlen = function (v, el) {
+  S.settings.rest = Math.max(15, Math.min(600,
+    S.settings.rest + parseInt(el.getAttribute("data-d"),10)));
+  persist();
+};
+ACTIONS.autorest = function () { S.settings.autoRest = !S.settings.autoRest; persist(); };
+ACTIONS.vibepattern = function () { S.settings.vibeLong = !S.settings.vibeLong; persist(); };
+ACTIONS.notifyask = function () { askNotify(); };
+ACTIONS.notifytoggle = function () {
+  S.settings.notifySignal = !S.settings.notifySignal;
+  if (!S.settings.notifySignal) clearRestNotification();
+  persist();
+};
+
+/* Fünf Sekunden reichen, um den Bildschirm zu sperren. Danach läuft genau
+   derselbe Weg wie am Ende einer Pause, samt der Regel, dass die Meldung nur
+   bei versteckter Seite kommt. */
+ACTIONS.notifytest = function () {
+  audioOn();
+  S.note = "Das Signal kommt in fünf Sekunden. Sperre bis dahin den " +
+    "Bildschirm oder wechsle zu einer anderen App.";
+  setTimeout(function () { signal(true); }, 5000);
+};
+ACTIONS.openex = function (v) {
+  var exWasOpen = !!S.openEx;
+  S.openEx = (S.openEx === v ? "" : v);
+  /* Nur das Auf- und Zuklappen selbst ist eine Ebene. Direkt von einer Übung
+     zur nächsten zu wechseln bleibt dieselbe Ebene. */
+  if (S.openEx && !exWasOpen) navOpen("openex");
+  else if (!S.openEx && exWasOpen) navBack("openex");
+};
+ACTIONS.pdel = function (v, el) {
+  var pp = el.getAttribute("data-p"), pi = parseInt(el.getAttribute("data-i"),10);
+  if (!S.plans[pp] || !S.plans[pp][pi]) return false;
+  var removed = S.plans[pp][pi];
+  S.undo = { kind:"planrow", plan:pp, index:pi, item:removed,
+    label:removed.name + " aus " + pp + " entfernt." };
+  S.plans[pp].splice(pi, 1);
+  S.note = "";
+  persist();
+};
+ACTIONS.prownm = function (v, el) {
+  var nmKey = el.getAttribute("data-p") + "|" + el.getAttribute("data-i");
+  S.prowNameOpen = S.prowNameOpen === nmKey ? "" : nmKey;
+};
+ACTIONS.addplan = function () {
+  var np = document.getElementById("newPlan");
+  var pn = np ? np.value.trim() : "";
+  if (!pn) return false;
+  if (S.plans[pn]) { S.note = "Ein Plan mit diesem Namen existiert bereits."; }
+  else { S.plans[pn] = []; S.note = "Plan " + pn + " angelegt."; persist(); }
+};
+ACTIONS.planvis = function (v) {
+  var hp = S.settings.hiddenPlans, hix = hp.indexOf(v);
+  if (hix >= 0) { hp.splice(hix, 1); }
+  else {
+    hp.push(v);
+    if (S.plan === v) { S.plan = ""; S.plansFold = false; }
+  }
+  persist();
+};
+ACTIONS.dupplan = function (v) {
+  if (!S.plans[v]) return false;
+  var base = v + " Kopie", name = base, n = 2;
+  while (S.plans[name]) { name = base + " " + n; n += 1; }
+  /* Die Kopie bekommt eine eigene Farbe, sonst wäre sie im Wochenstreifen nicht
+     vom Original zu unterscheiden. Gesucht ist die erste Palettenfarbe, die noch
+     kein Plan trägt; ist keine mehr frei, bleibt es bei der Reihenfolge-Regel aus
+     planColor(). Deshalb vor dem Einfügen, sonst zählte die Kopie sich selbst. */
+  var used = Object.keys(S.plans).map(planColor);
+  for (var i = 0; i < PALETTE.length; i++) {
+    if (used.indexOf(PALETTE[i]) < 0) { S.colors[name] = PALETTE[i]; break; }
+  }
+  /* Ans Ende der Liste, nicht hinter das Original: ohne eigene Farbe greift
+     planColor() auf den Platz in der Reihenfolge zurück, ein Einschub gäbe
+     jedem Plan dahinter eine andere Farbe. */
+  S.plans[name] = JSON.parse(JSON.stringify(S.plans[v]));
+  /* Wochenziel, Sichtbarkeit und Sperre bleiben außen vor. Ein mitkopiertes
+     Wochenziel würde das Wochenpensum stillschweigend verdoppeln. */
+  var len = S.plans[name].length;
+  S.note = name + " angelegt, " + len +
+    (len === 1 ? " Übung übernommen." : " Übungen übernommen.") +
+    " Wochenziel bleibt frei.";
+  persist();
+};
+ACTIONS.planlock = function (v) {
+  var lp = S.settings.lockedPlans, lix = lp.indexOf(v);
+  if (lix >= 0) lp.splice(lix, 1); else lp.push(v);
+  persist();
+};
+ACTIONS.weekgoalrestart = function () {
+  if (writeWeekGoalLog()) {
+    S.note = "Neues Wochenziel aktiviert";
+    persist();
+  }
+};
+
+/* ---------- Planung ---------- */
+ACTIONS.drafttoggle = function (v) {
+  var mon = selWeek(), e = draftEntry(v, mon);
+  weekDraftEdit(mon).plans[v] = { on:!e.on, times:e.times };
+  saveDraft();
+};
+ACTIONS.draftstep = function (v, el) {
+  var mon = selWeek(), e = draftEntry(v, mon);
+  var d = parseInt(el.getAttribute("data-d"), 10) || 0;
+  weekDraftEdit(mon).plans[v] = { on:e.on,
+    times:Math.min(DRAFT_MAX_TIMES, Math.max(1, e.times + d)) };
+  saveDraft();
+};
+ACTIONS.draftxstep = function (v, el) {
+  var x = weekDraftEdit(selWeek()).extras[parseInt(v, 10)];
+  var f = el.getAttribute("data-f"), d = parseInt(el.getAttribute("data-d"), 10) || 0;
+  if (x && (f === "sets" || f === "times")) {
+    var max = f === "sets" ? DRAFT_MAX_SETS : DRAFT_MAX_TIMES;
+    x[f] = Math.min(max, Math.max(1, x[f] + d));
+    saveDraft();
+  }
+};
+ACTIONS.draftxdel = function (v) {
+  weekDraftEdit(selWeek()).extras.splice(parseInt(v, 10), 1);
+  saveDraft();
+};
+ACTIONS.draftsplit = function () {
+  if (S.draft.split) {
+    var hadWeeks = Object.keys(S.draft.weeks).length > 0;
+    S.draft.split = false; S.draft.weeks = {};
+    if (hadWeeks) S.note = "Alle Wochen sind wieder gleich geplant.";
+  } else {
+    S.draft.split = true;
+    S.planWeekSel = planWeeks()[0].monday;
+  }
+  saveDraft();
+};
+ACTIONS.planweek = function (v) {
+  /* Der gewählte Tag im Raster geht auf denselben Wochentag der neuen Woche,
+     damit Reiter oben und Auswahl unten dieselbe Woche meinen. */
+  if (S.planDaySel) {
+    var pwOff = Math.round((Date.parse(S.planDaySel + "T12:00:00") -
+      Date.parse(mondayOf(S.planDaySel) + "T12:00:00")) / 86400000);
+    S.planDaySel = shiftISO(v, pwOff);
+  }
+  S.planWeekSel = v;
+};
+ACTIONS.planday = function (v) {
+  S.planDaySel = v;
+  /* Ein Tag aus einer anderen Woche schaltet auch die Reiter oben um: sonst
+     zeigte der Entwurf eine Woche und die Auswahl darunter eine andere. */
+  if (S.draft.split) S.planWeekSel = mondayOf(v);
+};
+ACTIONS.planassign = function (v, el) {
+  /* Sofort gespeichert, wie jede Änderung an den Plänen. Ein eigener
+     Speichern-Knopf hieße einen ungesicherten Zwischenstand, den es sonst
+     nirgends in der App gibt. */
+  /* Der Tag steht am Knopf, siehe assignPanel(): so weisen der Reiter Planung
+     und die Wochenübersicht über denselben Zweig zu. */
+  var paDay = el.getAttribute("data-day");
+  if (paDay) {
+    if (v) S.settings.planDays[paDay] = v;
+    else delete S.settings.planDays[paDay];
+    persist();
+    /* Gilt die Zuweisung dem Tag, der im Training gerade offen ist, steht der
+       Plan dort sofort gewählt, siehe preselectPlan(). "Frei" nimmt eine
+       bestehende Wahl nicht weg, trainiert werden darf ja trotzdem. */
+    if (v && paDay === S.date) preselectPlan();
+  }
+};
+ACTIONS.drafttake = function () {
+  /* Der Entwurf wird Wochenziel: Zahl je Plan übernehmen, die Historie
+     festschreiben wie beim Knopf im Pläne-Reiter, dann den Entwurf leeren -
+     leer heißt ab jetzt genau dieser Stand, siehe draftEntry(). Die einzelnen
+     Übungen bleiben stehen, in den Wochenzielen haben sie keinen Platz. */
+  var tkMon = selWeek(), tkList = [];
+  Object.keys(S.plans).forEach(function (p) {
+    var tkE = draftEntry(p, tkMon), tkV = tkE.on ? tkE.times : 0;
+    if (tkV) tkList.push(p + " " + tkV + "×");
+    /* Kein Ballast: wer nie ein Ziel hatte und keins bekommt, bleibt ohne Eintrag. */
+    if (tkV || S.settings.weekGoals[p] != null) S.settings.weekGoals[p] = tkV;
+  });
+  writeWeekGoalLog();
+  /* Geleert wird der Entwurf, der gerade galt: seine Zahlen stehen jetzt in den
+     Wochenzielen, leer zeigt also dasselbe und folgt einer späteren Änderung
+     der Wochenziele wieder. */
+  weekDraft(tkMon).plans = {};
+  saveDraft();
+  persist();
+  var tkWk = S.draft.split ? " aus KW " + isoWeekNo(tkMon) : "";
+  S.note = tkList.length
+    ? "Wochenziele" + tkWk + " übernommen: " + tkList.join(", ") + "."
+    : "Wochenziele übernommen, kein Plan hat mehr ein Ziel.";
+};
+ACTIONS.draftreset = function () {
+  S.draft = { split:false, plans:{}, extras:[], weeks:{} };
+  S.planWeekSel = "";
+  saveDraft();
+  S.note = "Entwurf verworfen, es gelten wieder die Wochenziele.";
+};
+ACTIONS.delplan = function (v) {
+  if (!window.confirm("Plan " + v + " mit " + (S.plans[v] ? S.plans[v].length : 0) +
+      " Übungen wirklich löschen?")) return false;
+  S.undo = { kind:"plan", plan:v, item:S.plans[v], color:S.colors[v],
+    goal:S.settings.weekGoals[v], goalLog:S.settings.weekGoalLog[v],
+    label:"Plan " + v + " gelöscht." };
+  delete S.plans[v];
+  delete S.colors[v];
+  delete S.settings.weekGoals[v];
+  delete S.settings.weekGoalLog[v];
+  var dhx = S.settings.hiddenPlans.indexOf(v);
+  if (dhx >= 0) S.settings.hiddenPlans.splice(dhx, 1);
+  var dlx = S.settings.lockedPlans.indexOf(v);
+  if (dlx >= 0) S.settings.lockedPlans.splice(dlx, 1);
+  if (S.plan === v) { S.plan = ""; S.plansFold = false; }
+  S.note = "";
+  persist();
+};
+ACTIONS.resetplans = function () {
+  if (!window.confirm("Alle Pläne auf den Ausgangsstand zurücksetzen? " +
+      "Eigene Zielwerte und selbst angelegte Pläne gehen dabei verloren.")) return false;
+  S.plans = JSON.parse(JSON.stringify(DEFAULT_PLANS));
+  S.settings.hiddenPlans = [];
+  S.settings.lockedPlans = [];
+  S.settings.weekGoals = {};
+  S.settings.weekGoalLog = {};
+  S.plan = ""; S.plansFold = false;
+  S.undo = null;
+  S.note = "Pläne auf den Ausgangsstand zurückgesetzt.";
+  persist();
+};
+
 document.addEventListener("click", function (ev) {
   var el = ev.target.closest ? ev.target.closest("[data-act]") : null;
   if (!el) return;
@@ -7033,829 +7870,9 @@ document.addEventListener("click", function (ev) {
     S.focusEndConfirm = false;
   }
 
-  if (act === "theme") {
-    if (v === "auto") useSystemTheme();
-    else setTheme(v || (theme() === "dark" ? "light" : "dark"));
-  }
-  else if (act === "planlist") { S.planOpen = !S.planOpen; }
-  else if (act === "tab") {
-    if (S.openEx) { navBack("openex"); S.openEx = ""; }
-    closeWeekOverview();
-    S.view = v; S.pickOpen = false; S.pickPlanTarget = ""; S.pickSel = []; S.note = "";
-  }
-  else if (act === "pickday") { S.date = v; S.editId = ""; S.note = ""; preselectPlan(); }
-  else if (act === "ovrday") { S.ovrDay = v; }
-  else if (act === "weekovr") {
-    S.weekOverview = true; S.ovrDay = todayISO();
-    navOpen("weekovr"); window.scrollTo({ top:0 });
-  }
-  else if (act === "weekovrclose") { closeWeekOverview(); }
-  else if (act === "plansfold") { S.plansFold = !S.plansFold; }
-  else if (act === "planfoldall") { S.planCardsFold = !S.planCardsFold; }
-  else if (act === "wraptoggle") { S.settings.wrapNames = !S.settings.wrapNames; persist(); }
-  else if (act === "focuson") {
-    S.editId = ""; S.pickOpen = false;
-    /* Ohne gewählte Übung oder eine, die nicht zu diesem Plan gehört, wird die
-       erste noch offene Übung des Plans vorgeschlagen, wie beim Wählen des Plans. */
-    var flist = S.plans[S.plan] || [];
-    if (!S.exercise || !flist.some(function (i) { return i.name === S.exercise; })) {
-      var fday = dayEntries();
-      var fopen = flist.filter(function (i) {
-        return !fday.some(function (e) { return e.exercise === i.name; });
-      })[0] || flist[0];
-      if (fopen) {
-        S.exercise = fopen.name;
-        applySuggestion(fopen.name);
-      }
-    }
-    repWinCenter = null;
-    S.focus = true;
-    navOpen("focus");
-  }
-  else if (act === "focusoff") { navBack("focus"); clearQuickUndo(); S.focus = false; }
-  else if (act === "focusfinishask") { S.focusEndConfirm = true; }
-  else if (act === "focusfinishcancel") { S.focusEndConfirm = false; }
-  else if (act === "focusfinish") {
-    S.focusEndConfirm = false;
-    /* Derselbe Abschluss wie außerhalb des Fokus-Modus: Pause immer stoppen,
-       Zusammenfassung aber erst zeigen, wenn das verlangte Backup erstellt wurde. */
-    var focusSaved = saveBackup();
-    stopRest();
-    if (focusSaved) {
-      clearQuickUndo();
-      S.summaryData = trainingSummary(S.date);
-      S.showSummary = true;
-      S.summaryReturn = "";
-      S.focus = false;
-      navSwap("summary");
-    } else {
-      showToast(S.note);
-    }
-  }
-  else if (act === "repwin") {
-    var cur = parseInt(S.reps, 10);
-    if (!(cur > 0)) cur = 10;
-    var center = repWinCenter != null ? repWinCenter : cur;
-    repWinCenter = Math.max(3, center + parseInt(el.getAttribute("data-d"), 10));
-  }
-  else if (act === "plan") {
-    if (S.plan === v) { S.plan = ""; S.plansFold = false; }
-    else selectPlan(v);
-  }
-  else if (act === "planpick" || act === "opt") {
-    S.exercise = v; S.pickOpen = false; S.editId = ""; S.search = "";
-    applySuggestion(v);
-  }
-  else if (act === "planstep") {
-    var idx = planIndex();
-    if (idx < 0) return;
-    var target = S.plans[S.plan][idx + parseInt(el.getAttribute("data-d"),10)];
-    if (!target) return;
-    S.exercise = target.name; S.pickOpen = false; S.editId = "";
-    applySuggestion(target.name);
-    /* Im Standard-Trainingsreiter bleibt die Scrollposition, wo sie ist - der
-       Sprung zurück an den Seitenanfang war ungewollt. Der Fokus-Modus hat
-       seine eigene, feste Fußzeile und braucht das ohnehin nicht. */
-  }
-  else if (act === "pickopen") {
-    S.pickOpen = true; S.search = ""; S.editId = "";
-    S.pickCat = S.exercise ? catOf(S.exercise) : "";
-    var openMo = S.exercise ? muscleOf(S.exercise) : null;
-    S.pickMuscle = openMo ? openMo.primary : "";
-    /* Die gewählte Einteilung bleibt, wie sie zuletzt stand. Sie jedes Mal auf
-       Kategorien zurückzustellen hieß: wer nach Muskelgruppe sucht, schaltet vor
-       jeder Übungswahl neu um - obwohl S.pickMuscle daneben schon passend
-       vorbelegt wird. */
-    window.scrollTo({ top:0 });
-  }
-  else if (act === "pickclose") { S.pickOpen = false; S.search = ""; }
-  /* Mehrfachauswahl im Pläne-Reiter, siehe pickmulti-Knopf in viewPlans() */
-  else if (act === "pickmulti") {
-    S.pickPlanTarget = v; S.pickSel = []; S.pickOpen = true; S.search = "";
-    S.pickCat = ""; S.pickMuscle = ""; S.editId = "";
-    window.scrollTo({ top:0 });
-  }
-  else if (act === "picktoggle") {
-    var pix = S.pickSel.indexOf(v);
-    if (pix >= 0) S.pickSel.splice(pix, 1); else S.pickSel.push(v);
-  }
-  else if (act === "pickmulticlose") {
-    S.pickOpen = false; S.pickPlanTarget = ""; S.pickSel = []; S.search = "";
-  }
-  else if (act === "pickmultidone") {
-    var mplan = S.pickPlanTarget, mdraft = mplan === DRAFT_TARGET;
-    var addedN = 0, alreadyN = 0;
-    if (mdraft) {
-      /* In den Entwurf der gewählten Woche statt in einen Plan, siehe
-         draftExtrasBlock(): mit der Standard-Satzzahl, einmal pro Woche, beides
-         dort änderbar. */
-      var mdD = weekDraftEdit(selWeek());
-      S.pickSel.forEach(function (name) {
-        if (mdD.extras.some(function (x) { return x.name === name; })) { alreadyN++; return; }
-        mdD.extras.push({ name:name, sets:defaultSets(), times:1 });
-        addedN++;
-      });
-      if (addedN) saveDraft();
-    } else if (mplan && S.plans[mplan]) {
-      S.pickSel.forEach(function (name) {
-        if (S.plans[mplan].some(function (i) { return i.name === name; })) { alreadyN++; return; }
-        var d = planItemDefaults(name);
-        S.plans[mplan].push({ name: name, reps: d.reps, weight: d.weight, sets: d.sets });
-        addedN++;
-      });
-    }
-    S.pickOpen = false; S.pickPlanTarget = ""; S.pickSel = []; S.search = "";
-    /* Waren ausschließlich Übungen ausgewählt, die schon im Plan stehen, ist
-       "Keine Übung ausgewählt" schlicht falsch - ausgewählt war etwas, es kam nur
-       nichts dazu. Deshalb drei Fälle statt zwei. */
-    var mTo = mdraft ? "in den Entwurf" : "zu " + mplan;
-    var mIn = mdraft ? "im Entwurf" : "in " + mplan;
-    S.note = addedN
-      ? addedN + (addedN === 1 ? " Übung " : " Übungen ") + mTo + " hinzugefügt." +
-        (alreadyN ? " " + alreadyN + (alreadyN === 1 ? " stand" : " standen") +
-          " schon " + (mdraft ? "im Entwurf" : "im Plan") + "." : "")
-      : alreadyN
-        ? alreadyN + (alreadyN === 1 ? " Übung stand" : " Übungen standen") +
-          " schon " + mIn + "."
-        : "Keine Übung ausgewählt.";
-    if (addedN && !mdraft) persist();
-  }
-  else if (act === "pickcat") { S.pickCat = v; S.search = ""; }
-  else if (act === "pickmuscle") { S.pickMuscle = v; S.search = ""; }
-  else if (act === "pickgroupby") { S.pickGroupBy = v; S.search = ""; }
-  else if (act === "suggestaccept") {
-    var acceptTarget = planTarget(S.exercise);
-    var acceptWeight = deci(S.weight), acceptReps = parseInt(S.reps, 10);
-    if (acceptTarget) {
-      /* Die Rep-Spanne bleibt um das bewusst gesetzte Planziel zentriert. Deshalb
-         wird bei doppelter Progression nur das neue Gewicht übernommen; eine
-         einzelne vorgeschlagene Wiederholung verschiebt die Range nicht. */
-      var hadRange = !!repRange(S.exercise, acceptTarget.weight);
-      if (isFinite(acceptWeight) && acceptWeight >= 0) acceptTarget.weight = acceptWeight;
-      if (!hadRange && acceptReps > 0) acceptTarget.reps = acceptReps;
-      persist();
-    }
-    var acceptRpe = deci(S.rpe);
-    S.suggestionHandled[S.date + "\n" + S.exercise] = {
-      reps:acceptReps, weight:acceptWeight, rpe:isNaN(acceptRpe) ? null : acceptRpe
-    };
-    saveSuggestions();
-    S.source = "";
-    repWinCenter = null;
-  }
-  else if (act === "suggestreject") {
-    var rejectTarget = planTarget(S.exercise);
-    var previous = lastSession(S.exercise, S.date);
-    var rejectGoalSets = rejectTarget && rejectTarget.sets > 0
-      ? rejectTarget.sets : (previous ? previous.sets.length : 1);
-    var previousBlock = mainWorkBlock(previous, rejectGoalSets,
-      rejectTarget ? rejectTarget.weight : NaN);
-    var previousSet = previousBlock ? previousBlock.last : null;
-    if (previousSet) {
-      S.reps = String(previousSet.reps);
-      S.weight = comma(previousSet.weight);
-      if (previousSet.rpe != null) S.rpe = comma(previousSet.rpe);
-    } else if (rejectTarget) {
-      S.reps = String(rejectTarget.reps);
-      S.weight = comma(rejectTarget.weight);
-    }
-    var rejectWeight = deci(S.weight), rejectReps = parseInt(S.reps, 10);
-    var rejectRpe = deci(S.rpe);
-    S.suggestionHandled[S.date + "\n" + S.exercise] = {
-      reps:rejectReps, weight:rejectWeight, rpe:isNaN(rejectRpe) ? null : rejectRpe
-    };
-    saveSuggestions();
-    S.source = "";
-    repWinCenter = null;
-  }
-  else if (act === "pillrep") { S.reps = v; S.source = ""; repWinCenter = null; }
-  else if (act === "pillrpe") { S.rpe = v; }
-  else if (act === "warmon") {
-    if (!S.warm) {
-      enterWarm(deci(S.weight) || 0);
-      /* Gleiche Rundung wie warmupPlan(): auf die Schrittweite der Übung, nach
-         unten durch die Stangenlast begrenzt, damit kein unmögliches Gewicht
-         herauskommt. */
-      var st = stepOf(S.exercise), min = isBar(S.exercise) ? (S.settings.barWeight || 20) : st;
-      var half = Math.round(S.warmBase * 0.5 / st) * st;
-      if (half < min) half = min;
-      half = Math.round(half * 100) / 100;
-      if (half > 0) S.weight = comma(half);
-    }
-  }
-  else if (act === "addex") {
-    var inp = document.getElementById("newName");
-    var selc = document.getElementById("newCat");
-    var name = inp ? inp.value.trim() : "";
-    if (!name) return;
-    /* Eine früher weggebenannte mitgelieferte Übung kommt über ihren Namen zurück */
-    var ahx = S.settings.hiddenEx.indexOf(name);
-    if (ahx >= 0) S.settings.hiddenEx.splice(ahx, 1);
-    if (allNames().indexOf(name) < 0) {
-      S.custom.push({ name:name, cat:(selc && selc.value) ? selc.value : "Sonstige" });
-      setExStart(name, document.getElementById("newSets"),
-        document.getElementById("newReps"), document.getElementById("newWeight"));
-      setExMuscle(name, document.getElementById("newMusclePrimary"),
-        document.getElementById("newMuscleSecondary"));
-    }
-    if (S.pickPlanTarget) {
-      /* Mehrfachauswahl: neu angelegte Übung direkt mit auswählen, Picker bleibt
-         offen, damit weitere Übungen dazukommen können. */
-      if (S.pickSel.indexOf(name) < 0) S.pickSel.push(name);
-    } else {
-      S.exercise = name; S.pickOpen = false; S.editId = ""; S.search = "";
-      applySuggestion(name);
-    }
-    persist();
-  }
-  /* Punkt 12: dieselbe Übungsanlage wie addex(), aber ohne die Nebenwirkungen auf
-     S.exercise/S.pickOpen, die im Daten-Reiter keinen Sinn ergeben. */
-  else if (act === "addexdata") {
-    var dinp = document.getElementById("dataNewName");
-    var dselc = document.getElementById("dataNewCat");
-    var dname = dinp ? dinp.value.trim() : "";
-    if (!dname) return;
-    var dahx = S.settings.hiddenEx.indexOf(dname);
-    if (dahx >= 0) S.settings.hiddenEx.splice(dahx, 1);
-    if (allNames().indexOf(dname) < 0) {
-      S.custom.push({ name:dname, cat:(dselc && dselc.value) ? dselc.value : "Sonstige" });
-      setExStart(dname, document.getElementById("dataNewSets"),
-        document.getElementById("dataNewReps"), document.getElementById("dataNewWeight"));
-      setExMuscle(dname, document.getElementById("dataNewMusclePrimary"),
-        document.getElementById("dataNewMuscleSecondary"));
-      S.note = dname + " angelegt.";
-    } else {
-      S.note = dname + " gibt es schon.";
-    }
-    persist();
-  }
-  else if (act === "descToggle") {
-    S.settings.descOpen[v] = !descOpen(v);
-    persist();
-  }
-  else if (act === "noteopen") { S.noteOpen = !S.noteOpen; }
-  else if (act === "exnote") {
-    if (!S.exercise) return;
-    S.exNoteFor = (S.exNoteFor === S.exercise ? "" : S.exercise);
-    if (S.exNoteFor) focusAfterRender = "exNote";
-  }
-  else if (act === "exhist") {
-    if (!S.exercise) return;
-    S.exHistFor = (S.exHistFor === S.exercise ? "" : S.exercise);
-  }
-  else if (act === "exopen") { S.exOpen = (S.exOpen === v ? "" : v); }
-  else if (act === "rendo") {
-    var rin = document.getElementById("ren-name");
-    var to = rin ? rin.value.trim() : "";
-    if (!to) { S.note = "Der neue Name darf nicht leer sein."; render(); return; }
-    if (to === v) { S.exOpen = ""; render(); return; }
-    var merge = allNames().indexOf(to) >= 0;
-    if (merge) {
-      var uf = exUsage(v).sets, ut = exUsage(to).sets;
-      if (!window.confirm("„" + to + "“ gibt es bereits.\n\n" +
-          v + ": " + uf + (uf === 1 ? " Satz" : " Sätze") + "\n" +
-          to + ": " + ut + (ut === 1 ? " Satz" : " Sätze") + "\n" +
-          "ergibt " + (uf + ut) + " Sätze unter „" + to + "“.\n\n" +
-          "Rekorde und Verlauf werden neu berechnet. Schrittweite, Langhantel und " +
-          "Geräteeinstellung von „" + to + "“ bleiben erhalten. " +
-          "Rückgängig über Wiederherstellen.")) return;
-    }
-    /* Pläne, eigene Übungen, Gruppen und Einstellungen sind klein genug, um sie
-       vollständig zu sichern. Bei den Sätzen genügen die verschobenen IDs. */
-    S.undo = { kind:"rename", from:v, to:to, ids:[],
-      plans:JSON.parse(JSON.stringify(S.plans)),
-      custom:JSON.parse(JSON.stringify(S.custom)),
-      cats:JSON.parse(JSON.stringify(S.cats)),
-      exmeta:JSON.parse(JSON.stringify(S.exmeta)),
-      hiddenEx:S.settings.hiddenEx.slice(),
-      exercise:S.exercise,
-      label:(merge ? v + " mit " + to + " zusammengeführt."
-                   : v + " heißt jetzt " + to + ".") };
-    S.undo.ids = renameExercise(v, to);
-    S.exOpen = "";
-    S.note = "";
-    persist();
-  }
-  else if (act === "warmoff") { backToWork(); }
-  else if (act === "warmpick") {
-    var base = S.warm && S.warmBase > 0 ? S.warmBase : (deci(S.weight) || 0);
-    var wr = warmupPlan(S.exercise, base)[parseInt(el.getAttribute("data-i"),10)];
-    if (!wr) return;
-    enterWarm(base);
-    S.weight = comma(wr.weight);
-    S.reps = String(wr.reps);
-    repWinCenter = null;
-  }
-  else if (act === "step") {
-    var f = el.getAttribute("data-f"), d = parseFloat(el.getAttribute("data-d"));
-    /* Nicht "cur": den Namen deklariert der Zweig "repwin" oben schon, und var
-       gilt in der ganzen Funktion, nicht im Block. Harmlos, solange sich die
-       Zweige ausschließen, aber ein Linter meldet es zu Recht. */
-    var stepCur = deci(S[f]) || 0;
-    if (f === "reps") S.reps = String(Math.max(1, Math.round(stepCur + d)));
-    else if (f === "weight") S.weight = comma(Math.max(0, Math.round((stepCur + d)*100)/100));
-    else S.rpe = comma(Math.min(10, Math.max(1, Math.round((stepCur + d)*2)/2)));
-    if (f === "reps" || f === "weight") S.source = "";
-  }
-  else if (act === "save") {
-    var w = deci(S.weight), r = parseInt(S.reps,10), p = deci(S.rpe);
-    if (!S.exercise) { S.note = "Wähle zuerst eine Übung."; render(); return; }
-    if (isNaN(r) || r < 1) {
-      S.note = "Reps fehlen oder sind keine Zahl."; render(); return;
-    }
-    if (!isFinite(w) || w < 0) {
-      S.note = "Das Gewicht muss eine Zahl ab 0 kg sein."; render(); return;
-    }
-    if (Date.now() - lastSave < 900) {
-      S.note = "Der Satz wurde eben schon gespeichert."; render(); return;
-    }
-    lastSave = Date.now();
-    var wasWarm = S.warm;
-    var prevBest = wasWarm ? null : bestOf(S.exercise);
-    var prevE1 = wasWarm ? null : bestE1rm(S.exercise);
-    var id = Date.now() + "-" + Math.random().toString(36).slice(2,7);
-    /* Ein Aufwärmsatz trägt seit 1.27.1 keinen RPE mehr. Er ist bewusst leicht,
-       eine Anstrengungsangabe dazu sagt nichts und stand vorher nur als Zahl in
-       der Satzliste. Gezählt hat sie ohnehin nie, siehe isWork(). */
-    var rec0 = { id:id, date:S.date, exercise:S.exercise, set:nextSet(), weight:w,
-      reps:r, rpe:(wasWarm || isNaN(p)) ? null : p, ts:Date.now() };
-    if (wasWarm) rec0.warm = true;
-    else if (S.plan && S.plans[S.plan]) rec0.plan = S.plan;
-    S.entries.push(rec0);
-    S.freshId = id; S.note = "";
-    /* Punkt 9: nur im Fokus-Modus, dort und nur dort für 5s als eigener Knopf
-       sichtbar, siehe showQuickUndo(). Im Standard-Trainingsreiter bleibt ein
-       gespeicherter Satz wie bisher ohne eigenen Rückgängig-Hinweis. */
-    if (S.focus) {
-      S.undo = { kind:"newset", item:rec0,
-        label:"Satz " + rec0.set + " bei " + rec0.exercise + " gespeichert." };
-      showQuickUndo();
-    } else {
-      S.undo = null;
-    }
-    /* Nach einem Aufwärmsatz zurück auf das Arbeitsgewicht */
-    if (wasWarm) {
-      backToWork();
-      showToast("Aufwärmsatz gesichert: " + num(w) + " kg × " + r);
-    } else {
-      /* Ein Rekord bekommt in der Meldung eigenes Gewicht, siehe .toast .hit: die
-         Bestätigung eines Satzes ist Routine, ein Rekord ist der Moment, der
-         auffallen soll. */
-      var extra = "";
-      /* Ohne früheren Satz ist nichts geschlagen: der erste Satz einer Übung ist
-         seit 1.26.1 kein Rekord, siehe trainingSummary(). */
-      if (prevBest && (w > prevBest.weight ||
-          (Math.abs(w - prevBest.weight) < 0.001 && r > prevBest.reps))) {
-        extra = '<b class="hit">Neuer Rekord</b>';
-      } else if (prevE1 && e1rm(w, r) > e1rm(prevE1.weight, prevE1.reps)) {
-        extra = '<b class="hit">Bestes ~1RM ' + num(e1rm(w, r)) + ' kg</b>';
-      }
-      var doneNow = doneSets(S.exercise, S.date), needNow = targetSets(S.exercise);
-      if (doneNow === needNow) {
-        extra = (extra ? extra + " · " : "") + "alle " + needNow + " Zielsätze erledigt";
-      }
-      showToast("Satz " + rec0.set + " gesichert: " + num(w) + " kg × " + r +
-        (extra ? "<br>" + extra : ""));
-      S.note = "";
-      /* Nur im Fokus-Modus: die gewählte Wiederholungszahl bleibt erhalten. Der
-         sichtbare Ausschnitt der Reps-Reihe springt aber wieder zum Planziel,
-         damit die Zielregion für den nächsten Satz direkt erreichbar ist. */
-      if (S.focus) {
-        var tgt = planTarget(S.exercise);
-        var tgtReps = tgt ? parseInt(tgt.reps, 10) : 0;
-        repWinCenter = tgtReps > 0 ? tgtReps : null;
-      }
-    }
-    persist();
-    if (S.settings.autoRest && S.date === todayISO()) {
-      startRest(wasWarm ? warmRest(S.exercise) : exRest(S.exercise));
-    }
-  }
-  else if (act === "edit") {
-    var e0 = S.entries.filter(function (e) { return e.id === v; })[0];
-    if (!e0) return;
-    S.editId = v; S.exercise = e0.exercise;
-    S.reps = String(e0.reps); S.weight = comma(e0.weight);
-    S.rpe = e0.rpe == null ? "7" : comma(e0.rpe);
-    S.pickOpen = false;
-    clearWarm();
-    window.scrollTo({ top:0, behavior:"smooth" });
-  }
-  else if (act === "update") {
-    var w2 = deci(S.weight), r2 = parseInt(S.reps,10), p2 = deci(S.rpe);
-    if (isNaN(r2) || r2 < 1 || !isFinite(w2) || w2 < 0) {
-      S.note = "Reps müssen mindestens 1 und das Gewicht mindestens 0 kg sein.";
-      render(); return;
-    }
-    S.entries.forEach(function (e) {
-      if (e.id !== S.editId) return;
-      e.weight = w2; e.reps = r2;
-      e.rpe = (e.warm || isNaN(p2)) ? null : p2;
-    });
-    S.freshId = S.editId; S.editId = ""; S.note = "";
-    persist();
-  }
-  else if (act === "canceledit") { S.editId = ""; }
-  else if (act === "del") {
-    var pos = -1;
-    S.entries.forEach(function (e, i) { if (e.id === v) pos = i; });
-    if (pos < 0) return;
-    var gone = S.entries[pos];
-    S.undo = { kind:"set", index:pos, item:gone,
-      label:"Satz " + gone.set + " bei " + gone.exercise + " gelöscht." };
-    S.entries.splice(pos, 1);
-    renumber(gone.date, gone.exercise);
-    if (S.editId === v) S.editId = "";
-    S.note = "";
-    persist();
-  }
-  else if (act === "undo") {
-    var u = S.undo;
-    S.undo = null;
-    S.quickUndo = false;
-    if (quickUndoTimer) { clearTimeout(quickUndoTimer); quickUndoTimer = null; }
-    if (!u) return;
-    if (u.kind === "set") {
-      S.entries.splice(Math.min(u.index, S.entries.length), 0, u.item);
-      renumber(u.item.date, u.item.exercise);
-    } else if (u.kind === "newset") {
-      var ni = -1;
-      S.entries.forEach(function (e, i) { if (e.id === u.item.id) ni = i; });
-      if (ni >= 0) {
-        S.entries.splice(ni, 1);
-        renumber(u.item.date, u.item.exercise);
-      }
-    } else if (u.kind === "custom") {
-      S.custom.splice(Math.min(u.index, S.custom.length), 0, u.item);
-      var un = typeof u.item === "string" ? u.item : (u.item && u.item.name);
-      if (un && u.meta) S.exmeta[un] = u.meta;
-    } else if (u.kind === "planrow" && S.plans[u.plan]) {
-      S.plans[u.plan].splice(Math.min(u.index, S.plans[u.plan].length), 0, u.item);
-    } else if (u.kind === "plan") {
-      S.plans[u.plan] = u.item;
-      if (u.color) S.colors[u.plan] = u.color;
-      if (typeof u.goal === "number") S.settings.weekGoals[u.plan] = u.goal;
-      if (Array.isArray(u.goalLog)) S.settings.weekGoalLog[u.plan] = u.goalLog;
-    } else if (u.kind === "rename") {
-      var back = {}, renameDays = Object.create(null);
-      u.ids.forEach(function (i) { back[i] = 1; });
-      S.entries.forEach(function (e) {
-        if (back[e.id]) { e.exercise = u.from; renameDays[e.date] = 1; }
-      });
-      /* Auch nach dem Rückgängigmachen beide getrennten Übungen wieder sauber
-         nummerieren; die zeitliche Reihenfolge der Sätze bleibt dabei erhalten. */
-      Object.keys(renameDays).forEach(function (date) {
-        renumber(date, u.from);
-        renumber(date, u.to);
-      });
-      S.plans = u.plans;
-      S.custom = u.custom;
-      S.cats = u.cats;
-      S.exmeta = u.exmeta;
-      S.settings.hiddenEx = u.hiddenEx;
-      S.exercise = u.exercise;
-      if (S.openEx === u.to) S.openEx = u.from;
-      if (S.exNoteFor === u.to) S.exNoteFor = u.from;
-      S.exOpen = "";
-    }
-    S.note = u.kind === "newset" ? "Letzten Satz gelöscht." : "Wiederhergestellt.";
-    persist();
-  }
-  else if (act === "finish") {
-    /* Der Abschluss geht bewusst direkt über den Download und nicht über das
-       Teilen: hier soll sicher ein Backup entstehen, ohne dass sich ein
-       Auswahldialog dazwischenschiebt, den man wegwischen kann. */
-    var saved = saveBackup();
-    stopRest();
-    if (saved) {
-      S.summaryData = trainingSummary(S.date);
-      S.showSummary = true;
-      S.summaryReturn = "daten";
-      navOpen("summary");
-    }
-  }
-  else if (act === "summaryok") {
-    navBack("summary");
-    S.showSummary = false;
-    S.summaryData = null;
-    /* S.note trägt bereits die Rückmeldung von saveBackup() (Dateiname oder
-       Download blockiert), die bleibt beim Wechsel zurück zu Daten stehen. */
-    if (S.summaryReturn) { S.view = S.summaryReturn; S.summaryReturn = ""; }
-  }
-  else if (act === "sharefile") { if (!shareBackup()) saveBackup(); }
-  else if (act === "install") { runInstall(); }
-  else if (act === "swupdate") { applyUpdate(); return; }
-  else if (act === "autoprog") { S.settings.autoProgress = !S.settings.autoProgress; persist(); }
-  else if (act === "repfirst") { S.settings.repFirst = !S.settings.repFirst; persist(); }
-  else if (act === "repthresh") {
-    /* In Prozentpunkten rechnen und erst am Ende durch 100 teilen, sonst
-       akkumuliert sich durch die 0,5-Schritte binärer Rundungsfehler in der
-       gespeicherten Bruchzahl. */
-    var pctNow = Math.round(S.settings.repFirstThresh * 1000) / 10;
-    var pctNext = Math.max(1, Math.min(25, pctNow + parseFloat(el.getAttribute("data-d"))));
-    S.settings.repFirstThresh = Math.round(pctNext * 10) / 1000;
-    persist();
-  }
-  else if (act === "repspan") {
-    S.settings.repSpan = Math.max(1, Math.min(5,
-      S.settings.repSpan + parseInt(el.getAttribute("data-d"), 10)));
-    persist();
-  }
-  else if (act === "exhisttoggle") {
-    S.settings.exHist = !S.settings.exHist; persist();
-  }
-  else if (act === "focusplates") {
-    S.settings.focusPlates = !S.settings.focusPlates; persist();
-  }
-  else if (act === "volrange") { S.volRange = parseInt(v, 10); }
-  else if (act === "volmode") { S.volMode = v; }
-  else if (act === "volgroup") { S.volGroup = v; }
-  else if (act === "datacat") { S.dataClosed[v] = !S.dataClosed[v]; }
-  else if (act === "secfold") { S.secOpen[v] = !S.secOpen[v]; }
-  else if (act === "barw") {
-    var bw = S.settings.barWeight + parseFloat(el.getAttribute("data-d"));
-    S.settings.barWeight = Math.min(40, Math.max(2.5, Math.round(bw * 100) / 100));
-    persist();
-  }
-  else if (act === "plate") {
-    var pv = parseFloat(v);
-    var pi2 = -1;
-    S.settings.plates.forEach(function (x, ix) { if (Math.abs(x - pv) < 0.001) pi2 = ix; });
-    if (pi2 >= 0) { if (S.settings.plates.length > 1) S.settings.plates.splice(pi2, 1); }
-    else S.settings.plates.push(pv);
-    S.settings.plates.sort(function (a,b) { return b - a; });
-    persist();
-  }
-  else if (act === "barset") {
-    if (!S.exmeta[v]) S.exmeta[v] = {};
-    S.exmeta[v].bar = !exMeta(v).bar;
-    persist();
-  }
-  else if (act === "savefile") { saveBackup(); }
-  else if (act === "loadfile") { document.getElementById("filein").click(); return; }
-  else if (act === "dlcsv") {
-    download("hantelkladde-" + todayISO() + ".csv", csvText(), "text/csv");
-    S.note = "CSV gespeichert.";
-  }
-  else if (act === "showtext") { S.out = backupText(); S.note = ""; }
-  else if (act === "clear") { S.out = ""; S.note = ""; }
-  else if (act === "importtext") {
-    var ta = document.getElementById("out");
-    try {
-      var added = mergeBackup(ta.value);
-      S.note = added + " Sätze ergänzt, " + S.entries.length + " insgesamt.";
-    } catch (e) {
-      S.note = e && e.message && e.message.indexOf("Backup ungültig:") === 0
-        ? e.message : "Der Text ist kein gültiges Backup.";
-    }
-  }
-  else if (act === "restplus") { addRest(15); return; }
-  else if (act === "reststop") { stopRest(); return; }
-  else if (act === "today") { S.date = todayISO(); S.editId = ""; S.note = ""; preselectPlan(); }
-  else if (act === "exdel") {
-    if (!removable(v)) return;
-    var ci = -1;
-    S.custom.forEach(function (c, i) {
-      if ((typeof c === "string" ? c : c.name) === v) ci = i;
-    });
-    if (ci < 0) return;
-    S.undo = { kind:"custom", index:ci, item:S.custom[ci], meta:S.exmeta[v],
-      label:v + " gelöscht." };
-    S.custom.splice(ci, 1);
-    delete S.cats[v];
-    delete S.exmeta[v];
-    if (S.exercise === v) S.exercise = "";
-    S.note = "";
-    persist();
-  }
-  else if (act === "restlen") {
-    S.settings.rest = Math.max(15, Math.min(600,
-      S.settings.rest + parseInt(el.getAttribute("data-d"),10)));
-    persist();
-  }
-  else if (act === "autorest") { S.settings.autoRest = !S.settings.autoRest; persist(); }
-  else if (act === "vibepattern") { S.settings.vibeLong = !S.settings.vibeLong; persist(); }
-  else if (act === "notifyask") { askNotify(); }
-  else if (act === "notifytoggle") {
-    S.settings.notifySignal = !S.settings.notifySignal;
-    if (!S.settings.notifySignal) clearRestNotification();
-    persist();
-  }
-  /* Fünf Sekunden reichen, um den Bildschirm zu sperren. Danach läuft genau
-     derselbe Weg wie am Ende einer Pause, samt der Regel, dass die Meldung nur
-     bei versteckter Seite kommt. */
-  else if (act === "notifytest") {
-    audioOn();
-    S.note = "Das Signal kommt in fünf Sekunden. Sperre bis dahin den " +
-      "Bildschirm oder wechsle zu einer anderen App.";
-    setTimeout(function () { signal(true); }, 5000);
-  }
-  else if (act === "openex") {
-    var exWasOpen = !!S.openEx;
-    S.openEx = (S.openEx === v ? "" : v);
-    /* Nur das Auf- und Zuklappen selbst ist eine Ebene. Direkt von einer Übung
-       zur nächsten zu wechseln bleibt dieselbe Ebene. */
-    if (S.openEx && !exWasOpen) navOpen("openex");
-    else if (!S.openEx && exWasOpen) navBack("openex");
-  }
-  else if (act === "pdel") {
-    var pp = el.getAttribute("data-p"), pi = parseInt(el.getAttribute("data-i"),10);
-    if (!S.plans[pp] || !S.plans[pp][pi]) return;
-    var removed = S.plans[pp][pi];
-    S.undo = { kind:"planrow", plan:pp, index:pi, item:removed,
-      label:removed.name + " aus " + pp + " entfernt." };
-    S.plans[pp].splice(pi, 1);
-    S.note = "";
-    persist();
-  }
-  else if (act === "prownm") {
-    var nmKey = el.getAttribute("data-p") + "|" + el.getAttribute("data-i");
-    S.prowNameOpen = S.prowNameOpen === nmKey ? "" : nmKey;
-  }
-  else if (act === "addplan") {
-    var np = document.getElementById("newPlan");
-    var pn = np ? np.value.trim() : "";
-    if (!pn) return;
-    if (S.plans[pn]) { S.note = "Ein Plan mit diesem Namen existiert bereits."; }
-    else { S.plans[pn] = []; S.note = "Plan " + pn + " angelegt."; persist(); }
-  }
-  else if (act === "planvis") {
-    var hp = S.settings.hiddenPlans, hix = hp.indexOf(v);
-    if (hix >= 0) { hp.splice(hix, 1); }
-    else {
-      hp.push(v);
-      if (S.plan === v) { S.plan = ""; S.plansFold = false; }
-    }
-    persist();
-  }
-  else if (act === "dupplan") {
-    if (!S.plans[v]) return;
-    var dupBase = v + " Kopie", dupName = dupBase, dupN = 2;
-    while (S.plans[dupName]) { dupName = dupBase + " " + dupN; dupN += 1; }
-    /* Die Kopie bekommt eine eigene Farbe, sonst wäre sie im Wochenstreifen nicht
-       vom Original zu unterscheiden. Gesucht ist die erste Palettenfarbe, die noch
-       kein Plan trägt; ist keine mehr frei, bleibt es bei der Reihenfolge-Regel aus
-       planColor(). Deshalb vor dem Einfügen, sonst zählte die Kopie sich selbst. */
-    var dupUsed = Object.keys(S.plans).map(planColor);
-    for (var dupC = 0; dupC < PALETTE.length; dupC++) {
-      if (dupUsed.indexOf(PALETTE[dupC]) < 0) { S.colors[dupName] = PALETTE[dupC]; break; }
-    }
-    /* Ans Ende der Liste, nicht hinter das Original: ohne eigene Farbe greift
-       planColor() auf den Platz in der Reihenfolge zurück, ein Einschub gäbe
-       jedem Plan dahinter eine andere Farbe. */
-    S.plans[dupName] = JSON.parse(JSON.stringify(S.plans[v]));
-    /* Wochenziel, Sichtbarkeit und Sperre bleiben außen vor. Ein mitkopiertes
-       Wochenziel würde das Wochenpensum stillschweigend verdoppeln. */
-    var dupLen = S.plans[dupName].length;
-    S.note = dupName + " angelegt, " + dupLen +
-      (dupLen === 1 ? " Übung übernommen." : " Übungen übernommen.") +
-      " Wochenziel bleibt frei.";
-    persist();
-  }
-  else if (act === "planlock") {
-    var lp = S.settings.lockedPlans, lix = lp.indexOf(v);
-    if (lix >= 0) lp.splice(lix, 1); else lp.push(v);
-    persist();
-  }
-  else if (act === "weekgoalrestart") {
-    if (writeWeekGoalLog()) {
-      S.note = "Neues Wochenziel aktiviert";
-      persist();
-    }
-  }
-  /* ---------- Planung ---------- */
-  else if (act === "drafttoggle") {
-    var dtMon = selWeek(), dtE = draftEntry(v, dtMon);
-    weekDraftEdit(dtMon).plans[v] = { on:!dtE.on, times:dtE.times };
-    saveDraft();
-  }
-  else if (act === "draftstep") {
-    var dsMon = selWeek(), dsE = draftEntry(v, dsMon);
-    var dsD = parseInt(el.getAttribute("data-d"), 10) || 0;
-    weekDraftEdit(dsMon).plans[v] = { on:dsE.on,
-      times:Math.min(DRAFT_MAX_TIMES, Math.max(1, dsE.times + dsD)) };
-    saveDraft();
-  }
-  else if (act === "draftxstep") {
-    var dxX = weekDraftEdit(selWeek()).extras[parseInt(v, 10)];
-    var dxF = el.getAttribute("data-f"), dxD = parseInt(el.getAttribute("data-d"), 10) || 0;
-    if (dxX && (dxF === "sets" || dxF === "times")) {
-      var dxMax = dxF === "sets" ? DRAFT_MAX_SETS : DRAFT_MAX_TIMES;
-      dxX[dxF] = Math.min(dxMax, Math.max(1, dxX[dxF] + dxD));
-      saveDraft();
-    }
-  }
-  else if (act === "draftxdel") {
-    weekDraftEdit(selWeek()).extras.splice(parseInt(v, 10), 1);
-    saveDraft();
-  }
-  else if (act === "draftsplit") {
-    if (S.draft.split) {
-      var hadWeeks = Object.keys(S.draft.weeks).length > 0;
-      S.draft.split = false; S.draft.weeks = {};
-      if (hadWeeks) S.note = "Alle Wochen sind wieder gleich geplant.";
-    } else {
-      S.draft.split = true;
-      S.planWeekSel = planWeeks()[0].monday;
-    }
-    saveDraft();
-  }
-  else if (act === "planweek") {
-    /* Der gewählte Tag im Raster geht auf denselben Wochentag der neuen Woche,
-       damit Reiter oben und Auswahl unten dieselbe Woche meinen. */
-    if (S.planDaySel) {
-      var pwOff = Math.round((Date.parse(S.planDaySel + "T12:00:00") -
-        Date.parse(mondayOf(S.planDaySel) + "T12:00:00")) / 86400000);
-      S.planDaySel = shiftISO(v, pwOff);
-    }
-    S.planWeekSel = v;
-  }
-  else if (act === "planday") {
-    S.planDaySel = v;
-    /* Ein Tag aus einer anderen Woche schaltet auch die Reiter oben um: sonst
-       zeigte der Entwurf eine Woche und die Auswahl darunter eine andere. */
-    if (S.draft.split) S.planWeekSel = mondayOf(v);
-  }
-  else if (act === "planassign") {
-    /* Sofort gespeichert, wie jede Änderung an den Plänen. Ein eigener
-       Speichern-Knopf hieße einen ungesicherten Zwischenstand, den es sonst
-       nirgends in der App gibt. */
-    /* Der Tag steht am Knopf, siehe assignPanel(): so weisen der Reiter Planung
-       und die Wochenübersicht über denselben Zweig zu. */
-    var paDay = el.getAttribute("data-day");
-    if (paDay) {
-      if (v) S.settings.planDays[paDay] = v;
-      else delete S.settings.planDays[paDay];
-      persist();
-      /* Gilt die Zuweisung dem Tag, der im Training gerade offen ist, steht der
-         Plan dort sofort gewählt, siehe preselectPlan(). "Frei" nimmt eine
-         bestehende Wahl nicht weg, trainiert werden darf ja trotzdem. */
-      if (v && paDay === S.date) preselectPlan();
-    }
-  }
-  else if (act === "drafttake") {
-    /* Der Entwurf wird Wochenziel: Zahl je Plan übernehmen, die Historie
-       festschreiben wie beim Knopf im Pläne-Reiter, dann den Entwurf leeren -
-       leer heißt ab jetzt genau dieser Stand, siehe draftEntry(). Die einzelnen
-       Übungen bleiben stehen, in den Wochenzielen haben sie keinen Platz. */
-    var tkMon = selWeek(), tkList = [];
-    Object.keys(S.plans).forEach(function (p) {
-      var tkE = draftEntry(p, tkMon), tkV = tkE.on ? tkE.times : 0;
-      if (tkV) tkList.push(p + " " + tkV + "×");
-      /* Kein Ballast: wer nie ein Ziel hatte und keins bekommt, bleibt ohne Eintrag. */
-      if (tkV || S.settings.weekGoals[p] != null) S.settings.weekGoals[p] = tkV;
-    });
-    writeWeekGoalLog();
-    /* Geleert wird der Entwurf, der gerade galt: seine Zahlen stehen jetzt in den
-       Wochenzielen, leer zeigt also dasselbe und folgt einer späteren Änderung
-       der Wochenziele wieder. */
-    weekDraft(tkMon).plans = {};
-    saveDraft();
-    persist();
-    var tkWk = S.draft.split ? " aus KW " + isoWeekNo(tkMon) : "";
-    S.note = tkList.length
-      ? "Wochenziele" + tkWk + " übernommen: " + tkList.join(", ") + "."
-      : "Wochenziele übernommen, kein Plan hat mehr ein Ziel.";
-  }
-  else if (act === "draftreset") {
-    S.draft = { split:false, plans:{}, extras:[], weeks:{} };
-    S.planWeekSel = "";
-    saveDraft();
-    S.note = "Entwurf verworfen, es gelten wieder die Wochenziele.";
-  }
-  else if (act === "delplan") {
-    if (!window.confirm("Plan " + v + " mit " + (S.plans[v] ? S.plans[v].length : 0) +
-        " Übungen wirklich löschen?")) return;
-    S.undo = { kind:"plan", plan:v, item:S.plans[v], color:S.colors[v],
-      goal:S.settings.weekGoals[v], goalLog:S.settings.weekGoalLog[v],
-      label:"Plan " + v + " gelöscht." };
-    delete S.plans[v];
-    delete S.colors[v];
-    delete S.settings.weekGoals[v];
-    delete S.settings.weekGoalLog[v];
-    var dhx = S.settings.hiddenPlans.indexOf(v);
-    if (dhx >= 0) S.settings.hiddenPlans.splice(dhx, 1);
-    var dlx = S.settings.lockedPlans.indexOf(v);
-    if (dlx >= 0) S.settings.lockedPlans.splice(dlx, 1);
-    if (S.plan === v) { S.plan = ""; S.plansFold = false; }
-    S.note = "";
-    persist();
-  }
-  else if (act === "resetplans") {
-    if (!window.confirm("Alle Pläne auf den Ausgangsstand zurücksetzen? " +
-        "Eigene Zielwerte und selbst angelegte Pläne gehen dabei verloren.")) return;
-    S.plans = JSON.parse(JSON.stringify(DEFAULT_PLANS));
-    S.settings.hiddenPlans = [];
-    S.settings.lockedPlans = [];
-    S.settings.weekGoals = {};
-    S.settings.weekGoalLog = {};
-    S.plan = ""; S.plansFold = false;
-    S.undo = null;
-    S.note = "Pläne auf den Ausgangsstand zurückgesetzt.";
-    persist();
-  }
-  else return;
-
+  var fn = ACTIONS[act];
+  if (!fn) return;
+  if (fn(v, el) === false) return;
   render();
 });
 
