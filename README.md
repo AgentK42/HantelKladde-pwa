@@ -292,15 +292,46 @@ der Knopf im Pläne-Reiter, und leert den Entwurf; die einzelnen Übungen bleibe
 stehen, in den Wochenzielen haben sie keinen Platz. **Entwurf verwerfen** setzt
 alles auf die Wochenziele zurück.
 
-Darunter lassen sich die Pläne des Entwurfs auf Tage der nächsten 14 Tage legen,
-im Raster der Kalenderwochen von Montag bis Sonntag. Ein Tag trägt höchstens einen
-Plan, gespeichert wird beim Antippen, wie bei jeder Änderung an den Plänen. Das
-landet als `planDays` in den Einstellungen und damit im Backup; beim Laden und
-beim Import fällt weg, was älter als vier Wochen ist (`PLAN_DAYS_KEEP`). Im
-Wochenstreifen des Trainings steht ein zugewiesener Tag als leerer Ring in der
-Planfarbe, bis der Plan dort als voll absolviert gilt und der Ring zum Punkt wird.
-Eine Tabelle unter dem Raster stellt je Kalenderwoche die zugewiesenen Tage der
-Häufigkeit aus dem Entwurf gegenüber.
+### Wochen getrennt planen
+
+Seit 1.26.0 trennt ein Schalter im Kopf des Entwurfs die Wochen. Ist er an,
+erscheint darunter ein Reiter je angezeigter Kalenderwoche, und Entwurf, einzelne
+Übungen und Sätze je Muskelgruppe zeigen die gewählte Woche; ihre Überschriften
+tragen die Kalenderwoche mit.
+
+Im Speicher liegt der obere Stand (`plans`, `extras`) für die erste angezeigte
+Woche, `weeks` hält je Montag die Abweichung einer späteren. Eine Woche ohne
+eigenen Eintrag zeigt die erste mit; erst die erste Änderung legt ihre Abweichung
+an, mit dem Stand, der bis dahin galt (`weekDraft()`, `weekDraftEdit()`). Beim
+Laden fallen vergangene Wochen weg, und rutscht eine geplante Woche nach vorn,
+zieht ihre Abweichung in den oberen Stand um, sonst wäre sie mit dem Wochenwechsel
+verloren. Der Schalter aus nimmt die Unterschiede heraus, das sagt sein Titel.
+
+**Als Wochenziel übernehmen** bezieht sich auf die angezeigte Woche und heißt dann
+„KW 39 als Wochenziel“: die Wochenziele kennen nur einen Wert je Plan, also muss
+eine Woche den Ausschlag geben. **Entwurf verwerfen** setzt alle Wochen zurück und
+hebt die Trennung auf.
+
+### Zuweisen
+
+Das Raster zeigt die **nächsten zwei vollen Kalenderwochen** (`PLAN_WEEKS`),
+Montag bis Sonntag. Eine Woche, in der schon ein Tag vergangen ist, lässt sich
+nicht mehr ganz planen und zählt deshalb nicht mit; nur montags ist die laufende
+noch voll. Die restlichen Tage der laufenden Woche lassen sich über die
+Wochenübersicht im Trainingsreiter belegen. Bis 1.25.1 waren es die 14 Tage ab
+heute, was je nach Wochentag über drei Kalenderwochen reichte, die letzte davon
+mit einem einzigen Tag.
+
+Ein Tag trägt höchstens einen Plan, gespeichert wird beim Antippen, wie bei jeder
+Änderung an den Plänen. Die Auswahl unter der Woche zeigt die Pläne aus dem
+Entwurf genau dieser Woche, und ein Tag aus einer anderen Woche schaltet die
+Reiter oben mit um, damit beide dasselbe meinen. Das landet als `planDays` in den
+Einstellungen und damit im Backup; beim Laden und beim Import fällt weg, was älter
+als vier Wochen ist (`PLAN_DAYS_KEEP`). Im Wochenstreifen des Trainings steht ein
+zugewiesener Tag als leerer Ring in der Planfarbe, bis der Plan dort als voll
+absolviert gilt und der Ring zum Punkt wird. Eine Tabelle unter dem Raster stellt
+je Kalenderwoche die zugewiesenen Tage der Häufigkeit aus dem Entwurf gegenüber,
+bei getrennten Wochen also je Spalte gegen eine andere Zahl.
 
 Seit 1.23.1 ist der zugewiesene Plan im Trainingsreiter schon gewählt, sobald der
 Tag dort offen ist: beim Start ohne gemerkte Sitzung, bei jedem Datumswechsel und
