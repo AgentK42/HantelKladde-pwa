@@ -21,7 +21,8 @@
   --ink:#101314; --muted:#6C736E; --line:#D2D6CE;
   --accent:#1552B8; --accent-ink:#FFFFFF; --record:#C8102E; --done:#1F7A4C;
   --shadow:0 1px 0 rgba(16,19,20,0.06);
-  /* Einzelne Übungen im Entwurf der Planung, neben den Planfarben, siehe draftSources() */
+  /* Einzelne Übungen im Entwurf der Planung, neben den Planfarben, siehe
+     draftSources(), und die Volumenbalken im Verlauf, siehe volChart() */
   --extra:#0E7C86;
 }
 html[data-theme="dark"] {
@@ -727,6 +728,10 @@ textarea.note { width:100%; margin-top:8px; padding:11px 12px; border-radius:13p
 .card .open { width:100%; margin-top:10px; padding:10px; border-radius:11px;
   border:1px solid var(--line); background:var(--raise); font-size:13px; font-weight:650; }
 .chart { margin-top:12px; }
+/* Zwei Diagramme untereinander brauchen je eine Überschrift, sonst ist beim
+   zweiten nicht zu sehen, was es zeigt. Siehe chart()/volChart(). */
+.chart .clab { margin:0 0 4px; font-size:11px; font-weight:700; letter-spacing:.06em;
+  text-transform:uppercase; color:var(--muted); }
 .legend { display:flex; gap:14px; font-size:11.5px; color:var(--muted); margin-top:6px; }
 .legend i { display:inline-block; width:14px; height:2px; background:var(--accent);
   vertical-align:middle; margin-right:5px; }
@@ -935,7 +940,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.28.0";
+var APP_VERSION = "1.29.0";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -5676,8 +5681,9 @@ function viewHistory() {
     if (e.date > g.last || (e.date === g.last && e.ts > g.ts)) {
       g.ts = e.ts; g.last = e.date;
     }
-    if (!g.days[e.date]) g.days[e.date] = { top:-1, topReps:0, e1:0, vol:0 };
+    if (!g.days[e.date]) g.days[e.date] = { top:-1, topReps:0, e1:0, vol:0, sets:0 };
     var d = g.days[e.date];
+    d.sets += 1;
     /* Reps am Höchstgewicht des Tages, fürs Diagramm - dieselbe Regel wie
        repsAt in plateau(): bei mehreren Sätzen mit demselben Höchstgewicht
        zählt die kleinste Wiederholungszahl, die konservativere Aussage. */
@@ -5742,7 +5748,7 @@ function viewHistory() {
         ? '<button class="open" data-act="openex" data-v="' + esc(n) + '">' +
           (open ? "Diagramm ausblenden" : "Verlauf anzeigen") + '</button>'
         : "") +
-      (open ? chart(days, g.days) : "") +
+      (open ? chart(days, g.days) + volChart(days, g.days) : "") +
       '</div>';
   });
   return h;
@@ -5798,7 +5804,8 @@ function chart(days, byDay) {
       '" font-size="9" fill="var(--muted)" text-anchor="end">' + Math.round(v) + '</text>';
   }).join("");
   var first = tinyDate(days[0]), lastd = tinyDate(days[days.length-1]);
-  return '<div class="chart"><svg viewBox="0 0 ' + w + ' ' + hh + '" width="100%" ' +
+  return '<div class="chart"><p class="clab">Gewicht</p>' +
+    '<svg viewBox="0 0 ' + w + ' ' + hh + '" width="100%" ' +
     'style="display:block;height:auto" preserveAspectRatio="xMidYMid meet" role="img" ' +
     'aria-label="Gewichtsverlauf">' + grid +
     '<polyline points="' + poly(e1s) + '" fill="none" stroke="var(--muted)" ' +
@@ -5813,6 +5820,87 @@ function chart(days, byDay) {
     '<span><i class="dash"></i>geschätztes 1RM</span></div>' +
     '<p style="margin-top:8px">' + days.length + ' Trainings, ' + first + ' bis ' +
     lastd + '</p></div>';
+}
+
+/* Runde Obergrenze, deren Hälfte ebenfalls rund ist. Ohne das stünden an den drei
+   Rasterlinien Werte wie 531,25 und 1062,5. */
+function niceTop(max) {
+  var want = max / 2;
+  var mag = Math.pow(10, Math.floor(Math.log10(want)));
+  var steps = [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10];
+  for (var i = 0; i < steps.length; i++) {
+    if (steps[i] * mag >= want) return steps[i] * mag * 2;
+  }
+  return mag * 20;
+}
+/* Tagesvolumen als Balken unter dem Gewichtsverlauf, auf derselben Zeitachse: ein
+   Trainingstag steht in beiden Bildern an derselben Stelle, der Blick wandert nur
+   senkrecht. Damit ist zu sehen, was die Gewichtslinie allein verschweigt - das
+   Volumen fällt bei jeder Gewichtssteigerung, weil die Reps wieder unten anfangen,
+   und ein zusätzlicher Satz bewegt die Linie oben überhaupt nicht.
+
+   Balken statt Linie, weil Volumen eine Menge je Einheit ist: eine Linie würde
+   Werte an Tagen ohne Training behaupten. Nullbasiert, weil bei einer Menge ein
+   abgeschnittener Sockel jeden Unterschied optisch verdoppelt - die Gewichtslinie
+   darf weiter zoomen, dort geht es um Abstände.
+
+   Bewusst zwei Bilder und nicht Balken hinter der Linie: das bräuchte zwei
+   y-Skalen in einem Diagramm, die sich gegeneinander beliebig verschieben lassen,
+   und jede Verschiebung zeigt einen anderen scheinbaren Zusammenhang. */
+function volChart(days, byDay) {
+  var vols = days.map(function (d) { return byDay[d].vol; });
+  var max = Math.max.apply(null, vols);
+  /* Ohne Gewicht gibt es nichts zu zeichnen, etwa bei Klimmzügen mit 0 kg. Das
+     Gewichtsdiagramm darüber bleibt davon unberührt. */
+  if (!(max > 0)) return "";
+  var w = 320, hh = 150, padL = 34, padR = 8, padT = 16, padB = 22;
+  var bw = 15, half = bw / 2;
+  var hi = niceTop(max);
+  /* Der Zeichenbereich rückt um eine halbe Balkenbreite ein, sonst ragte der
+     erste Balken in die Achsenbeschriftung und der letzte aus dem Bild. */
+  var left = padL + half, right = w - padR - half, base = hh - padB;
+  var totalSpan = isoDayDiff(days[0], days[days.length - 1]) || 1;
+  function px(i) {
+    return days.length === 1 ? left
+      : left + isoDayDiff(days[0], days[i]) / totalSpan * (right - left);
+  }
+  function py(v) { return padT + (1 - v / hi) * (base - padT); }
+  var grid = [0, hi / 2, hi].map(function (v) {
+    return '<line x1="' + padL + '" y1="' + py(v).toFixed(1) + '" x2="' + (w - padR) +
+      '" y2="' + py(v).toFixed(1) + '" stroke="var(--line)" stroke-width="1"/>' +
+      '<text x="' + (padL - 5) + '" y="' + (py(v) + 3.5).toFixed(1) +
+      '" font-size="9" fill="var(--muted)" text-anchor="end">' + num(v) + '</text>';
+  }).join("");
+  var bars = vols.map(function (v, i) {
+    var x = px(i) - half, y = py(v), r = Math.min(4, Math.max(0, (base - y) / 2));
+    return '<path d="M' + x.toFixed(1) + ' ' + base + ' V' + (y + r).toFixed(1) +
+      ' a' + r + ' ' + r + ' 0 0 1 ' + r + ' -' + r + ' h' + (bw - 2 * r) +
+      ' a' + r + ' ' + r + ' 0 0 1 ' + r + ' ' + r + ' V' + base +
+      ' Z" fill="var(--extra)"/>';
+  }).join("");
+  /* Beschriftet werden nur der höchste und der letzte Balken. Eine Zahl über jedem
+     Balken liest niemand, und bei engen Tagesabständen überlappen sie. */
+  var sum = vols.reduce(function (a, v) { return a + v; }, 0);
+  var marks = [vols.indexOf(max), vols.length - 1]
+    .filter(function (v, i, a) { return a.indexOf(v) === i; })
+    .map(function (i) {
+      var lx = Math.max(padL + 12, Math.min(w - padR - 12, px(i)));
+      return '<text x="' + lx.toFixed(1) + '" y="' + (py(vols[i]) - 5).toFixed(1) +
+        '" font-size="9.5" font-weight="700" fill="var(--ink)" text-anchor="middle">' +
+        num(vols[i]) + '</text>';
+    }).join("");
+  var sets = days.reduce(function (a, d) { return a + (byDay[d].sets || 0); }, 0);
+  return '<div class="chart"><p class="clab">Volumen je Training, kg</p>' +
+    '<svg viewBox="0 0 ' + w + ' ' + hh + '" width="100%" ' +
+    'style="display:block;height:auto" preserveAspectRatio="xMidYMid meet" role="img" ' +
+    'aria-label="Volumen je Training in Kilogramm">' + grid + bars + marks +
+    '<text x="' + padL + '" y="' + (hh - 6) + '" font-size="9" fill="var(--muted)">' +
+    tinyDate(days[0]) + '</text>' +
+    '<text x="' + (w - padR) + '" y="' + (hh - 6) + '" font-size="9" fill="var(--muted)" ' +
+    'text-anchor="end">' + tinyDate(days[days.length - 1]) + '</text></svg>' +
+    '<p>Zusammen ' + num(sum) + ' kg aus ' + sets +
+    (sets === 1 ? ' Satz' : ' Sätzen') + ', im Schnitt ' +
+    num(Math.round(sum / vols.length)) + ' kg je Training.</p></div>';
 }
 
 /* ---------- Daten ---------- */

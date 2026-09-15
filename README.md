@@ -383,6 +383,32 @@ wie immer über die Planauswahl, und wer den Plan abwählt, bekommt ihn nicht be
 nächsten Neuaufbau wieder vorgesetzt, erst beim nächsten Datumswechsel. Ein im
 Training ausgeblendeter Plan wird nicht vorgewählt.
 
+## Volumen im Diagramm
+
+Unter dem Gewichtsverlauf einer Übung steht ein zweites Diagramm: das
+Tagesvolumen als Balken, auf derselben Zeitachse. Ein Trainingstag steht in
+beiden Bildern an derselben Stelle, der Blick wandert nur senkrecht. Damit ist
+zu sehen, was die Gewichtslinie allein verschweigt: Das Volumen fällt bei jeder
+Gewichtssteigerung, weil die Reps wieder unten anfangen, und ein zusätzlicher
+Satz bewegt die Linie oben überhaupt nicht.
+
+Drei Entscheidungen dahinter:
+
+- **Balken statt Linie.** Volumen ist eine Menge je Einheit. Eine Linie würde
+  Werte an Tagen ohne Training behaupten.
+- **Nullbasierte Achse.** Bei einer Menge verdoppelt ein abgeschnittener Sockel
+  jeden Unterschied optisch. Die Gewichtslinie darf weiter zoomen, dort geht es
+  um Abstände, nicht um Größen. Die Obergrenze kommt aus `niceTop()`, damit auch
+  die Mittellinie einen runden Wert trägt.
+- **Zwei Bilder statt Balken hinter der Linie.** Das bräuchte zwei y-Skalen in
+  einem Diagramm. Die lassen sich gegeneinander beliebig verschieben, und jede
+  Verschiebung zeigt einen anderen scheinbaren Zusammenhang.
+
+Beschriftet werden nur der höchste und der letzte Balken; eine Zahl über jedem
+Balken liest niemand, und bei engen Tagesabständen überlappen sie. Ist das
+Volumen durchweg null, etwa bei Klimmzügen mit 0 kg, entfällt das Diagramm
+ganz und der Gewichtsverlauf bleibt unverändert stehen.
+
 ## Plan duplizieren
 
 Das dritte Symbol in der Kopfzeile einer Plankarte legt eine Kopie an, als
