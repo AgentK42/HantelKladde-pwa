@@ -933,7 +933,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.26.0";
+var APP_VERSION = "1.26.1";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -1875,7 +1875,13 @@ function bestE1rm(name, from, to) {
 /* Punkt 10: Zusammenfassung nach Abschluss des Trainings. Ein Rekord ist ein
    Satz des Tages, der das bis dahin schwerste Gewicht dieser Übung schlägt
    (oder bei gleichem Gewicht mehr Wiederholungen schafft) - dieselbe Regel wie
-   beim Rekord-Toast einzelner Sätze, hier über den ganzen Tag gesehen. */
+   beim Rekord-Toast einzelner Sätze, hier über den ganzen Tag gesehen.
+
+   Ohne einen früheren Satz gibt es nichts zu schlagen: eine Übung, die heute
+   zum ersten Mal erfasst wird, ist seit 1.26.1 kein Rekord mehr. Vorher stand
+   sie als "erste Aufzeichnung" mit in der Liste, und beim ersten Training mit
+   neuen Übungen bestand die Zusammenfassung fast nur daraus. Gemeint ist eine
+   Verbesserung, und die braucht einen Vorher-Wert. */
 function trainingSummary(date) {
   /* Nur die jüngste zusammenhängende Einheit dieses Tages zusammenfassen. So
      taucht ein früheres Training am selben Kalendertag nicht erneut auf. */
@@ -1904,10 +1910,11 @@ function trainingSummary(date) {
     var priorBest = prior.length ? prior.reduce(function (a, b) {
       return (b.weight > a.weight || (b.weight === a.weight && b.reps > a.reps)) ? b : a;
     }) : null;
-    if (todayBest && (!priorBest || todayBest.weight > priorBest.weight ||
-        (Math.abs(todayBest.weight - priorBest.weight) < 0.001 && todayBest.reps > priorBest.reps))) {
+    if (todayBest && priorBest && (todayBest.weight > priorBest.weight ||
+        (Math.abs(todayBest.weight - priorBest.weight) < 0.001 &&
+          todayBest.reps > priorBest.reps))) {
       records.push({ exercise:name, weight:todayBest.weight, reps:todayBest.reps,
-        prevWeight: priorBest ? priorBest.weight : null, prevReps: priorBest ? priorBest.reps : null });
+        prevWeight:priorBest.weight, prevReps:priorBest.reps });
     }
   });
   return { exCount:order.length, sets:sets, volume:volume, records:records,
@@ -4447,9 +4454,8 @@ function viewSummary() {
       sum.records.map(function (r) {
         return '<div class="prrow"><span class="nm">' + esc(r.exercise) + '</span>' +
           '<span class="up">' + num(r.weight) + ' kg × ' + r.reps + '</span>' +
-          '<span class="fig">' + (r.prevWeight != null
-            ? "vorher " + num(r.prevWeight) + " kg × " + r.prevReps
-            : "erste Aufzeichnung") + '</span></div>';
+          '<span class="fig">vorher ' + num(r.prevWeight) + ' kg × ' + r.prevReps +
+          '</span></div>';
       }).join("") + '</div>';
   } else {
     h += '<p class="notice">Keine neuen Rekorde heute, aber jeder Satz zählt.<br><br>' +
@@ -5414,26 +5420,34 @@ function recordBlock() {
   });
   var out = [];
   Object.keys(byEx).forEach(function (n) {
-    var oldW = 0, oldE = 0, seenBefore = false, topW = null, topE = null;
-    byEx[n].forEach(function (e) {
-      if (e.date < from) {
-        seenBefore = true;
-        if (e.weight > oldW) oldW = e.weight;
-        if (e1rm(e.weight, e.reps) > oldE) oldE = e1rm(e.weight, e.reps);
-      } else if (e.date <= td) {
-        if (!topW || e.weight > topW.weight ||
-            (Math.abs(e.weight - topW.weight) < 0.001 && e.reps > topW.reps)) topW = e;
-        if (!topE || e1rm(e.weight, e.reps) > e1rm(topE.weight, topE.reps)) topE = e;
-      }
+    var all = byEx[n].filter(function (e) { return e.date <= td; });
+    var before = all.filter(function (e) { return e.date < from; });
+    var inRange = all.filter(function (e) { return e.date >= from; });
+    if (!inRange.length) return;
+    var baseline = before, later = inRange;
+    if (!before.length) {
+      /* Die Übung gibt es erst seit diesem Zeitraum. Dann ist ihr erster Tag der
+         Ausgangswert und verglichen wird, was danach kam; ohne einen zweiten Tag
+         gibt es nichts zu vergleichen. Bis 1.26.0 stand so eine Übung hier als
+         "neu", also als Rekord ohne Vorher-Wert. Gemeint ist eine Verbesserung. */
+      var firstDay = inRange.reduce(function (a, e) {
+        return (!a || e.date < a) ? e.date : a;
+      }, "");
+      baseline = inRange.filter(function (e) { return e.date === firstDay; });
+      later = inRange.filter(function (e) { return e.date > firstDay; });
+      if (!later.length) return;
+    }
+    var oldW = 0, oldE = 0, topW = null, topE = null;
+    baseline.forEach(function (e) {
+      if (e.weight > oldW) oldW = e.weight;
+      if (e1rm(e.weight, e.reps) > oldE) oldE = e1rm(e.weight, e.reps);
+    });
+    later.forEach(function (e) {
+      if (!topW || e.weight > topW.weight ||
+          (Math.abs(e.weight - topW.weight) < 0.001 && e.reps > topW.reps)) topW = e;
+      if (!topE || e1rm(e.weight, e.reps) > e1rm(topE.weight, topE.reps)) topE = e;
     });
     if (!topW) return;
-    /* Auch 0 kg ist bei einer neuen Körpergewichtsübung eine echte erste
-       Aufzeichnung. Vorher fiel sie durch den Vergleich mit oldW = 0. */
-    if (!seenBefore) {
-      out.push({ name:n, date:topW.date,
-        fig:num(topW.weight) + " kg × " + topW.reps + " Reps", gain:"neu" });
-      return;
-    }
     if (topW.weight > oldW + 0.001) {
       out.push({ name:n, date:topW.date,
         fig: num(topW.weight) + " kg × " + topW.reps + " Reps",
@@ -7186,8 +7200,10 @@ document.addEventListener("click", function (ev) {
          Bestätigung eines Satzes ist Routine, ein Rekord ist der Moment, der
          auffallen soll. */
       var extra = "";
-      if (!prevBest || w > prevBest.weight ||
-          (Math.abs(w - prevBest.weight) < 0.001 && r > prevBest.reps)) {
+      /* Ohne früheren Satz ist nichts geschlagen: der erste Satz einer Übung ist
+         seit 1.26.1 kein Rekord, siehe trainingSummary(). */
+      if (prevBest && (w > prevBest.weight ||
+          (Math.abs(w - prevBest.weight) < 0.001 && r > prevBest.reps))) {
         extra = '<b class="hit">Neuer Rekord</b>';
       } else if (prevE1 && e1rm(w, r) > e1rm(prevE1.weight, prevE1.reps)) {
         extra = '<b class="hit">Bestes ~1RM ' + num(e1rm(w, r)) + ' kg</b>';
