@@ -308,10 +308,12 @@ Zurück-Geste sie schließt und nicht die ganze App. Deshalb geht sie überall �
 `closeWeekOverview()` zu, nie über `S.weekOverview` von Hand. Gemerkt wird sie
 nicht, sie startet immer zu.
 
-Streifen und Übersicht bauen ihre Zellen aus derselben Funktion (`dayCell()`):
-gefüllter Punkt in der Planfarbe für einen absolvierten Tag, leerer Ring für einen
-in der Planung zugewiesenen, matter Ring für einen angefangenen. Wer die Zeichen
-einmal lernt, kennt sie in beiden Ansichten.
+Streifen, Übersicht und das Zuweisen-Raster der Planung bauen ihre Zellen aus
+derselben Funktion (`dayCell()`): gefüllter Punkt in der Planfarbe für einen
+absolvierten Tag, leerer Ring für einen in der Planung zugewiesenen, matter Ring
+für einen angefangenen. Wer die Zeichen einmal lernt, kennt sie in allen drei
+Ansichten. Bis 1.29.0 hatte die Planung eine eigene Kopie der Funktion, der der
+matte Ring fehlte.
 
 ## Planung
 

@@ -94,7 +94,7 @@ button { cursor:pointer; }
 .wday.part .dot { border:1.5px solid var(--muted); }
 .wday.on { border-color:var(--ink); background:var(--raise); }
 /* In der Planung zugewiesener Plan, noch nicht absolviert: leerer Ring, die Farbe
-   kommt inline vom Plan, siehe weekStrip() und planDayCell(). */
+   kommt inline vom Plan, siehe dayCell(). */
 .wday.plan .dot { border:1.5px solid var(--accent); }
 /* Künftige Tage stehen seit 1.24.0 mit im Streifen; die matte Zahl hält die
    Grenze zum heutigen Tag sichtbar, siehe dayCell(). */
@@ -871,9 +871,9 @@ textarea.note { width:100%; margin-top:8px; padding:11px 12px; border-radius:13p
   border:1px solid var(--line); background:var(--surface); color:var(--muted);
   font-size:12px; font-weight:650; white-space:nowrap; }
 .wksplit[aria-checked="true"] { border-color:var(--accent); color:var(--accent); }
-/* Zuweisen: Kalenderwochen als Raster Mo bis So, Zellen wie im Wochenstreifen.
-   Vergangene Tage und Tage hinter dem 14. bleiben sichtbar, damit das Raster
-   stimmt, sind aber nicht wählbar, siehe planDayCell(). */
+/* Zuweisen: Kalenderwochen als Raster Mo bis So, dieselben Zellen wie im
+   Wochenstreifen, siehe dayCell(). Seit 1.26.0 stehen nur volle kommende Wochen im
+   Raster, vergangene Tage kommen darin nicht mehr vor. */
 .cal { display:grid; grid-template-columns:repeat(7,1fr); gap:5px; }
 .cal .wday { flex:none; min-width:0; }
 .cal .wday:disabled { opacity:0.45; cursor:default; }
@@ -940,7 +940,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.29.0";
+var APP_VERSION = "1.29.1";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -1244,6 +1244,8 @@ var S = {
   pwa: { persisted:null, swVersion:"",
     updateReady:false, installable:false, standalone:false }
 };
+
+var WEEKDAY_SHORT = ["So","Mo","Di","Mi","Do","Fr","Sa"];
 
 /* Nur für den Fokus-Modus: der Ausschnitt der Reps-Reihe kann per Wischen oder
    Pfeil verschoben werden, ohne dass sich die tatsächliche Auswahl ändert. Rein
@@ -1747,6 +1749,15 @@ function exMeta(name) {
 }
 function stepOf(name) { return name ? exMeta(name).step : DEFAULT_STEP; }
 function isBar(name) { return name ? exMeta(name).bar : false; }
+/* Die Auswahlwerte fürs Pausenfeld, ein fremder Wert aus dem Import einsortiert */
+function restChoices(cur) {
+  var vals = REST_CHOICES.slice();
+  if (cur > 0 && vals.indexOf(cur) < 0) {
+    vals.push(cur);
+    vals.sort(function (a, b) { return a - b; });
+  }
+  return vals;
+}
 /* Pause nach einem Arbeitssatz dieser Übung, sonst die aus den Einstellungen */
 function exRest(name) {
   var r = name ? exMeta(name).rest : 0;
@@ -2288,17 +2299,29 @@ function backToWork() {
   if (S.warmBase > 0) S.weight = comma(S.warmBase);
   if (S.warmReps) S.reps = S.warmReps;
   if (S.warmRpe) S.rpe = S.warmRpe;
-  S.warm = false;
-  S.warmBase = 0;
-  S.warmReps = "";
-  S.warmRpe = "";
+  clearWarm();
   repWinCenter = null;
 }
-function applySuggestion(name) {
+/* Der Wechsel ins Aufwärmen merkt sich den Arbeitssatz, zu dem backToWork()
+   zurückkehrt. Läuft das Aufwärmen schon, bleibt der erste Merker stehen. Die vier
+   Felder gehören zusammen und werden nur hier und in clearWarm() angefasst; bis
+   1.29.0 standen sie an fünf Stellen ausgeschrieben, und genau so blieb der RPE
+   in 1.27.0 beim Zurückkehren liegen. */
+function enterWarm(base) {
+  if (S.warm) return;
+  S.warmBase = base;
+  S.warmReps = S.reps;
+  S.warmRpe = S.rpe;
+  S.warm = true;
+}
+function clearWarm() {
   S.warm = false;
   S.warmBase = 0;
   S.warmReps = "";
   S.warmRpe = "";
+}
+function applySuggestion(name) {
+  clearWarm();
   repWinCenter = null;
   /* Der Merker hält nur, solange an diesem Tag noch kein Arbeitssatz dieser Übung
      steht. Sobald einer da ist, gilt die Fortsetzungsregel aus suggestFor(): weiter
@@ -3525,13 +3548,30 @@ var STRIP_BACK = 13, STRIP_FWD = 7;
    Im Streifen wählt ein Tipp den Tag fürs Eintragen. In der Übersicht (assign)
    weist er stattdessen einen Plan zu, siehe viewWeekOverview(); vergangene Tage
    sind dort kein Knopf, eine Zuweisung von gestern gibt es nicht. */
-function dayCell(d, td, assign) {
-  var dt = new Date(d + "T12:00:00");
-  var wd = ["So","Mo","Di","Mi","Do","Fr","Sa"][dt.getDay()];
-  var dp = dayPlan(d);
-  var planned = plannedPlan(d);
-  var sel = assign ? S.ovrDay : S.date;
-  var cls = "wday" + (d === sel ? " on" : "") + (d > td ? " future" : "");
+/* Was ein Tag im Streifen und in den Rastern zeigt, einmal gerechnet: die
+   Wochenübersicht braucht denselben Stand für Zelle und Wochenbilanz, siehe
+   viewWeekOverview()/weekTally(). */
+function dayStatus(d) {
+  return { dp:dayPlan(d), planned:plannedPlan(d) };
+}
+/* Die Tageszelle, gemeinsam für den Wochenstreifen ("pickday"), die Wochenübersicht
+   ("ovrday") und das Zuweisen-Raster der Planung ("planday"). Gefüllter Punkt in
+   der Planfarbe für einen absolvierten Tag, leerer Ring für einen zugewiesenen,
+   matter Ring für einen angefangenen. sel ist der hervorgehobene Tag des jeweiligen
+   Orts. Die Raster sitzen in Wochen, dort markiert die Planung heute und das
+   Wochenende; der Streifen und die Übersicht setzen stattdessen künftige Tage
+   matt ab. In der Übersicht sind vergangene Tage nicht wählbar und werden zu
+   einem span. */
+function dayCell(d, td, act, sel, st) {
+  st = st || dayStatus(d);
+  var dt = new Date(d + "T12:00:00"), wd = WEEKDAY_SHORT[dt.getDay()];
+  var dp = st.dp, planned = st.planned;
+  var cls = "wday" + (d === sel ? " on" : "");
+  if (act === "planday") {
+    cls += (d === td ? " today" : "") + (wd === "Sa" || wd === "So" ? " we" : "");
+  } else if (d > td) {
+    cls += " future";
+  }
   var dot = "";
   if (dp && dp.planDone) {
     cls += " has";
@@ -3549,9 +3589,9 @@ function dayCell(d, td, assign) {
   var inner = '<span class="wd">' + wd + '</span><span class="dd">' + dt.getDate() +
     '</span><span class="dot"' + dot + '></span>';
   var title = tip ? ' title="' + tip + '"' : "";
-  if (assign && d < td) return '<span class="' + cls + '"' + title + '>' + inner + '</span>';
-  return '<button class="' + cls + '" data-act="' + (assign ? "ovrday" : "pickday") +
-    '" data-v="' + d + '"' + title + '>' + inner + '</button>';
+  if (act === "ovrday" && d < td) return '<span class="' + cls + '"' + title + '>' + inner + '</span>';
+  return '<button class="' + cls + '" data-act="' + act + '" data-v="' + d + '"' + title + '>' +
+    inner + '</button>';
 }
 function weekStrip() {
   var td = todayISO();
@@ -3563,7 +3603,7 @@ function weekStrip() {
     last = shiftISO(S.date, STRIP_FWD);
   }
   var cells = "", d = first;
-  while (d <= last) { cells += dayCell(d, td); d = shiftISO(d, 1); }
+  while (d <= last) { cells += dayCell(d, td, "pickday", S.date); d = shiftISO(d, 1); }
   return '<div class="weekrow"><div class="week" id="week">' + cells + '</div>' +
     '<button class="weekmore" data-act="weekovr" ' +
     'aria-label="Wochenübersicht" title="Übersicht der letzten und nächsten Wochen">' +
@@ -3572,12 +3612,12 @@ function weekStrip() {
 /* Trainierte und noch geplante Tage einer Kalenderwoche, für die Zeile über dem
    Raster in der Wochenübersicht. Trainiert heißt wie im Streifen: der Tag trägt
    den gefüllten Punkt. */
-function weekTally(monday, td) {
+function weekTally(monday, td, stats) {
   var done = 0, planned = 0;
   for (var i = 0; i < 7; i++) {
-    var d = shiftISO(monday, i), dp = dayPlan(d);
+    var dp = stats[i].dp;
     if (dp && (dp.planDone || dp.done)) done += 1;
-    else if (d >= td && plannedPlan(d)) planned += 1;
+    else if (shiftISO(monday, i) >= td && stats[i].planned) planned += 1;
   }
   var bits = [];
   if (done) bits.push(done + (done === 1 ? " Tag" : " Tage"));
@@ -3606,10 +3646,14 @@ function viewWeekOverview() {
     svg("zurueck", 22) + '</button><b>Wochenübersicht</b></div><div class="card">';
   for (var i = -2; i <= 2; i++) {
     var mon = shiftISO(curMon, i * 7), cur = mon === curMon;
-    var days = "";
-    for (var k = 0; k < 7; k++) days += dayCell(shiftISO(mon, k), td, true);
+    var days = "", stats = [];
+    for (var k = 0; k < 7; k++) {
+      var day = shiftISO(mon, k), st = dayStatus(day);
+      stats.push(st);
+      days += dayCell(day, td, "ovrday", sel, st);
+    }
     h += '<div class="kw"><span' + (cur ? ' class="now"' : "") + '>KW ' + isoWeekNo(mon) +
-      (cur ? " · diese Woche" : "") + '</span><em>' + weekTally(mon, td) + '</em></div>' +
+      (cur ? " · diese Woche" : "") + '</span><em>' + weekTally(mon, td, stats) + '</em></div>' +
       '<div class="cal">' + days + '</div>';
     if (sel >= mon && sel <= shiftISO(mon, 6)) {
       h += assignPanel(sel, plans, i < 2, "Alle Pläne sind im Training ausgeblendet. " +
@@ -3699,24 +3743,17 @@ function heroWeightDial(name) {
    Pillen-Reihen aus repPills()/rpePills(). */
 function heroSteppers() {
   var rpeVal = deci(S.rpe);
-  /* Beim Aufwärmen steht nur die Wiederholungszahl da, über die volle Breite.
-     Ein RPE-Feld, das nichts speichert, wäre ein leeres Versprechen. */
-  if (S.warm) {
-    return '<div class="steprow one">' +
-      '<div class="stepbox"><button data-act="step" data-f="reps" data-d="-1" ' +
-      'aria-label="weniger Reps">&minus;</button>' +
-      '<div class="mid"><b>' + esc(S.reps) + '</b><span>Reps</span></div>' +
-      '<button data-act="step" data-f="reps" data-d="1" aria-label="mehr Reps">+</button>' +
-      '</div></div>';
-  }
   /* Die Ziel-Range stand hier eine Zeit lang in der Beschriftung unter der
      Zahl ("Reps 8-12"). Sie steht schon in der Zielzeile darüber, deshalb bleibt
      es hier bei der schlichten Beschriftung. */
-  return '<div class="steprow">' +
-    '<div class="stepbox"><button data-act="step" data-f="reps" data-d="-1" ' +
+  var reps = '<div class="stepbox"><button data-act="step" data-f="reps" data-d="-1" ' +
     'aria-label="weniger Reps">&minus;</button>' +
     '<div class="mid"><b>' + esc(S.reps) + '</b><span>Reps</span></div>' +
-    '<button data-act="step" data-f="reps" data-d="1" aria-label="mehr Reps">+</button></div>' +
+    '<button data-act="step" data-f="reps" data-d="1" aria-label="mehr Reps">+</button></div>';
+  /* Beim Aufwärmen steht nur die Wiederholungszahl da, über die volle Breite.
+     Ein RPE-Feld, das nichts speichert, wäre ein leeres Versprechen. */
+  if (S.warm) return '<div class="steprow one">' + reps + '</div>';
+  return '<div class="steprow">' + reps +
     '<div class="stepbox"><button data-act="step" data-f="rpe" data-d="-0.5" ' +
     'aria-label="weniger RPE">&minus;</button>' +
     '<div class="mid"><b>' + (isNaN(rpeVal) ? "–" : num(rpeVal)) + '</b><span>RPE</span></div>' +
@@ -4814,7 +4851,13 @@ function weekDraft(mon) {
    gibt, mit dem Stand, der bis dahin galt. So ändert der erste Tipp in einer
    späteren Woche genau das Angetippte und nicht die erste Woche mit. */
 function weekDraftEdit(mon) {
-  if (!S.draft.split || mon === planWeeks()[0].monday) return S.draft;
+  if (!S.draft.split) return S.draft;
+  /* Eine vorhandene Abweichung gewinnt, auch für die erste Woche: rückt das Raster
+     bei offener App über Nacht vor, liest weekDraft() bereits weeks[mon], und ohne
+     diese Zeile schriebe ein Tipp in S.draft - also in eine andere Liste als die
+     angezeigte. Zusammengeführt wird erst beim nächsten Start in loadDraft(). */
+  if (S.draft.weeks[mon]) return S.draft.weeks[mon];
+  if (mon === planWeeks()[0].monday) return S.draft;
   if (!S.draft.weeks[mon]) {
     S.draft.weeks[mon] = { plans:JSON.parse(JSON.stringify(S.draft.plans)),
       extras:JSON.parse(JSON.stringify(S.draft.extras)) };
@@ -5057,35 +5100,9 @@ function isoWeekNo(iso) {
   var first = new Date(Date.UTC(d.getUTCFullYear(), 0, 4));
   return 1 + Math.round(((d - first) / 86400000 - 3 + ((first.getUTCDay() + 6) % 7)) / 7);
 }
-var WEEKDAY_SHORT = ["So","Mo","Di","Mi","Do","Fr","Sa"];
 function planDayLabel(iso) {
   var dt = new Date(iso + "T12:00:00");
   return WEEKDAY_SHORT[dt.getDay()] + " " + dt.getDate() + "." + (dt.getMonth() + 1) + ".";
-}
-/* Eine Zelle im Zuweisen-Raster, dieselbe Optik wie der Wochenstreifen: gefüllter
-   Punkt für einen absolvierten Tag, leerer Ring in der Planfarbe für einen
-   zugewiesenen. Seit 1.26.0 liegen alle Tage des Rasters in der Zukunft oder auf
-   dem heutigen Montag, es gibt also keine gesperrten Zellen mehr. */
-function planDayCell(d, td, sel) {
-  var dt = new Date(d + "T12:00:00"), wd = WEEKDAY_SHORT[dt.getDay()];
-  var planned = plannedPlan(d);
-  var dp = d <= td ? dayPlan(d) : null;
-  var cls = "wday" + (d === sel ? " on" : "") + (d === td ? " today" : "") +
-    (wd === "Sa" || wd === "So" ? " we" : "");
-  var dot = "";
-  if (dp && dp.planDone) {
-    cls += " has";
-    dot = ' style="background:' + planColor(dp.plan) + '"';
-  } else if (dp && dp.done) {
-    cls += " has";
-  } else if (planned) {
-    cls += " plan";
-    dot = ' style="border-color:' + planColor(planned) + '"';
-  }
-  return '<button class="' + cls + '" data-act="planday" data-v="' + d + '" title="' +
-    (planned ? esc(planned) : "frei") + '">' +
-    '<span class="wd">' + wd + '</span><span class="dd">' + dt.getDate() + '</span>' +
-    '<span class="dot"' + dot + '></span></button>';
 }
 /* Die Auswahl für einen Tag, im Reiter Planung unter seiner Woche und seit 1.25.0
    genauso in der Wochenübersicht. Der Tag steht an jedem Knopf, damit beide Orte
@@ -5129,7 +5146,7 @@ function planDaysBlock() {
     h += '<div class="kw"><span>KW ' + isoWeekNo(w.monday) + '</span>' +
       (w.days.indexOf(td) >= 0 ? '<span>heute ' + tinyDate(td) + '</span>' : "") + '</div>' +
       '<div class="cal">' + w.days.map(function (d) {
-        return planDayCell(d, td, sel);
+        return dayCell(d, td, "planday", sel);
       }).join("") + '</div>';
     if (w.days.indexOf(sel) >= 0) {
       /* Die Auswahl zeigt den Entwurf genau dieser Woche. Ein zugewiesener Plan,
@@ -5759,6 +5776,21 @@ function isoDayDiff(fromIso, toIso) {
   return Math.round((Date.parse(toIso + "T12:00:00") -
     Date.parse(fromIso + "T12:00:00")) / 86400000);
 }
+/* Rasterlinie mit Wert am linken Rand und die Datumszeile unter der x-Achse,
+   gemeinsam für chart() und volChart(). Beide Diagramme stehen untereinander auf
+   derselben Zeitachse und sollen bis ins Detail gleich aussehen. */
+function gridLine(y, label, padL, right) {
+  return '<line x1="' + padL + '" y1="' + y.toFixed(1) + '" x2="' + right +
+    '" y2="' + y.toFixed(1) + '" stroke="var(--line)" stroke-width="1"/>' +
+    '<text x="' + (padL - 5) + '" y="' + (y + 3.5).toFixed(1) +
+    '" font-size="9" fill="var(--muted)" text-anchor="end">' + label + '</text>';
+}
+function dateRow(days, padL, right, y) {
+  return '<text x="' + padL + '" y="' + y + '" font-size="9" fill="var(--muted)">' +
+    tinyDate(days[0]) + '</text>' +
+    '<text x="' + right + '" y="' + y + '" font-size="9" fill="var(--muted)" ' +
+    'text-anchor="end">' + tinyDate(days[days.length - 1]) + '</text>';
+}
 function chart(days, byDay) {
   /* padT auf 16 angehoben (statt 12), damit über der Volllinie noch Platz für
      die Rep-Beschriftung an jedem Punkt bleibt, ohne am oberen Rand des
@@ -5798,10 +5830,7 @@ function chart(days, byDay) {
   }).join("");
   var gridVals = [lo + span * 0.05, lo + span * 0.5, hi - span * 0.05];
   var grid = gridVals.map(function (v) {
-    return '<line x1="' + padL + '" y1="' + py(v).toFixed(1) + '" x2="' + (w - padR) +
-      '" y2="' + py(v).toFixed(1) + '" stroke="var(--line)" stroke-width="1"/>' +
-      '<text x="' + (padL - 5) + '" y="' + (py(v) + 3.5).toFixed(1) +
-      '" font-size="9" fill="var(--muted)" text-anchor="end">' + Math.round(v) + '</text>';
+    return gridLine(py(v), Math.round(v), padL, w - padR);
   }).join("");
   var first = tinyDate(days[0]), lastd = tinyDate(days[days.length-1]);
   return '<div class="chart"><p class="clab">Gewicht</p>' +
@@ -5812,10 +5841,7 @@ function chart(days, byDay) {
     'stroke-width="1.6" stroke-dasharray="4 3"/>' +
     '<polyline points="' + poly(tops) + '" fill="none" stroke="var(--accent)" ' +
     'stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>' + dots + repLabels +
-    '<text x="' + padL + '" y="' + (hh - 6) + '" font-size="9" fill="var(--muted)">' +
-    first + '</text>' +
-    '<text x="' + (w - padR) + '" y="' + (hh - 6) + '" font-size="9" fill="var(--muted)" ' +
-    'text-anchor="end">' + lastd + '</text></svg>' +
+    dateRow(days, padL, w - padR, hh - 6) + '</svg>' +
     '<div class="legend"><span><i></i>schwerstes Gewicht</span>' +
     '<span><i class="dash"></i>geschätztes 1RM</span></div>' +
     '<p style="margin-top:8px">' + days.length + ' Trainings, ' + first + ' bis ' +
@@ -5866,10 +5892,7 @@ function volChart(days, byDay) {
   }
   function py(v) { return padT + (1 - v / hi) * (base - padT); }
   var grid = [0, hi / 2, hi].map(function (v) {
-    return '<line x1="' + padL + '" y1="' + py(v).toFixed(1) + '" x2="' + (w - padR) +
-      '" y2="' + py(v).toFixed(1) + '" stroke="var(--line)" stroke-width="1"/>' +
-      '<text x="' + (padL - 5) + '" y="' + (py(v) + 3.5).toFixed(1) +
-      '" font-size="9" fill="var(--muted)" text-anchor="end">' + num(v) + '</text>';
+    return gridLine(py(v), num(v), padL, w - padR);
   }).join("");
   var bars = vols.map(function (v, i) {
     var x = px(i) - half, y = py(v), r = Math.min(4, Math.max(0, (base - y) / 2));
@@ -5894,10 +5917,7 @@ function volChart(days, byDay) {
     '<svg viewBox="0 0 ' + w + ' ' + hh + '" width="100%" ' +
     'style="display:block;height:auto" preserveAspectRatio="xMidYMid meet" role="img" ' +
     'aria-label="Volumen je Training in Kilogramm">' + grid + bars + marks +
-    '<text x="' + padL + '" y="' + (hh - 6) + '" font-size="9" fill="var(--muted)">' +
-    tinyDate(days[0]) + '</text>' +
-    '<text x="' + (w - padR) + '" y="' + (hh - 6) + '" font-size="9" fill="var(--muted)" ' +
-    'text-anchor="end">' + tinyDate(days[days.length - 1]) + '</text></svg>' +
+    dateRow(days, padL, w - padR, hh - 6) + '</svg>' +
     '<p>Zusammen ' + num(sum) + ' kg aus ' + sets +
     (sets === 1 ? ' Satz' : ' Sätzen') + ', im Schnitt ' +
     num(Math.round(sum / vols.length)) + ' kg je Training.</p></div>';
@@ -6379,7 +6399,10 @@ function catRow(n) {
           esc(n) + '" data-v="' + esc(n) + '">' +
           '<option value="0"' + (m.rest ? "" : " selected") +
           '>Wie eingestellt, ' + mmss(S.settings.rest) + '</option>' +
-          REST_CHOICES.map(function (o) {
+          /* Ein Wert außerhalb der Liste, etwa 100 s aus einem Backup, wird wie bei
+             rpePills() einsortiert. Sonst zeigte das Feld "Wie eingestellt", während
+             die Übung längst mit ihrer eigenen Pause läuft. */
+          restChoices(m.rest).map(function (o) {
             return '<option value="' + o + '"' +
               (m.rest === o ? " selected" : "") + '>' + mmss(o) + '</option>';
           }).join("") + '</select>' +
@@ -7209,10 +7232,7 @@ document.addEventListener("click", function (ev) {
   else if (act === "pillrpe") { S.rpe = v; }
   else if (act === "warmon") {
     if (!S.warm) {
-      S.warmBase = deci(S.weight) || 0;
-      S.warmReps = S.reps;
-      S.warmRpe = S.rpe;
-      S.warm = true;
+      enterWarm(deci(S.weight) || 0);
       /* Gleiche Rundung wie warmupPlan(): auf die Schrittweite der Übung, nach
          unten durch die Stangenlast begrenzt, damit kein unmögliches Gewicht
          herauskommt. */
@@ -7321,8 +7341,7 @@ document.addEventListener("click", function (ev) {
     var base = S.warm && S.warmBase > 0 ? S.warmBase : (deci(S.weight) || 0);
     var wr = warmupPlan(S.exercise, base)[parseInt(el.getAttribute("data-i"),10)];
     if (!wr) return;
-    if (!S.warm) { S.warmBase = base; S.warmReps = S.reps; S.warmRpe = S.rpe; }
-    S.warm = true;
+    enterWarm(base);
     S.weight = comma(wr.weight);
     S.reps = String(wr.reps);
     repWinCenter = null;
@@ -7419,7 +7438,7 @@ document.addEventListener("click", function (ev) {
     S.reps = String(e0.reps); S.weight = comma(e0.weight);
     S.rpe = e0.rpe == null ? "7" : comma(e0.rpe);
     S.pickOpen = false;
-    S.warm = false; S.warmBase = 0; S.warmReps = ""; S.warmRpe = "";
+    clearWarm();
     window.scrollTo({ top:0, behavior:"smooth" });
   }
   else if (act === "update") {
@@ -8210,9 +8229,11 @@ var sharedFlag = startParams();
    Nach startParams(), damit ein Reiter aus der Adresse das letzte Wort behält
    und der History-Eintrag des Fokus-Modus nicht gleich wieder überschrieben wird. */
 restoreSession();
-/* Hat die Sitzung keinen Plan zurückgebracht, gilt der für den Tag zugewiesene,
-   siehe preselectPlan(). Ein Plan aus der Sitzung hat Vorrang: der war gewählt. */
-if (!S.plan) preselectPlan();
+/* Hat die Sitzung weder Plan noch Übung zurückgebracht, gilt der für den Tag
+   zugewiesene, siehe preselectPlan(). Ein leerer Plan allein reicht als Prüfung
+   nicht: wer den Plan abgewählt und dann eine Übung samt Werten eingestellt hat,
+   bekäme sonst über selectPlan() Übung, Werte und Aufwärmzustand überschrieben. */
+if (!S.plan && !S.exercise) preselectPlan();
 restoreRest();
 S.pwa.standalone = standalone();
 render();
