@@ -227,6 +227,35 @@ und nicht in den Einstellungen, sie sollen bei jedem Besuch wieder zu sein, wie
 die einzelnen Gruppen darin (`S.dataClosed`) und die Plankarten
 (`S.planCardsFold`), siehe `secFold()`.
 
+## Wochenstreifen
+
+Die Zeile mit den Tagen über der Planauswahl im Trainingsreiter. Sie reichte bis
+1.23.1 genau 14 Tage zurück und endete am heutigen Tag. Seit die Planung Pläne auf
+kommende Tage legt, gehört auch der Blick nach vorn dazu: das Fenster steht jetzt
+auf 13 Tagen zurück und 7 nach vorn (`STRIP_BACK`, `STRIP_FWD`). Weiter nach vorn
+bringt wenig, die Zuweisung reicht ohnehin nur zwei Wochen, und jede Zelle mehr
+rückt den heutigen Tag weiter aus dem Bild. Beim Aufbau steht der gewählte Tag am
+rechten Rand, die kommenden Tage liegen also eine Wischbewegung entfernt. Ein
+gewählter Tag außerhalb des Fensters nimmt das ganze Fenster mit, statt beliebig
+viele Zellen entstehen zu lassen.
+
+Rechts daneben, außerhalb des Scrollbereichs und damit beim Wischen an Ort und
+Stelle, führt ein Knopf in die **Wochenübersicht**: die beiden vergangenen
+Kalenderwochen, die laufende und die beiden kommenden, Montag bis Sonntag, je
+Woche die Zahl der trainierten und der noch geplanten Tage. Ein Tipp auf einen Tag
+wählt ihn und schließt die Übersicht wieder.
+
+Sie ist ein eigener Bildschirm im Trainingsreiter wie die Übungsauswahl, hängt
+aber wie der Fokus-Modus im History-Stapel (`navOpen("weekovr")`), damit die
+Zurück-Geste sie schließt und nicht die ganze App. Deshalb geht sie überall über
+`closeWeekOverview()` zu, nie über `S.weekOverview` von Hand. Gemerkt wird sie
+nicht, sie startet immer zu.
+
+Streifen und Übersicht bauen ihre Zellen aus derselben Funktion (`dayCell()`):
+gefüllter Punkt in der Planfarbe für einen absolvierten Tag, leerer Ring für einen
+in der Planung zugewiesenen, matter Ring für einen angefangenen. Wer die Zeichen
+einmal lernt, kennt sie in beiden Ansichten.
+
 ## Planung
 
 Der fünfte Reiter, seit 1.23.0. Der Pläne-Reiter zeigt die Sätze je

@@ -99,6 +99,25 @@ button { cursor:pointer; }
 /* In der Planung zugewiesener Plan, noch nicht absolviert: leerer Ring, die Farbe
    kommt inline vom Plan, siehe weekStrip() und planDayCell(). */
 .wday.plan .dot { border:1.5px solid var(--accent); }
+/* Künftige Tage stehen seit 1.24.0 mit im Streifen; die matte Zahl hält die
+   Grenze zum heutigen Tag sichtbar, siehe dayCell(). */
+.wday.future .dd { color:var(--muted); }
+/* Streifen und der Knopf zur Wochenübersicht daneben. Der Knopf steht außerhalb
+   des Scrollbereichs, damit er beim Wischen stehen bleibt, siehe weekStrip(). */
+.weekrow { display:flex; align-items:flex-start; gap:8px; }
+.weekrow .week { flex:1; min-width:0; }
+.weekmore { flex:0 0 40px; height:52px; border-radius:12px; border:1px solid var(--line);
+  background:var(--surface); color:var(--muted); display:flex; align-items:center;
+  justify-content:center; padding:0; }
+/* Punkt-Legende unter der Wochenübersicht. Nicht .legend: das sind die Striche
+   der Diagramme im Verlauf. */
+.dotleg { display:flex; flex-wrap:wrap; gap:6px 14px; margin-top:14px;
+  font-size:11.5px; color:var(--muted); }
+.dotleg span { display:inline-flex; align-items:center; gap:6px; }
+.dotleg i { width:9px; height:9px; border-radius:50%; box-sizing:border-box; flex:0 0 auto; }
+.dotleg i.full { background:var(--accent); }
+.dotleg i.ring { border:1.5px solid var(--accent); }
+.dotleg i.part { border:1.5px solid var(--muted); }
 
 .plansgoalcap { font-size:15px; font-weight:700; letter-spacing:-0.01em; color:var(--ink);
   margin:0 0 10px 2px; }
@@ -853,6 +872,11 @@ textarea.note { width:100%; margin-top:8px; padding:11px 12px; border-radius:13p
 .kw { display:flex; justify-content:space-between; font-size:11px; font-weight:700;
   letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin:10px 2px 6px; }
 .kw:first-child { margin-top:0; }
+/* Rechte Seite der KW-Zeile in der Wochenübersicht: gewöhnlicher Satz, nicht in
+   Versalien wie die Kalenderwoche links. */
+.kw em { font-style:normal; font-weight:600; letter-spacing:0; text-transform:none;
+  white-space:nowrap; }
+.kw .now { color:var(--accent); }
 /* Die Auswahl steht direkt unter der Woche des angetippten Tags; zwischen zwei
    Wochen ist sie auch unten abgesetzt, die nächste KW-Zeile rückt ohne eigenen
    Abstand nach. */
@@ -906,7 +930,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.23.1";
+var APP_VERSION = "1.24.0";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -1181,6 +1205,9 @@ var S = {
   /* Planung: der Entwurf (eigener Schlüssel, siehe loadDraft()) und der im
      Zuweisen-Raster angetippte Tag, nur für die Sitzung. */
   draft:{ plans:{}, extras:[] }, planDaySel:"",
+  /* Wochenübersicht als eigener Bildschirm im Trainingsreiter, siehe
+     viewWeekOverview(). Nur für die Sitzung, sie startet immer zu. */
+  weekOverview:false,
   /* Alles, was an der App als App hängt: Speicherzusage, Belegung, die Fassung
      des ServiceWorkers, ein bereitliegendes Update, die Installierbarkeit.
      Reine Anzeige, nichts davon wird gespeichert oder gesichert. */
@@ -2682,7 +2709,17 @@ function navCloseTop() {
     if (S.summaryReturn) { S.view = S.summaryReturn; S.summaryReturn = ""; }
   } else if (name === "openex") {
     S.openEx = "";
+  } else if (name === "weekovr") {
+    S.weekOverview = false;
   }
+}
+/* Die Wochenübersicht hängt wie der Fokus-Modus im History-Stapel, damit die
+   Zurück-Geste sie schließt und nicht gleich die App. Deshalb geht sie überall
+   über diese Stelle zu, nicht über S.weekOverview von Hand. */
+function closeWeekOverview() {
+  if (!S.weekOverview) return;
+  navBack("weekovr");
+  S.weekOverview = false;
 }
 window.addEventListener("popstate", function (ev) {
   var d = (ev.state && typeof ev.state.hk === "number") ? ev.state.hk : 0;
@@ -3357,6 +3394,7 @@ var ICONS = {
   dunkel:'<path d="M19 14.5A7.5 7.5 0 0 1 9.5 5a7 7 0 1 0 9.5 9.5z"/>',
   chev:'<path d="M9 6l6 6-6 6"/>',
   kalender:'<rect x="4" y="5" width="16" height="16" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/>',
+  wochen:'<rect x="3" y="4.5" width="18" height="15" rx="2"/><path d="M3 9h18M3 13.5h18M3 17h18M9 9v10.5M15 9v10.5"/>',
   auge:'<path d="M2.5 12s3.5-6.5 9.5-6.5S21.5 12 21.5 12s-3.5 6.5-9.5 6.5S2.5 12 2.5 12z"/>' +
     '<circle cx="12" cy="12" r="3"/>',
   augeaus:'<path d="M3 3l18 18"/><path d="M10.6 10.6a2 2 0 0 0 2.8 2.8"/>' +
@@ -3414,41 +3452,93 @@ function agoText(iso) {
   if (days === 1) return "gestern";
   return "vor " + days + " Tagen";
 }
+/* Fenster des Wochenstreifens: zwei Wochen zurück, eine nach vorn. Weiter nach
+   vorn hilft wenig, die Zuweisung reicht ohnehin nur 14 Tage, und jede Zelle
+   mehr rückt den heutigen Tag weiter aus dem Bild. */
+var STRIP_BACK = 13, STRIP_FWD = 7;
+/* Eine Tageszelle für den Streifen und für die Wochenübersicht: gefüllter Punkt
+   in der Planfarbe für einen absolvierten Tag, leerer Ring für einen in der
+   Planung zugewiesenen, matter Ring für einen angefangenen. Beide Ansichten
+   zeigen dasselbe, deshalb steht es an einer Stelle. */
+function dayCell(d, td) {
+  var dt = new Date(d + "T12:00:00");
+  var wd = ["So","Mo","Di","Mi","Do","Fr","Sa"][dt.getDay()];
+  var dp = dayPlan(d);
+  var planned = plannedPlan(d);
+  var cls = "wday" + (d === S.date ? " on" : "") + (d > td ? " future" : "");
+  var dot = "";
+  if (dp && dp.planDone) {
+    cls += " has";
+    dot = ' style="background:' + planColor(dp.plan) + '"';
+  } else if (dp && dp.done) {
+    cls += " has";
+  } else if (planned) {
+    cls += " plan";
+    dot = ' style="border-color:' + planColor(planned) + '"';
+  } else if (dp) {
+    cls += " part";
+  }
+  var tip = dp ? esc(dp.plan ? dp.plan : "Training") + ', ' + dp.total + ' Übungen' : "";
+  if (planned && !(dp && dp.planDone)) tip += (tip ? ", " : "") + "geplant: " + esc(planned);
+  return '<button class="' + cls + '" data-act="pickday" data-v="' + d + '"' +
+    (tip ? ' title="' + tip + '"' : "") + '>' +
+    '<span class="wd">' + wd + '</span><span class="dd">' + dt.getDate() + '</span>' +
+    '<span class="dot"' + dot + '></span></button>';
+}
 function weekStrip() {
   var td = todayISO();
-  var anchor = td;
-  if (S.date > td) anchor = S.date;
-  else if (S.date < shiftISO(td, -13)) anchor = shiftISO(S.date, 4);
-  var cells = "";
-  for (var i = 13; i >= 0; i--) {
-    var d = shiftISO(anchor, -i);
-    var dt = new Date(d + "T12:00:00");
-    var wd = ["So","Mo","Di","Mi","Do","Fr","Sa"][dt.getDay()];
-    var dp = dayPlan(d);
-    /* In der Planung zugewiesen und noch nicht als voll absolviert erkannt: leerer
-       Ring in der Planfarbe, der Punkt danach kommt aus dayPlan() wie bisher. */
-    var planned = plannedPlan(d);
-    var cls = "wday" + (d === S.date ? " on" : "");
-    var dot = "";
-    if (dp && dp.planDone) {
-      cls += " has";
-      dot = ' style="background:' + planColor(dp.plan) + '"';
-    } else if (dp && dp.done) {
-      cls += " has";
-    } else if (planned) {
-      cls += " plan";
-      dot = ' style="border-color:' + planColor(planned) + '"';
-    } else if (dp) {
-      cls += " part";
-    }
-    var tip = dp ? esc(dp.plan ? dp.plan : "Training") + ', ' + dp.total + ' Übungen' : "";
-    if (planned && !(dp && dp.planDone)) tip += (tip ? ", " : "") + "geplant: " + esc(planned);
-    cells += '<button class="' + cls + '" data-act="pickday" data-v="' + d + '"' +
-      (tip ? ' title="' + tip + '"' : "") + '>' +
-      '<span class="wd">' + wd + '</span><span class="dd">' + dt.getDate() + '</span>' +
-      '<span class="dot"' + dot + '></span></button>';
+  var first = shiftISO(td, -STRIP_BACK), last = shiftISO(td, STRIP_FWD);
+  /* Ein gewählter Tag weit außerhalb nimmt das ganze Fenster mit, statt beliebig
+     viele Zellen entstehen zu lassen. */
+  if (S.date < first || S.date > last) {
+    first = shiftISO(S.date, -STRIP_BACK);
+    last = shiftISO(S.date, STRIP_FWD);
   }
-  return '<div class="week" id="week">' + cells + '</div>';
+  var cells = "", d = first;
+  while (d <= last) { cells += dayCell(d, td); d = shiftISO(d, 1); }
+  return '<div class="weekrow"><div class="week" id="week">' + cells + '</div>' +
+    '<button class="weekmore" data-act="weekovr" ' +
+    'aria-label="Wochenübersicht" title="Übersicht der letzten und nächsten Wochen">' +
+    svg("wochen", 19) + '</button></div>';
+}
+/* Trainierte und noch geplante Tage einer Kalenderwoche, für die Zeile über dem
+   Raster in der Wochenübersicht. Trainiert heißt wie im Streifen: der Tag trägt
+   den gefüllten Punkt. */
+function weekTally(monday, td) {
+  var done = 0, planned = 0;
+  for (var i = 0; i < 7; i++) {
+    var d = shiftISO(monday, i), dp = dayPlan(d);
+    if (dp && (dp.planDone || dp.done)) done += 1;
+    else if (d >= td && plannedPlan(d)) planned += 1;
+  }
+  var bits = [];
+  if (done) bits.push(done + (done === 1 ? " Tag" : " Tage"));
+  if (planned) bits.push(planned + " geplant");
+  if (bits.length) return bits.join(", ");
+  return shiftISO(monday, 6) < td ? "kein Training" : "nichts geplant";
+}
+/* Eigener Bildschirm im Trainingsreiter, seit 1.24.0: die beiden vergangenen
+   Kalenderwochen, die laufende und die beiden kommenden, Montag bis Sonntag.
+   Dieselben Zellen wie im Streifen, damit man nicht zweimal etwas lernen muss.
+   Ein Tipp auf einen Tag wählt ihn und schließt den Bildschirm wieder, siehe den
+   pickday-Zweig. */
+function viewWeekOverview() {
+  var td = todayISO(), curMon = mondayOf(td);
+  var h = '<div class="pkhead"><button data-act="weekovrclose" aria-label="Zurück">' +
+    svg("zurueck", 22) + '</button><b>Wochenübersicht</b></div><div class="card">';
+  for (var i = -2; i <= 2; i++) {
+    var mon = shiftISO(curMon, i * 7), cur = mon === curMon;
+    var days = "";
+    for (var k = 0; k < 7; k++) days += dayCell(shiftISO(mon, k), td);
+    h += '<div class="kw"><span' + (cur ? ' class="now"' : "") + '>KW ' + isoWeekNo(mon) +
+      (cur ? " · diese Woche" : "") + '</span><em>' + weekTally(mon, td) + '</em></div>' +
+      '<div class="cal">' + days + '</div>';
+  }
+  h += '<div class="dotleg"><span><i class="full"></i>absolviert</span>' +
+    '<span><i class="ring"></i>geplant</span>' +
+    '<span><i class="part"></i>angefangen</span></div></div>' +
+    '<p class="notice">Ein Tipp auf einen Tag öffnet ihn im Training.</p>';
+  return h;
 }
 
 /* Zeile über dem Fortschrittsbalken: Position im Plan und Dauer der laufenden Einheit. Der
@@ -3814,6 +3904,7 @@ function restOffNote() {
 }
 function viewTag() {
   if (S.pickOpen) return viewPicker();
+  if (S.weekOverview) return viewWeekOverview();
 
   var day = dayEntries(), h = "";
 
@@ -6602,9 +6693,18 @@ document.addEventListener("click", function (ev) {
   else if (act === "planlist") { S.planOpen = !S.planOpen; }
   else if (act === "tab") {
     if (S.openEx) { navBack("openex"); S.openEx = ""; }
+    closeWeekOverview();
     S.view = v; S.pickOpen = false; S.pickPlanTarget = ""; S.pickSel = []; S.note = "";
   }
-  else if (act === "pickday") { S.date = v; S.editId = ""; S.note = ""; preselectPlan(); }
+  else if (act === "pickday") {
+    S.date = v; S.editId = ""; S.note = ""; preselectPlan();
+    /* Aus der Übersicht heraus gewählt: sie hat ihren Zweck erfüllt und geht zu. */
+    closeWeekOverview();
+  }
+  else if (act === "weekovr") {
+    S.weekOverview = true; navOpen("weekovr"); window.scrollTo({ top:0 });
+  }
+  else if (act === "weekovrclose") { closeWeekOverview(); }
   else if (act === "plansfold") { S.plansFold = !S.plansFold; }
   else if (act === "planfoldall") { S.planCardsFold = !S.planCardsFold; }
   else if (act === "wraptoggle") { S.settings.wrapNames = !S.settings.wrapNames; persist(); }
@@ -7477,6 +7577,7 @@ document.addEventListener("touchend", function (ev) {
   if (i < 0 || i >= VIEWS.length) return;
   S.view = VIEWS[i];
   S.pickOpen = false;
+  closeWeekOverview();
   S.note = "";
   render();
   window.scrollTo({ top:0 });
