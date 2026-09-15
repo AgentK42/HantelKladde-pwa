@@ -239,11 +239,25 @@ rechten Rand, die kommenden Tage liegen also eine Wischbewegung entfernt. Ein
 gewählter Tag außerhalb des Fensters nimmt das ganze Fenster mit, statt beliebig
 viele Zellen entstehen zu lassen.
 
+Das Feld zum freien Wählen eines Datums ist seit 1.25.0 weg. Es saß als
+Kalendersymbol in der Datumszeile und führte an Tage, an denen ohnehin nichts
+nachgetragen wird; was zählt, steht im Streifen und in der Übersicht. Zurück zum
+laufenden Tag führt weiter der Knopf **Heute** daneben.
+
 Rechts daneben, außerhalb des Scrollbereichs und damit beim Wischen an Ort und
 Stelle, führt ein Knopf in die **Wochenübersicht**: die beiden vergangenen
 Kalenderwochen, die laufende und die beiden kommenden, Montag bis Sonntag, je
-Woche die Zahl der trainierten und der noch geplanten Tage. Ein Tipp auf einen Tag
-wählt ihn und schließt die Übersicht wieder.
+Woche die Zahl der trainierten und der noch geplanten Tage.
+
+Ein Tipp auf einen Tag ab heute **weist ihm einen Plan zu**, mit derselben Auswahl
+wie im Reiter Planung (`assignPanel()`) und direkt unter seiner Woche. Bis 1.24.0
+öffnete der Tipp den Tag im Training; das kann der Streifen darunter schon, und
+zum Nachsehen taugt die Übersicht auch ohne. Zur Wahl stehen die im Training
+eingeblendeten Pläne, dazu ein bereits zugewiesener, der nicht mehr darunter ist,
+sonst ließe er sich nur noch auf Frei setzen. Vergangene Tage sind dort kein Knopf,
+eine Zuweisung von gestern gibt es nicht. Den Tag am Knopf mitzugeben ist der Grund,
+warum sich Planung und Übersicht denselben `planassign`-Zweig teilen und trotzdem
+jede ihre eigene Auswahl behält.
 
 Sie ist ein eigener Bildschirm im Trainingsreiter wie die Übungsauswahl, hängt
 aber wie der Fokus-Modus im History-Stapel (`navOpen("weekovr")`), damit die

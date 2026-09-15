@@ -79,10 +79,6 @@ button { cursor:pointer; }
 .dateline .dact { margin-left:auto; display:flex; align-items:center; gap:8px; }
 .dateline .today { padding:5px 10px; border-radius:10px; border:1px solid var(--line);
   background:var(--surface); font-size:12px; font-weight:650; color:var(--ink); }
-.dateline .cal { position:relative; display:flex; align-items:center;
-  color:var(--muted); padding:4px; }
-.dateline .cal input { position:absolute; inset:0; opacity:0; width:100%; height:100%;
-  border:none; padding:0; }
 
 .week { display:flex; gap:5px; overflow-x:auto; padding:0 0 12px; scrollbar-width:none; }
 .week::-webkit-scrollbar { display:none; }
@@ -930,7 +926,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.24.0";
+var APP_VERSION = "1.25.0";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -1207,7 +1203,7 @@ var S = {
   draft:{ plans:{}, extras:[] }, planDaySel:"",
   /* Wochenübersicht als eigener Bildschirm im Trainingsreiter, siehe
      viewWeekOverview(). Nur für die Sitzung, sie startet immer zu. */
-  weekOverview:false,
+  weekOverview:false, ovrDay:"",
   /* Alles, was an der App als App hängt: Speicherzusage, Belegung, die Fassung
      des ServiceWorkers, ein bereitliegendes Update, die Installierbarkeit.
      Reine Anzeige, nichts davon wird gespeichert oder gesichert. */
@@ -3393,7 +3389,6 @@ var ICONS = {
   hell:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/>',
   dunkel:'<path d="M19 14.5A7.5 7.5 0 0 1 9.5 5a7 7 0 1 0 9.5 9.5z"/>',
   chev:'<path d="M9 6l6 6-6 6"/>',
-  kalender:'<rect x="4" y="5" width="16" height="16" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/>',
   wochen:'<rect x="3" y="4.5" width="18" height="15" rx="2"/><path d="M3 9h18M3 13.5h18M3 17h18M9 9v10.5M15 9v10.5"/>',
   auge:'<path d="M2.5 12s3.5-6.5 9.5-6.5S21.5 12 21.5 12s-3.5 6.5-9.5 6.5S2.5 12 2.5 12z"/>' +
     '<circle cx="12" cy="12" r="3"/>',
@@ -3459,13 +3454,18 @@ var STRIP_BACK = 13, STRIP_FWD = 7;
 /* Eine Tageszelle für den Streifen und für die Wochenübersicht: gefüllter Punkt
    in der Planfarbe für einen absolvierten Tag, leerer Ring für einen in der
    Planung zugewiesenen, matter Ring für einen angefangenen. Beide Ansichten
-   zeigen dasselbe, deshalb steht es an einer Stelle. */
-function dayCell(d, td) {
+   zeigen dasselbe, deshalb steht es an einer Stelle.
+
+   Im Streifen wählt ein Tipp den Tag fürs Eintragen. In der Übersicht (assign)
+   weist er stattdessen einen Plan zu, siehe viewWeekOverview(); vergangene Tage
+   sind dort kein Knopf, eine Zuweisung von gestern gibt es nicht. */
+function dayCell(d, td, assign) {
   var dt = new Date(d + "T12:00:00");
   var wd = ["So","Mo","Di","Mi","Do","Fr","Sa"][dt.getDay()];
   var dp = dayPlan(d);
   var planned = plannedPlan(d);
-  var cls = "wday" + (d === S.date ? " on" : "") + (d > td ? " future" : "");
+  var sel = assign ? S.ovrDay : S.date;
+  var cls = "wday" + (d === sel ? " on" : "") + (d > td ? " future" : "");
   var dot = "";
   if (dp && dp.planDone) {
     cls += " has";
@@ -3480,10 +3480,12 @@ function dayCell(d, td) {
   }
   var tip = dp ? esc(dp.plan ? dp.plan : "Training") + ', ' + dp.total + ' Übungen' : "";
   if (planned && !(dp && dp.planDone)) tip += (tip ? ", " : "") + "geplant: " + esc(planned);
-  return '<button class="' + cls + '" data-act="pickday" data-v="' + d + '"' +
-    (tip ? ' title="' + tip + '"' : "") + '>' +
-    '<span class="wd">' + wd + '</span><span class="dd">' + dt.getDate() + '</span>' +
-    '<span class="dot"' + dot + '></span></button>';
+  var inner = '<span class="wd">' + wd + '</span><span class="dd">' + dt.getDate() +
+    '</span><span class="dot"' + dot + '></span>';
+  var title = tip ? ' title="' + tip + '"' : "";
+  if (assign && d < td) return '<span class="' + cls + '"' + title + '>' + inner + '</span>';
+  return '<button class="' + cls + '" data-act="' + (assign ? "ovrday" : "pickday") +
+    '" data-v="' + d + '"' + title + '>' + inner + '</button>';
 }
 function weekStrip() {
   var td = todayISO();
@@ -3520,24 +3522,39 @@ function weekTally(monday, td) {
 /* Eigener Bildschirm im Trainingsreiter, seit 1.24.0: die beiden vergangenen
    Kalenderwochen, die laufende und die beiden kommenden, Montag bis Sonntag.
    Dieselben Zellen wie im Streifen, damit man nicht zweimal etwas lernen muss.
-   Ein Tipp auf einen Tag wählt ihn und schließt den Bildschirm wieder, siehe den
-   pickday-Zweig. */
+
+   Ein Tipp auf einen Tag ab heute weist ihm einen Plan zu, mit derselben Auswahl
+   wie im Reiter Planung (assignPanel()) und direkt unter seiner Woche. Bis 1.24.0
+   öffnete der Tipp den Tag im Training; das kann der Streifen darunter schon, und
+   zum Nachsehen taugt die Übersicht auch ohne. Angeboten werden die im Training
+   eingeblendeten Pläne, dazu ein bereits zugewiesener, der nicht mehr darunter
+   ist - sonst ließe er sich nur noch auf Frei setzen. */
 function viewWeekOverview() {
-  var td = todayISO(), curMon = mondayOf(td);
+  var td = todayISO(), curMon = mondayOf(td), lastDay = shiftISO(curMon, 34);
+  var sel = S.ovrDay;
+  /* Nur Tage ab heute und innerhalb der gezeigten Wochen lassen sich zuweisen. */
+  if (!sel || sel < td || sel > lastDay) sel = S.ovrDay = td;
+  var plans = visiblePlans(), assigned = plannedPlan(sel);
+  if (assigned && plans.indexOf(assigned) < 0) plans = plans.concat([assigned]);
   var h = '<div class="pkhead"><button data-act="weekovrclose" aria-label="Zurück">' +
     svg("zurueck", 22) + '</button><b>Wochenübersicht</b></div><div class="card">';
   for (var i = -2; i <= 2; i++) {
     var mon = shiftISO(curMon, i * 7), cur = mon === curMon;
     var days = "";
-    for (var k = 0; k < 7; k++) days += dayCell(shiftISO(mon, k), td);
+    for (var k = 0; k < 7; k++) days += dayCell(shiftISO(mon, k), td, true);
     h += '<div class="kw"><span' + (cur ? ' class="now"' : "") + '>KW ' + isoWeekNo(mon) +
       (cur ? " · diese Woche" : "") + '</span><em>' + weekTally(mon, td) + '</em></div>' +
       '<div class="cal">' + days + '</div>';
+    if (sel >= mon && sel <= shiftISO(mon, 6)) {
+      h += assignPanel(sel, plans, i < 2, "Alle Pläne sind im Training ausgeblendet. " +
+        "Unter Pläne lässt sich das über das Auge neben dem Plannamen ändern.");
+    }
   }
   h += '<div class="dotleg"><span><i class="full"></i>absolviert</span>' +
     '<span><i class="ring"></i>geplant</span>' +
     '<span><i class="part"></i>angefangen</span></div></div>' +
-    '<p class="notice">Ein Tipp auf einen Tag öffnet ihn im Training.</p>';
+    '<p class="notice">Ein Tipp auf einen Tag ab heute legt einen Plan darauf. Zum ' +
+    'Eintragen führt der Wochenstreifen darunter.</p>';
   return h;
 }
 
@@ -3918,9 +3935,7 @@ function viewTag() {
     (S.date === todayISO() ? "Heute, " : "") + longDay(S.date) + '</span>' +
     '<span class="dact">' +
     (S.date === todayISO() ? "" : '<button class="today" data-act="today">Heute</button>') +
-    '<span class="cal">' + svg("kalender", 17) +
-    '<input type="date" value="' + S.date + '" data-act="date" aria-label="Datum wählen">' +
-    '</span></span></div>' + weekStrip() + restOffNote();
+    '</span></div>' + weekStrip() + restOffNote();
 
   if (S.plan && S.plans[S.plan] && S.plansFold) {
     /* Eingeklappt: nur der gewählte Plan, ein Tipp öffnet die Auswahl wieder */
@@ -4903,23 +4918,25 @@ function planDayCell(d, td, last, sel) {
     '<span class="wd">' + wd + '</span><span class="dd">' + dt.getDate() + '</span>' +
     '<span class="dot"' + dot + '></span></button>';
 }
-function assignPanel(sel, plans, mid) {
+/* Die Auswahl für einen Tag, im Reiter Planung unter seiner Woche und seit 1.25.0
+   genauso in der Wochenübersicht. Der Tag steht an jedem Knopf, damit beide Orte
+   ihre eigene Auswahl behalten; hint sagt, was zu tun ist, wenn hier gar kein Plan
+   zur Wahl steht. */
+function assignPanel(sel, plans, mid, hint) {
   var cur = plannedPlan(sel);
   var h = '<div class="assign' + (mid ? " mid" : "") + '"><div class="lab"><b>' +
     planDayLabel(sel) + '</b>' + (cur ? ', ' + esc(cur) : ', frei') + '</div>' +
     '<div class="chips">' +
     plans.map(function (p) {
-      return '<button class="' + (cur === p ? "on" : "") + '" data-act="planassign" data-v="' +
-        esc(p) + '"' + (cur === p ? ' style="border-color:' + planColor(p) + '"' : "") + '>' +
+      return '<button class="' + (cur === p ? "on" : "") + '" data-act="planassign" data-day="' +
+        sel + '" data-v="' + esc(p) + '"' +
+        (cur === p ? ' style="border-color:' + planColor(p) + '"' : "") + '>' +
         '<span class="pdot" style="background:' + planColor(p) + '"></span>' + esc(p) +
         '</button>';
     }).join("") +
-    '<button class="frei' + (cur ? "" : " on") + '" data-act="planassign" data-v="">Frei' +
-    '</button></div>';
-  if (!plans.length) {
-    h += '<p class="pairline" style="margin-top:8px">Kein Plan im Entwurf. Oben einen ' +
-      'einschalten, dann lässt er sich hier zuweisen.</p>';
-  }
+    '<button class="frei' + (cur ? "" : " on") + '" data-act="planassign" data-day="' + sel +
+    '" data-v="">Frei</button></div>';
+  if (!plans.length) h += '<p class="pairline" style="margin-top:8px">' + hint + '</p>';
   return h + '</div>';
 }
 function planDaysBlock() {
@@ -4946,7 +4963,10 @@ function planDaysBlock() {
       '<div class="cal">' + w.days.map(function (d) {
         return planDayCell(d, td, last, sel);
       }).join("") + '</div>';
-    if (w.days.indexOf(sel) >= 0) h += assignPanel(sel, choices, wi < weeks.length - 1);
+    if (w.days.indexOf(sel) >= 0) {
+      h += assignPanel(sel, choices, wi < weeks.length - 1, "Kein Plan im Entwurf. Oben " +
+        "einen einschalten, dann lässt er sich hier zuweisen.");
+    }
   });
   if (plans.length) {
     h += '<div class="wsum" style="grid-template-columns:1fr repeat(' + weeks.length +
@@ -6672,7 +6692,7 @@ document.addEventListener("click", function (ev) {
   var el = ev.target.closest ? ev.target.closest("[data-act]") : null;
   if (!el) return;
   var act = el.getAttribute("data-act"), v = el.getAttribute("data-v");
-  if (act === "input" || act === "pedit" || act === "date" ||
+  if (act === "input" || act === "pedit" ||
       act === "search" || act === "catmove" || act === "hsearch" ||
       act === "colorset" || act === "noteinput" || act === "stepset" ||
       act === "exnoteinput" || act === "exnoteset" || act === "defedit" ||
@@ -6696,13 +6716,11 @@ document.addEventListener("click", function (ev) {
     closeWeekOverview();
     S.view = v; S.pickOpen = false; S.pickPlanTarget = ""; S.pickSel = []; S.note = "";
   }
-  else if (act === "pickday") {
-    S.date = v; S.editId = ""; S.note = ""; preselectPlan();
-    /* Aus der Übersicht heraus gewählt: sie hat ihren Zweck erfüllt und geht zu. */
-    closeWeekOverview();
-  }
+  else if (act === "pickday") { S.date = v; S.editId = ""; S.note = ""; preselectPlan(); }
+  else if (act === "ovrday") { S.ovrDay = v; }
   else if (act === "weekovr") {
-    S.weekOverview = true; navOpen("weekovr"); window.scrollTo({ top:0 });
+    S.weekOverview = true; S.ovrDay = todayISO();
+    navOpen("weekovr"); window.scrollTo({ top:0 });
   }
   else if (act === "weekovrclose") { closeWeekOverview(); }
   else if (act === "plansfold") { S.plansFold = !S.plansFold; }
@@ -7376,14 +7394,17 @@ document.addEventListener("click", function (ev) {
     /* Sofort gespeichert, wie jede Änderung an den Plänen. Ein eigener
        Speichern-Knopf hieße einen ungesicherten Zwischenstand, den es sonst
        nirgends in der App gibt. */
-    if (S.planDaySel) {
-      if (v) S.settings.planDays[S.planDaySel] = v;
-      else delete S.settings.planDays[S.planDaySel];
+    /* Der Tag steht am Knopf, siehe assignPanel(): so weisen der Reiter Planung
+       und die Wochenübersicht über denselben Zweig zu. */
+    var paDay = el.getAttribute("data-day");
+    if (paDay) {
+      if (v) S.settings.planDays[paDay] = v;
+      else delete S.settings.planDays[paDay];
       persist();
       /* Gilt die Zuweisung dem Tag, der im Training gerade offen ist, steht der
          Plan dort sofort gewählt, siehe preselectPlan(). "Frei" nimmt eine
          bestehende Wahl nicht weg, trainiert werden darf ja trotzdem. */
-      if (v && S.planDaySel === S.date) preselectPlan();
+      if (v && paDay === S.date) preselectPlan();
     }
   }
   else if (act === "drafttake") {
@@ -7677,8 +7698,7 @@ document.addEventListener("input", function (ev) {
 document.addEventListener("change", function (ev) {
   var el = ev.target;
   var act = el.getAttribute ? el.getAttribute("data-act") : null;
-  if (act === "date" && el.value) { S.date = el.value; S.editId = ""; preselectPlan(); render(); }
-  else if (act === "newmuscleprimary") {
+  if (act === "newmuscleprimary") {
     var secondary = document.getElementById(el.getAttribute("data-target"));
     if (!secondary) return;
     secondary.disabled = !el.value;
