@@ -926,7 +926,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.25.0";
+var APP_VERSION = "1.25.1";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -3389,7 +3389,12 @@ var ICONS = {
   hell:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/>',
   dunkel:'<path d="M19 14.5A7.5 7.5 0 0 1 9.5 5a7 7 0 1 0 9.5 9.5z"/>',
   chev:'<path d="M9 6l6 6-6 6"/>',
-  wochen:'<rect x="3" y="4.5" width="18" height="15" rx="2"/><path d="M3 9h18M3 13.5h18M3 17h18M9 9v10.5M15 9v10.5"/>',
+  /* Knopf am Wochenstreifen. Bis 1.25.0 ein volles Raster: zehn Striche, wo die
+     übrigen Symbole drei bis sechs tragen, und die waagerechten Linien liefen auf
+     19 Pixel mit den Zellenkanten zusammen. Jetzt der Kalenderrahmen mit drei
+     Punkten statt Raster; der Haken daneben unterscheidet ihn vom Reiter Planung. */
+  wochen:'<rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M8 3v4M16 3v4M3.5 9.5h17"/>' +
+    '<path d="M8.5 14v.01M12 14v.01M15.5 14v.01"/>',
   auge:'<path d="M2.5 12s3.5-6.5 9.5-6.5S21.5 12 21.5 12s-3.5 6.5-9.5 6.5S2.5 12 2.5 12z"/>' +
     '<circle cx="12" cy="12" r="3"/>',
   augeaus:'<path d="M3 3l18 18"/><path d="M10.6 10.6a2 2 0 0 0 2.8 2.8"/>' +
