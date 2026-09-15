@@ -146,6 +146,34 @@ Wird der Fokus-Modus nach einem Neustart wiederhergestellt, zieht
 hochkommt, schon eine Tiefe, wird nur der Stapel darauf gebracht statt ein
 zweiter Eintrag gelegt, sonst bräuchte es zwei Gesten für eine Ebene.
 
+## Pausenlänge
+
+Zwei Stufen, gesetzt in `DEFAULT_EXMETA` über die Konstante `REST_COMPOUND`.
+
+Die zwölf Mehrgelenksübungen tragen **120 Sekunden** als eigenen Wert. Alles
+andere hat gar keinen und fällt auf die Pause aus den Einstellungen zurück,
+ab Werk **90 Sekunden**. Der eine Regler unter *Daten, Pause* verschiebt damit
+weiterhin sämtliche Isolationsübungen und alle selbst angelegten Übungen auf
+einmal, während die schweren Übungen unabhängig davon stehen bleiben.
+
+Nach einem **Aufwärmsatz** läuft immer die kurze Pause von 60 Sekunden
+(`WARM_REST`), aber nie länger als die der Übung selbst: Wer den Regler auf
+45 Sekunden stellt, bekommt auch beim Aufwärmen 45. Das rechnet `warmRest()`.
+
+Die Stufen kommen aus der Literatur. Der ACSM Position Stand nennt zwei bis
+drei Minuten für Mehrgelenksübungen und ein bis zwei für Assistenzübungen. Die
+Bayes-Metaanalyse von Singer u.a. (2024) findet unterhalb von 60 Sekunden einen
+Nachteil, oberhalb von 90 aber keinen weiteren Vorteil. Feinere Abstufungen
+wären nicht belegt, deshalb nur zwei Werte. Der Mechanismus ist die
+Volumenlast: Eine zu kurze Pause kostet Wiederholungen im Folgesatz, und genau
+an dieser Zahl hängen hier die doppelte Progression und `plateau()`.
+
+Je Übung änderbar ist die Pause unter *Daten, Übungen*, im Kasten hinter dem
+Namen. Der erste Eintrag *Wie eingestellt* nimmt einen eigenen Wert wieder weg,
+auch den mitgelieferten: Er schreibt eine Null, und `exMeta()` liest die Null
+als „hat keine eigene Pause“. Ein Wert, der von der Einstellung abweicht, steht
+als eigene Zeile unter der Übung.
+
 ## Signal am Ende der Pause
 
 Drei Wege, je nachdem, wo die App steht.

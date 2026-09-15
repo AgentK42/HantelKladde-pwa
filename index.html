@@ -202,7 +202,7 @@ textarea.note { width:100%; margin-top:8px; padding:11px 12px; border-radius:13p
 .exbox { padding:2px 12px 12px; background:var(--raise); }
 .exbox label { display:block; margin:9px 0 5px; font-size:11.5px; font-weight:700;
   color:var(--muted); }
-.exbox input { width:100%; padding:11px 12px; border-radius:12px;
+.exbox input, .exbox select { width:100%; padding:11px 12px; border-radius:12px;
   border:1px solid var(--line); background:var(--surface); color:var(--ink);
   font-size:14px; }
 .exbox input.name { border-color:var(--accent); }
@@ -933,7 +933,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.26.1";
+var APP_VERSION = "1.27.0";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -969,33 +969,52 @@ CATLIST.forEach(function (c) { PRESETS = PRESETS.concat(CATS[c]); });
    weil davor bereits die Aufwärmrampe steht. Im Plan-Editor je Übung änderbar. */
 var DEFAULT_SETS = 2;
 
+/* Pause nach einem Satz, in Sekunden. Einen eigenen Wert tragen unten nur die
+   Mehrgelenksübungen; alles andere fällt auf die Pause aus den Einstellungen
+   zurück, damit ein einziger Regler weiterhin sämtliche Isolationsübungen und
+   alle selbst angelegten Übungen verschiebt.
+   Hintergrund: Der ACSM Position Stand empfiehlt für Mehrgelenksübungen zwei bis
+   drei Minuten und für Assistenzübungen ein bis zwei. Die Metaanalyse von Singer
+   u.a. (2024) findet unterhalb von 60 s einen Nachteil, oberhalb von 90 s aber
+   keinen weiteren Vorteil mehr. Beides zusammen ergibt die zwei Stufen. Der
+   Mechanismus ist die Volumenlast: Eine zu kurze Pause kostet Wiederholungen im
+   Folgesatz, und genau an dieser Zahl hängen hier doppelte Progression und
+   plateau().
+   Aufwärmsätze bekommen WARM_REST, aber nie mehr als die Übung selbst. */
+var REST_COMPOUND = 120;
+var WARM_REST = 60;
+var REST_CHOICES = [60, 75, 90, 105, 120, 150, 180];
+
 /* Schrittweite der Plus- und Minus-Tasten je Übung, dazu die Übungen an der
    Langhantel, für die der Scheibenrechner gilt. Alles unter Daten änderbar. */
 var DEFAULT_STEP = 2.5;
 var DEFAULT_EXMETA = {
-  "Squats":                 { step:5,   bar:true },
-  "Deadlifts":              { step:5,   bar:true },
-  "Romanian Deadlifts":     { step:5,   bar:true },
-  "Hip Thrust":             { step:5,   bar:true },
-  "Schrägbankdrücken":      { step:2.5, bar:true },
+  "Squats":                 { step:5,   bar:true , rest:REST_COMPOUND },
+  "Deadlifts":              { step:5,   bar:true , rest:REST_COMPOUND },
+  "Romanian Deadlifts":     { step:5,   bar:true , rest:REST_COMPOUND },
+  "Hip Thrust":             { step:5,   bar:true , rest:REST_COMPOUND },
+  "Schrägbankdrücken":      { step:2.5, bar:true , rest:REST_COMPOUND },
   "Hammercurls":            { step:2 },
-  "Kurzhantelrudern":       { step:2 },
+  "Kurzhantelrudern":       { step:2 , rest:REST_COMPOUND },
   "Seitheben":              { step:2 },
-  "Beinpresse":             { step:5 },
+  "Beinpresse":             { step:5 , rest:REST_COMPOUND },
   "Wadenheben":             { step:5 },
   /* Alle Übungen an der Maschine sowie Flys, Reverse Flys, Beincurls, Beinstrecker,
      Hipabduction, Hipadduction und Lower Back Crunch teilen sich diese Schrittweite. */
-  "Benchpress Maschine":    { step:3.75 },
-  "Shoulderpress Maschine": { step:3.75 },
-  "Rudern Maschine":        { step:3.75 },
-  "Latzug Maschine":        { step:3.75 },
+  "Benchpress Maschine":    { step:3.75 , rest:REST_COMPOUND },
+  "Shoulderpress Maschine": { step:3.75 , rest:REST_COMPOUND },
+  "Rudern Maschine":        { step:3.75 , rest:REST_COMPOUND },
+  "Latzug Maschine":        { step:3.75 , rest:REST_COMPOUND },
   "Flys":                   { step:3.75 },
   "Reverse Flys":           { step:3.75 },
   "Beincurls":              { step:3.75 },
   "Beinstrecker":           { step:3.75 },
   "Hipabduction":           { step:3.75 },
   "Hipadduction":           { step:3.75 },
-  "Lower Back Crunch":      { step:3.75 }
+  "Lower Back Crunch":      { step:3.75 },
+  /* Ohne eigene Schrittweite, allein wegen der Pause hier: Dips sind die
+     einzige mitgelieferte Mehrgelenksübung ohne Gewichtsschritt. */
+  "Dips":                   { rest:REST_COMPOUND }
 };
 var STEP_CHOICES = [1, 1.25, 2, 2.5, 3.75, 5];
 var DEFAULT_PLATES = [25, 20, 15, 10, 5, 2.5, 1.25];
@@ -1704,18 +1723,29 @@ function workOf(name) {
   return S.entries.filter(function (e) { return e.exercise === name && isWork(e); });
 }
 
-/* Schrittweite, Langhantel-Kennzeichnung und Geräteeinstellung je Übung */
+/* Schrittweite, Langhantel-Kennzeichnung, Pause und Geräteeinstellung je Übung */
 function exMeta(name) {
   var own = S.exmeta[name] || {}, def = DEFAULT_EXMETA[name] || {};
   var st = own.step != null ? own.step : def.step;
+  var rt = own.rest != null ? own.rest : def.rest;
   return {
     step: (typeof st === "number" && st > 0) ? st : DEFAULT_STEP,
     bar: own.bar != null ? !!own.bar : !!def.bar,
+    /* 0 heißt: diese Übung hat keine eigene Pause und folgt den Einstellungen. */
+    rest: (typeof rt === "number" && rt > 0) ? rt : 0,
     note: typeof own.note === "string" ? own.note : ""
   };
 }
 function stepOf(name) { return name ? exMeta(name).step : DEFAULT_STEP; }
 function isBar(name) { return name ? exMeta(name).bar : false; }
+/* Pause nach einem Arbeitssatz dieser Übung, sonst die aus den Einstellungen */
+function exRest(name) {
+  var r = name ? exMeta(name).rest : 0;
+  return r > 0 ? r : (S.settings.rest || 90);
+}
+/* Nach dem Aufwärmen ist die Pause kurz. Steht die Übung selbst unter WARM_REST,
+   gilt ihr Wert: Aufwärmen darf nie länger pausieren als Arbeiten. */
+function warmRest(name) { return Math.min(WARM_REST, exRest(name)); }
 /* Unter Pläne einstellbare Standards, siehe viewPlans(): Sätze, Reps und Gewicht,
    die eine Übung ohne früheres Training bekommt, dazu die Zielsatzzahl, wenn ein
    Planeintrag selbst keine hinterlegt hat. */
@@ -3416,6 +3446,7 @@ var ICONS = {
     '<path d="M6.6 6.6C4 8.4 2.5 12 2.5 12s3.5 6.5 9.5 6.5c1.5 0 2.9-.4 4.1-1"/>',
   hantelh:'<path d="M6 4v16M18 4v16M6 12h12M2.5 8v8M21.5 8v8"/>',
   regler:'<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>',
+  uhr:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5.3l3.3 2"/>',
   stift:'<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
   zurueck:'<path d="M15 5l-7 7 7 7"/>',
   haken:'<path d="M4 12.5l5 5L20 6.5"/>',
@@ -5819,7 +5850,10 @@ function viewData() {
 
     '<div class="sect"><h2>Pause' + infoBtn("pause") + '</h2></div>' +
     '<div class="card">' +
-    descText("pause", '<p>Länge der Pause nach einem gespeicherten Satz.</p>') +
+    descText("pause", '<p>Länge der Pause nach einem Arbeitssatz, solange die Übung ' +
+      'keine eigene hinterlegt hat. Mehrgelenksübungen bringen ' + mmss(REST_COMPOUND) +
+      ' mit, änderbar unter Daten bei der Übung. Nach einem Aufwärmsatz läuft immer ' +
+      'die kurze Pause von ' + mmss(WARM_REST) + '.</p>') +
     '<div class="tools" style="margin-top:10px">' +
     '<button data-act="restlen" data-d="-15">15 s weniger</button>' +
     '<button data-act="restlen" data-d="15">15 s mehr</button></div>' +
@@ -5878,8 +5912,10 @@ function viewData() {
       'die Plus- und Minus-Tasten beim Gewicht, angegeben in Kilogramm. ' +
       'Das Hantelsymbol markiert Übungen an der ' +
       'Langhantel, für die der Scheibenrechner angezeigt wird. Ein Tipp auf den Namen ' +
-      'öffnet Umbenennen und die Geräteeinstellung, die im Training über den ' +
-      'Eingabefeldern steht. Am Ende jeder Gruppe ' +
+      'öffnet Umbenennen, die Geräteeinstellung, die im Training über den ' +
+      'Eingabefeldern steht, und die Pause nach einem Arbeitssatz dieser Übung. ' +
+      'Weicht die Pause von der Einstellung ab, steht sie unter der Zeile. ' +
+      'Am Ende jeder Gruppe ' +
       'lässt sich eine Übung in eine andere Gruppe verschieben.</p>') +
     /* Liste und Anlegen-Kasten hängen zusammen und klappen gemeinsam, siehe
        secFold(). Die Beschreibung darüber bleibt sichtbar: wer sie aufgeklappt
@@ -6194,6 +6230,12 @@ function catRow(n) {
         ? '<div class="cnote">' + svg("regler", 13) + '<span>' + esc(m.note) +
           '</span></div>'
         : "") +
+      /* Eigene Zeile statt neben der Geräteeinstellung: die kann lang werden und
+         würde die Pause sonst aus der Zeile drängen. */
+      (!open && m.rest
+        ? '<div class="cnote">' + svg("uhr", 13) + '<span>Pause ' + mmss(m.rest) +
+          '</span></div>'
+        : "") +
       (open
         ? '<div class="exbox">' +
           '<label for="ren-name">Name</label>' +
@@ -6214,6 +6256,15 @@ function catRow(n) {
           '<label for="cnote-in">Geräteeinstellung</label>' +
           '<input id="cnote-in" data-act="exnoteset" data-v="' + esc(n) + '" value="' +
           esc(m.note) + '" placeholder="Sitz 4, Griff eng, Polster Loch 3">' +
+          '<label for="crest-in">Pause nach einem Arbeitssatz</label>' +
+          '<select id="crest-in" data-act="exrestset" aria-label="Pause für ' +
+          esc(n) + '" data-v="' + esc(n) + '">' +
+          '<option value="0"' + (m.rest ? "" : " selected") +
+          '>Wie eingestellt, ' + mmss(S.settings.rest) + '</option>' +
+          REST_CHOICES.map(function (o) {
+            return '<option value="' + o + '"' +
+              (m.rest === o ? " selected" : "") + '>' + mmss(o) + '</option>';
+          }).join("") + '</select>' +
           '</div>'
         : "");
 }
@@ -6594,6 +6645,15 @@ function cleanExmeta(src) {
       if (typeof x.note !== "string") importError("Geräteeinstellung für „" + name + "“ ist ungültig.");
       c.note = x.note;
     }
+    if (x.rest != null) {
+      /* Die Null ist erlaubt: sie ist der Weg zurück auf die Pause aus den
+         Einstellungen, siehe exMeta(). */
+      if (!finiteNumber(x.rest) || !Number.isInteger(x.rest) ||
+          x.rest < 0 || x.rest > 600 || (x.rest > 0 && x.rest < 15)) {
+        importError("Pause für „" + name + "“ ist ungültig.");
+      }
+      c.rest = x.rest;
+    }
     [["sets", true], ["reps", true], ["weight", false]].forEach(function (f) {
       var k = f[0], v = x[k];
       if (v == null) return;
@@ -6779,7 +6839,7 @@ function mergeBackup(raw) {
     Object.keys(data.exmeta).forEach(function (k) {
       var src = data.exmeta[k];
       if (!src || typeof src !== "object") return;
-      ["step", "bar", "note", "sets", "reps", "weight", "musclePrimary",
+      ["step", "bar", "rest", "note", "sets", "reps", "weight", "musclePrimary",
         "muscleSecondary"].forEach(function (f) {
         if (src[f] == null) return;
         if (S.exmeta[k] && S.exmeta[k][f] != null) return;
@@ -6821,6 +6881,7 @@ document.addEventListener("click", function (ev) {
       act === "search" || act === "catmove" || act === "hsearch" ||
       act === "colorset" || act === "noteinput" || act === "stepset" ||
       act === "exnoteinput" || act === "exnoteset" || act === "defedit" ||
+      act === "exrestset" ||
       act === "muscleset" || act === "newmuscleprimary" ||
       act === "weekgoaledit") return;
 
@@ -7225,7 +7286,9 @@ document.addEventListener("click", function (ev) {
       }
     }
     persist();
-    if (S.settings.autoRest && S.date === todayISO()) startRest(S.settings.rest);
+    if (S.settings.autoRest && S.date === todayISO()) {
+      startRest(wasWarm ? warmRest(S.exercise) : exRest(S.exercise));
+    }
   }
   else if (act === "edit") {
     var e0 = S.entries.filter(function (e) { return e.id === v; })[0];
@@ -7892,6 +7955,18 @@ document.addEventListener("change", function (ev) {
     if (sn && sv > 0) {
       if (!S.exmeta[sn]) S.exmeta[sn] = {};
       S.exmeta[sn].step = sv;
+      persist();
+      render();
+    }
+  }
+  else if (act === "exrestset") {
+    var rn = el.getAttribute("data-v"), rv = parseInt(el.value, 10) || 0;
+    if (rn) {
+      if (!S.exmeta[rn]) S.exmeta[rn] = {};
+      /* Die Null steht für "wie eingestellt". Sie wird nicht gespeichert, sondern
+         räumt einen früheren Wert weg - auch den mitgelieferten. */
+      if (rv > 0) S.exmeta[rn].rest = rv;
+      else S.exmeta[rn].rest = 0;
       persist();
       render();
     }
