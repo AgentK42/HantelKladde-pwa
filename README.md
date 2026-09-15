@@ -61,6 +61,7 @@ ausliefert und nichts annehmen kann.
 | `icons/` | App-Icons in 192 und 512 Pixel, je randlos und maskierbar |
 | `screenshots/` | drei Bilder für den Installationsdialog von Chrome |
 | `tools/` | Helfer für das Ausrollen und zum Prüfen, siehe unten |
+| `CLAUDE.md` | Arbeitsregeln für Claude Code, wird zu Beginn jeder Sitzung gelesen |
 
 ## Aktionen
 
@@ -530,6 +531,14 @@ liest aber nur `.js`-Dateien; deshalb zieht das Skript den `<script>`-Block in
 eine Hilfsdatei, mit so vielen Leerzeilen davor, dass die gemeldeten
 Zeilennummern denen in `index.html` entsprechen. Die Regeln stehen in
 `tools/eslint.config.js`. Braucht `npm i -g eslint`, sonst nichts.
+
+Seit 1.30.0 warnt ESLint zusätzlich vor Strukturwuchs: bei einer zyklomatischen
+Komplexität über 40 und bei Funktionen über 150 Zeilen. Beides sind Warnungen,
+die Kette bleibt grün, aber die Funktionen stehen bei jedem Lauf im Terminal.
+Anlass war der Klick-Verteiler, der in rund 40 Sitzungen um je ein `else if` auf
+843 Zeilen und eine Komplexität von 334 gewachsen war, weil nichts den nächsten
+Zweig teurer machte als den vorigen. Die Schwellen liegen knapp über dem heutigen
+Bestand und sollen mit ihm sinken, nicht steigen.
 
 Offline-Betrieb, Update-Weg, Zurück-Geste, Speicherzusage, Kurzbefehle und das
 Entgegennehmen eines geteilten Backups lassen sich nicht durch Hinsehen prüfen.

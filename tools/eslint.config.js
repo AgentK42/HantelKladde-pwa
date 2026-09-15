@@ -45,7 +45,24 @@ var rules = {
   "no-constant-condition": "warn",
   "no-empty": ["warn", { allowEmptyCatch: true }],
   "no-unused-vars": ["warn", { vars: "all", args: "none", caughtErrors: "none" }],
-  "eqeqeq": ["warn", "always", { null: "ignore" }]
+  "eqeqeq": ["warn", "always", { null: "ignore" }],
+
+  /* Zwei Regeln gegen Strukturwuchs, seit 1.30.0. Anlass war der Klick-Verteiler:
+     in rund 40 Sitzungen um je ein else-if gewachsen, am Ende 843 Zeilen und eine
+     zyklomatische Komplexitaet von 334, ohne dass es je eine Stelle gab, fuer die
+     der 60. Zweig teurer war als der 59. Diese beiden sind diese Stelle.
+
+     Bewusst Warnungen, keine Fehler: die Pruefkette bleibt gruen, aber die Zahl
+     steht bei jedem Lauf im Terminal. Die Schwellen sind eine Ratsche. Sie
+     liegen knapp ueber dem, was heute durchgeht, und wer eine der genannten
+     Funktionen verkleinert, zieht die Schwelle nach unten. Hochsetzen, damit
+     eine Warnung verschwindet, ist der eine Weg, der die Regel entwertet.
+
+     Stand 1.30.0 ueber der Schwelle: complexity 40 trifft viewTag (70), load (68),
+     viewFocus (50), suggestFor (47) und den change-Verteiler; max-lines 150
+     trifft viewTag (224) und viewData (254). */
+  "complexity": ["warn", 40],
+  "max-lines-per-function": ["warn", { max: 150, skipComments: true, skipBlankLines: true }]
 };
 
 module.exports = [
@@ -61,5 +78,7 @@ module.exports = [
      deshalb hier kein no-undef. Alle anderen Regeln gelten. */
   { files: ["tools/*.js"], ignores: ["tools/.lint-app.js", "tools/eslint.config.js"],
     languageOptions: { ecmaVersion: 2022, sourceType: "commonjs", globals: names(node) },
-    rules: Object.assign({}, rules, { "no-undef": "off" }) }
+    rules: Object.assign({}, rules, { "no-undef": "off",
+      /* Die Pruefskripte sind absichtlich ein einziger langer Ablauf */
+      "complexity": "off", "max-lines-per-function": "off" }) }
 ];
