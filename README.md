@@ -463,6 +463,36 @@ Balken liest niemand, und bei engen Tagesabständen überlappen sie. Ist das
 Volumen durchweg null, etwa bei Klimmzügen mit 0 kg, entfällt das Diagramm
 ganz und der Gewichtsverlauf bleibt unverändert stehen.
 
+## Mix der mitgelieferten Pläne
+
+Die drei PPL-Pläne sind seit 1.30.7 als Woche abgestimmt: über Push, Pull und
+Leg zusammen liegt jedes Gegenspielerpaar aus `MUSCLE_PAIRS` unter 15 Prozent
+auseinander, gezählt wie `muscleTally()` zählt, also Primärmuskel voll und
+Sekundärmuskel halb. Abgestimmt wird der Zyklus und nicht der einzelne Tag: an
+einem Push Day steht der Brust nichts entgegen, genau dafür gibt es die
+Aufteilung.
+
+Drei Stellen gingen vorher auf. Der Rücken zählte aus Reverse Flys und Face
+Pulls zwei halbe Sätze mehr als die Brust (8 zu 10). Der Trizeps bekam aus
+jedem Drücken einen halben Satz dazu und stand mit zwei eigenen Übungen bei 8,
+der Bizeps bei 6, weil es als Bizepsübung nur Preachercurls gibt; Hammercurls
+zählen primär auf den Unterarm. Und der untere Rücken hatte im ganzen Zyklus
+keinen Satz, während der Bauch zwei hatte. Dagegen stehen jetzt drei Sätze
+Bankdrücken, je drei Sätze Preachercurls und Hammercurls, drei Sätze Romanian
+Deadlifts und Beincurls gegen Squats, Beinpresse und Beinstrecker, und der
+Lower Back Crunch am Beintag. Es bleibt bei 9 zu 10, 7,5 zu 8,5 und sonst
+gleich, also höchstens 11,8 Prozent.
+
+Die Satzzahlen stehen in `DEFAULT_PLANS` deshalb als Zahl und nicht als
+`DEFAULT_SETS`: sie tragen das Verhältnis, ein geänderter Ausgangswert für neue
+Übungen würde es verschieben. Die Suite `plan-mix` prüft die Grenze, wer an den
+Plänen etwas ändert, lässt sie laufen. Upper Body und Leg Day (UL) sind bewusst
+nicht mit abgestimmt, die beiden sind kein geschlossener Zyklus.
+
+Geändert werden damit nur neu eingerichtete Geräte. `DEFAULT_PLANS` sät jeden
+Plan einmal, gemerkt in `S.meta.seeded`; ein Plan, der schon auf dem Gerät
+steht, bleibt wie er ist.
+
 ## Plan duplizieren
 
 Das dritte Symbol in der Kopfzeile einer Plankarte legt eine Kopie an, als
@@ -595,7 +625,7 @@ Das Verhalten der App selbst, also das, was man sieht und tippt, prüfen die
 Suiten unter `tools/tests/`, je Thema eine Datei und nach den Abschnitten dieser
 README benannt: `pause`, `aufwaermen`, `rekorde`, `planung`, `wochen-trennen`,
 `wochenstreifen`, `vorwahl`, `plan-kopie`, `volumen`, `einstellungen`,
-`eingaben`, `farbschema`, `uebungsverlauf`. Jede Suite fährt in Chromium einen Ablauf gegen die
+`eingaben`, `farbschema`, `uebungsverlauf`, `plan-mix`. Jede Suite fährt in Chromium einen Ablauf gegen die
 echte `index.html` und prüft Zustand, Speicher und Oberfläche: dass ein
 Aufwärmsatz ohne RPE gespeichert wird, dass ein Import eine Pause von 100 s im
 Auswahlfeld zeigt, dass die Suche nach dem Neuaufbau den Fokus behält. Die

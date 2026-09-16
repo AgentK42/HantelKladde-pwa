@@ -24,7 +24,7 @@ suite(async ({ open, check, errs, url }) => {
   const rows = await page.locator(".volrow").count();
   check("15 Muskelgruppen mit Null-Zeilen", rows === 15, String(rows));
   const brust = await page.evaluate(() => muscleTally(draftSources()).by["Brust"].total);
-  check("Brust 16 Saetze (4 Uebungen x 2 Saetze x 2)", brust === 16, String(brust));
+  check("Brust 18 Saetze (Push Day 9 x 2)", brust === 18, String(brust));
   check("Paar Bizeps/Trizeps rot", await page.locator(".pairline b.off").count() >= 1);
   check("Ohne Satz Zeile", (await page.locator(".pairline").allInnerTexts()).some(t => t.startsWith("Ohne Satz im Entwurf")));
   // Einzelne Uebung ueber den Waehler
