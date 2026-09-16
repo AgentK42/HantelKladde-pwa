@@ -283,7 +283,10 @@ Fassung. Seit 1.30.1 ist jeder Abschnitt eine eigene Funktion (`dataDisplay()`,
 `dataStorage()`, ... `dataVersion()`), `viewData()` reiht sie nur noch auf.
 Der Trainingsreiter ist genauso zerlegt: `tagHeader()`, `planChooser()`,
 `heroBlock()` mit `editHero()`, `exerciseHero()` und `blankHero()`,
-`planListBlock()`, `daySetsBlock()`.
+`planListBlock()`, `daySetsBlock()`. Der Fokus-Modus seit 1.30.2 ebenso:
+`viewFocus()` setzt Kopf und Rahmen, `focusHero()` die Übungskarte,
+`focusFoot()` den Fuß mit Speichern, und `focusRightButton()` entscheidet
+allein, welcher Weg weiter rechts unten steht.
 
 Zwei Abschnitte sind lang und starten deshalb zugeklappt, die Übungen mit allen
 Gruppen und die Muskelgruppen mit jeder Übung einzeln. Zusammen machen sie den

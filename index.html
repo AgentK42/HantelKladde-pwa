@@ -940,7 +940,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.30.1";
+var APP_VERSION = "1.30.2";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -4411,6 +4411,10 @@ function focusWho() {
    Planauswahl. Nutzt dieselben Datenfelder und denselben Klick-Handler wie
    der normale Trainingsreiter, ist also nur eine andere Ansicht desselben
    Zustands, keine zweite Datenquelle. */
+/* Der Fokus-Modus: Kopfzeile mit Zurück und Fortschritt, darunter die Übungskarte
+   und der feste Fuß mit Speichern und den beiden Wegen weiter. Bis 1.30.1 stand
+   das in einer Funktion mit einer Komplexität von 50, die Entscheidungslogik für
+   den rechten Knopf war der größte Teil davon, siehe focusRightButton(). */
 function viewFocus() {
   if (S.pickOpen) {
     return '<div class="fx"><div class="fx-body pad">' + viewPicker() + '</div></div>';
@@ -4429,8 +4433,13 @@ function viewFocus() {
       '<button class="save" data-act="pickopen">Übung wählen</button></div></div></div>';
     return h;
   }
-
-  var n = nextSet(), last = lastSession(S.exercise, S.date);
+  return h + focusHero() + '</div>' + focusFoot() + '</div>';
+}
+/* Die Übungskarte im Fokus: Ziel, letztes Top Set, Vorschlag, Gewicht, Reps, RPE
+   und, wenn eingestellt, Scheiben und Aufwärmrampe. Ohne das schließende Tag
+   von fx-body, das setzt viewFocus(). */
+function focusHero() {
+  var last = lastSession(S.exercise, S.date);
   var tg = planTarget(S.exercise);
   /* "Letztes Top Set" zeigt den besten Arbeitssatz der letzten früheren Einheit,
      nicht deren chronologisch letzten Satz. Ein leichter Auslaufsatz verfälscht
@@ -4444,7 +4453,6 @@ function viewFocus() {
   var ramp = doneSets(S.exercise, S.date) ? [] : warmupPlan(S.exercise, wBase);
   var split = isBar(S.exercise) ? plateSplit(curW) : null;
   var showPlates = S.settings.focusPlates;
-  var done = doneN >= needN;
   var fxRng = repRangeShown(S.exercise);
 
   /* Pillenanzeige aus dem Standard-Trainingsreiter übernommen (.setprog), hier
@@ -4456,7 +4464,7 @@ function viewFocus() {
     setBars += '<i class="' + (si < doneN ? "done" : (si === doneN ? "cur" : "")) + '"></i>';
   }
 
-  h += '<div class="hero-top">' +
+  return '<div class="hero-top">' +
     '<button class="hero-ex tap" data-act="pickopen" title="Andere Übung wählen">' +
     '<span>' + esc(S.exercise) + '</span><i class="chev">' + svg("chev", 16) + '</i></button>' +
     '<div class="setprog"><div class="bars">' + setBars + '</div></div>' +
@@ -4491,13 +4499,13 @@ function viewFocus() {
           return '<button data-act="warmpick" data-i="' + ri + '">' + num(r.weight) +
             ' kg <s>&times;' + r.reps + '</s></button>';
         }).join("") + '</div>'
-      : "") +
-    '</div>';
-
-  var pIdx = planIndex();
-  var inPlan = pIdx >= 0;
-  var hasNext = S.plan && S.plans[S.plan] && inPlan &&
-    pIdx < S.plans[S.plan].length - 1;
+      : "");
+}
+/* Der Fuß: Abschluss-Nachfrage oder Meldung, Schnell-Rückgängig, Speichern und
+   darunter links der Rückweg (Aufwärmen, andere Übung), rechts der Weg weiter. */
+function focusFoot() {
+  var n = nextSet(), doneN = doneSets(S.exercise, S.date);
+  var done = doneN >= targetSets(S.exercise);
   /* Links: Aufwärmsatz nur anbieten, solange noch kein Arbeitssatz dieser Übung
      erfasst ist, danach macht der Umstieg auf ein Aufwärmgewicht keinen Sinn
      mehr - stattdessen Wechsel zu einer anderen Übung. Rechts: sobald ein
@@ -4508,33 +4516,7 @@ function viewFocus() {
     : doneN === 0
       ? '<button data-act="warmon">Aufwärmsatz erfassen</button>'
       : '<button data-act="pickopen">Andere Übung</button>';
-  var rightBtn;
-  if (planAllDone()) {
-    /* Ist der ganze Plan erledigt, gilt das für jede seiner Übungen, nicht nur
-       für die letzte in der Reihenfolge - sonst zeigt nur die letzte Übung den
-       Abschluss an, obwohl längst alle Zielsätze stehen. */
-    rightBtn = '<button class="go" data-act="focusfinish">Trainingsplan abschließen</button>';
-  } else if (hasNext) {
-    rightBtn = '<button class="' + (done ? "go" : "") + '" data-act="planstep" data-d="1">' +
-      (doneN > 0 ? "Nächste Übung" : "Übung überspringen") + '</button>';
-  } else if (S.plan && S.plans[S.plan] && S.plans[S.plan].length && !inPlan) {
-    /* Übung außerhalb des aktiven Plans gewählt, etwa über "Andere Übung": ihr
-       eigenes Satzziel sagt nichts über den Plan aus, der läuft also weiter,
-       solange er noch offene Übungen hat. */
-    var openItem = nextPlanOpen();
-    rightBtn = openItem
-      ? '<button class="go" data-act="planpick" data-v="' + esc(openItem.name) +
-        '">Weiter mit Plan</button>'
-      : '<button class="go" data-act="focusfinish">Trainingsplan abschließen</button>';
-  } else if (done) {
-    /* Letzte Übung der Plan-Reihenfolge fertig, aber andere Übungen können noch
-       offen sein, etwa nach "Übung überspringen" oder "Andere Übung". Statt
-       sofort abzuschließen, erst nachfragen, siehe endWarnBlock() unten. */
-    rightBtn = '<button class="go" data-act="focusfinishask">Trainingsplan abschließen</button>';
-  } else {
-    rightBtn = doneN === 0 ? '<button data-act="pickopen">Andere Übung</button>' : "";
-  }
-  h += '<div class="fx-foot">' +
+  return '<div class="fx-foot">' +
     (S.focusEndConfirm ? endWarnBlock() :
     (S.toast ? '<div class="toast">' + S.toast + '</div>' : "") +
     (S.quickUndo && S.undo && S.undo.kind === "newset"
@@ -4544,8 +4526,39 @@ function viewFocus() {
     '<button class="save' + (S.warm ? " warm" : "") + '" data-act="save">' +
     (S.warm ? "Aufwärmsatz speichern" : "Satz " + n + " speichern") + ': ' +
     esc(S.weight) + ' kg × ' + esc(S.reps) + '</button>' +
-    '<div class="subacts">' + leftBtn + rightBtn + '</div>') + '</div></div>';
-  return h;
+    '<div class="subacts">' + leftBtn + focusRightButton(doneN, done) + '</div>') + '</div>';
+}
+/* Der rechte Knopf im Fuß des Fokus-Modus, je nach Stand im Plan */
+function focusRightButton(doneN, done) {
+  var pIdx = planIndex();
+  var inPlan = pIdx >= 0;
+  var hasNext = S.plan && S.plans[S.plan] && inPlan &&
+    pIdx < S.plans[S.plan].length - 1;
+  if (planAllDone()) {
+    /* Ist der ganze Plan erledigt, gilt das für jede seiner Übungen, nicht nur
+       für die letzte in der Reihenfolge - sonst zeigt nur die letzte Übung den
+       Abschluss an, obwohl längst alle Zielsätze stehen. */
+    return '<button class="go" data-act="focusfinish">Trainingsplan abschließen</button>';
+  } else if (hasNext) {
+    return '<button class="' + (done ? "go" : "") + '" data-act="planstep" data-d="1">' +
+      (doneN > 0 ? "Nächste Übung" : "Übung überspringen") + '</button>';
+  } else if (S.plan && S.plans[S.plan] && S.plans[S.plan].length && !inPlan) {
+    /* Übung außerhalb des aktiven Plans gewählt, etwa über "Andere Übung": ihr
+       eigenes Satzziel sagt nichts über den Plan aus, der läuft also weiter,
+       solange er noch offene Übungen hat. */
+    var openItem = nextPlanOpen();
+    return openItem
+      ? '<button class="go" data-act="planpick" data-v="' + esc(openItem.name) +
+        '">Weiter mit Plan</button>'
+      : '<button class="go" data-act="focusfinish">Trainingsplan abschließen</button>';
+  } else if (done) {
+    /* Letzte Übung der Plan-Reihenfolge fertig, aber andere Übungen können noch
+       offen sein, etwa nach "Übung überspringen" oder "Andere Übung". Statt
+       sofort abzuschließen, erst nachfragen, siehe endWarnBlock() unten. */
+    return '<button class="go" data-act="focusfinishask">Trainingsplan abschließen</button>';
+  } else {
+    return doneN === 0 ? '<button data-act="pickopen">Andere Übung</button>' : "";
+  }
 }
 /* Großer Hinweis statt des sofortigen Abschlusses, wenn beim Antippen von
    "Trainingsplan abschließen" noch andere Übungen des Plans offen sind. */
