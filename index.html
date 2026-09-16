@@ -940,7 +940,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.30.3";
+var APP_VERSION = "1.30.4";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -1426,7 +1426,11 @@ function repairPlanItem(i) {
   else if (i.weight !== w) { i.weight = w; }
   return fixed;
 }
-function load() {
+/* Die gemerkte Darstellung anwenden, noch vor allem anderen: hell, dunkel oder
+   System. Bei System folgt ein Beobachter dem Nachtmodus des Handys. Läuft vor
+   der Speicherprüfung, damit auch ein Browser ohne Speicher nicht weiß startet.
+   Bis 1.30.3 stand das am Anfang von load(). */
+function readTheme() {
   var t = null;
   try { t = localStorage.getItem(THEME_KEY); } catch (e) {}
   if (t === "light" || t === "dark") {
@@ -1450,7 +1454,12 @@ function load() {
     if (mq.addEventListener) mq.addEventListener("change", onSys);
     else if (mq.addListener) mq.addListener(onSys);
   }
-
+}
+/* Der Startleser: holt den gesamten Datenbestand aus dem localStorage in S, mit
+   Prüfung und Reparatur je Feld, und sät mitgelieferte Pläne nach, die auf diesem
+   Gerät noch nie da waren. Läuft genau einmal, am Ende der Datei. */
+function load() {
+  readTheme();
   S.storeOk = storageOk();
   S.plans = JSON.parse(JSON.stringify(DEFAULT_PLANS));
   if (!S.storeOk) return;
