@@ -181,7 +181,7 @@ textarea.note { width:100%; margin-top:8px; padding:11px 12px; border-radius:13p
 .crow .barb.on { background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
 /* Neu in 1.5.2: Geräteeinstellung je Übung, Umbenennen, Rekord-Übersicht */
 .exnote { width:100%; display:flex; align-items:center; gap:9px; margin-top:9px;
-  padding:9px 12px; border-radius:12px; border:1px solid var(--line);
+  padding:9px 12px; border-radius:13px; border:1px solid var(--line);
   background:var(--raise); color:var(--ink); font-size:12.5px; text-align:left; }
 .exnote > span { flex:1; min-width:0; line-height:1.45; min-height:calc(1.45em * 2);
   display:flex; align-items:center; }
@@ -290,11 +290,13 @@ textarea.note { width:100%; margin-top:8px; padding:11px 12px; border-radius:13p
 .wdial .wnum em { flex:0 0 auto; font-style:normal; font-size:14px; font-weight:700;
   color:var(--muted); }
 
-/* Reps und RPE als zwei Stepper nebeneinander, nur im Standard-Trainingsreiter */
-.steprow { display:grid; grid-template-columns:1fr 1fr; gap:9px; margin-top:18px; }
+/* Reps und RPE als zwei Stepper nebeneinander, nur im Standard-Trainingsreiter.
+   Abstand und Eckenradius wie bei .exnote darunter, damit die Boxen der
+   Übungskarte einheitlich wirken statt mit wechselndem Rhythmus zu stapeln. */
+.steprow { display:grid; grid-template-columns:1fr 1fr; gap:9px; margin-top:9px; }
 .steprow.one { grid-template-columns:1fr; }
 .stepbox { display:flex; align-items:center; justify-content:space-between; gap:6px;
-  padding:8px 10px; border-radius:14px; border:1px solid var(--line); background:var(--raise); }
+  padding:8px 10px; border-radius:13px; border:1px solid var(--line); background:var(--raise); }
 .stepbox button { width:32px; height:32px; flex:0 0 auto; border-radius:10px; border:none;
   background:var(--surface); color:var(--ink); font-size:17px; font-weight:700; padding:0; }
 .stepbox button:active { filter:brightness(0.92); }
@@ -656,20 +658,29 @@ textarea.note { width:100%; margin-top:8px; padding:11px 12px; border-radius:13p
    Einer unter Einern stehen (die 8 unter der 0 von 10). Satznummer, Datum und
    RPE tragen dieselbe graue Schrift wie in der Satzliste des Tages. */
 .planhead.open { border-radius:13px 13px 0 0; border-bottom:none; }
+/* Eigene, kleinere Kopfzeile fuer "Verlauf dieser Uebung": anders als Planwahl,
+   Notiz zum Tag und Plan-Fortschritt ist das hier nur eine Rueckschau ohne
+   eigene Entscheidung, sie soll also nicht dieselbe Flaeche wie die anderen
+   .planhead-Kopfzeilen beanspruchen. Die aufgeklappten Zeilen schrumpfen im
+   selben Verhaeltnis mit. */
+.planhead.hist { margin-top:9px; padding:7px 11px; }
+.planhead.hist b { font-size:11.5px; }
+.planhead.hist span { font-size:10.5px; }
+.planhead.hist .chev svg { width:13px; height:13px; }
 .exhist { border:1px solid var(--line); border-top:none; border-radius:0 0 13px 13px;
-  background:var(--surface); overflow:hidden; padding:0 0 6px; }
+  background:var(--surface); overflow:hidden; padding:0 0 4px; }
 .exhist .hset { display:grid;
-  grid-template-columns:14px 2.6ch max-content 5ch max-content 1fr 4.6em;
-  align-items:baseline; column-gap:3px; padding:4px 13px; font-size:15px;
-  line-height:1.2; font-variant-numeric:tabular-nums; }
-.exhist .hset:first-child { padding-top:6px; }
-.exhist .no { font-size:12px; font-weight:600; color:var(--muted); }
+  grid-template-columns:12px 2.4ch max-content 4.4ch max-content 1fr 4.2em;
+  align-items:baseline; column-gap:3px; padding:3px 11px; font-size:13px;
+  line-height:1.15; font-variant-numeric:tabular-nums; }
+.exhist .hset:first-child { padding-top:5px; }
+.exhist .no { font-size:10.5px; font-weight:600; color:var(--muted); }
 .exhist .val { font-weight:750; letter-spacing:-0.02em; text-align:right; }
-.exhist .val.kg { margin-left:9px; }
-.exhist .unit { font-size:11px; font-weight:600; color:var(--muted); margin-left:2px; }
-.exhist .when { font-size:12px; color:var(--muted); text-align:right; }
-.exhist .rpe { font-size:12px; color:var(--muted); text-align:right; }
-.exhist .sep { height:1px; background:var(--line); margin:4px 0; }
+.exhist .val.kg { margin-left:8px; }
+.exhist .unit { font-size:9.5px; font-weight:600; color:var(--muted); margin-left:2px; }
+.exhist .when { font-size:10.5px; color:var(--muted); text-align:right; }
+.exhist .rpe { font-size:10.5px; color:var(--muted); text-align:right; }
+.exhist .sep { height:1px; background:var(--line); margin:3px 0; }
 .plan { margin-top:8px; border:1px solid var(--line); border-radius:16px; overflow:hidden;
   background:var(--surface); }
 .plan > button { width:100%; display:flex; align-items:center; gap:12px; padding:13px 15px;
@@ -944,7 +955,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.30.6";
+var APP_VERSION = "1.30.7";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -4391,10 +4402,10 @@ function exHistBlock() {
   var days = lastDaysOf(S.exercise, S.date, 3);
   if (!days.length) return "";
   var open = S.exHistFor === S.exercise;
-  var h = '<button class="planhead' + (open ? " open" : "") + '" data-act="exhist" ' +
+  var h = '<button class="planhead hist' + (open ? " open" : "") + '" data-act="exhist" ' +
     'aria-expanded="' + (open ? "true" : "false") + '"><b>Verlauf dieser Übung</b>' +
     '<span>letzte ' + days.length + '</span><i class="chev' + (open ? " up" : "") +
-    '">' + svg("chev", 15) + '</i></button>';
+    '">' + svg("chev", 13) + '</i></button>';
   if (!open) return h;
   h += '<div class="exhist">';
   days.forEach(function (d, di) {
