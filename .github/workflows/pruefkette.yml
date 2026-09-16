@@ -1,0 +1,54 @@
+# Die Prüfkette aus README und CLAUDE.md, nach jedem Push auf GitHub ausgeführt.
+# Dieselben vier Schritte, die vor dem Push lokal laufen, in derselben
+# Reihenfolge und je als eigener Schritt, damit im Lauf steht, welcher gekippt ist.
+#
+# Warum überhaupt, wenn die Kette lokal in einer Minute durch ist: weil nichts
+# sonst sicherstellt, dass sie vor dem Push auch gelaufen ist, und weil der
+# Runner nichts von der Sitzung weiß, in der geändert wurde. Was lokal nur grün
+# war, weil ein Pfad oder ein Paket zufällig da war, fällt hier auf.
+#
+# Kein pull_request-Auslöser: jeder Branch wird ohnehin beim Push geprüft, und
+# ein PR aus demselben Repo liefe sonst doppelt. Ein neuer Push auf denselben
+# Branch bricht den laufenden Durchlauf ab, nur der jüngste Stand zählt.
+name: Prüfkette
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pruefkette-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pruefkette:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # Die Suiten rechnen mit dem heutigen Datum. Dieselbe Zeitzone wie das
+      # Handy, auf dem die App läuft, damit ein Lauf um Mitternacht UTC nicht
+      # einen anderen Tag sieht als der Nutzer.
+      TZ: Europe/Berlin
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      # Globale Installation wie in der README; die Skripte finden Playwright
+      # über npm root -g. --with-deps holt die Systembibliotheken, die Chromium
+      # auf dem Runner braucht. Das ist der längste Schritt des Laufs.
+      - name: ESLint und Playwright
+        run: |
+          npm i -g eslint playwright
+          playwright install --with-deps chromium
+      - name: Version
+        run: tools/check-version.sh
+      - name: Lint
+        run: tools/lint.sh
+      - name: App-Schicht
+        run: NODE_PATH=$(npm root -g) node tools/test-pwa.js
+      - name: Verhalten
+        run: tools/test-app.sh

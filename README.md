@@ -74,6 +74,7 @@ ausliefert und nichts annehmen kann.
 | `screenshots/` | drei Bilder für den Installationsdialog von Chrome |
 | `tools/` | Helfer für das Ausrollen und zum Prüfen, siehe unten |
 | `tools/tests/` | Verhaltenstests in Chromium, je Thema eine Datei, siehe **Prüfen** |
+| `.github/workflows/` | die Prüfkette als GitHub Action, läuft bei jedem Push |
 | `CLAUDE.md` | Arbeitsregeln für Claude Code, wird zu Beginn jeder Sitzung gelesen |
 
 ## Aktionen
@@ -606,3 +607,14 @@ entstanden in den Sitzungen, in denen das jeweilige Verhalten gebaut wurde, und
 lagen bis 1.30.5 außerhalb des Repos, im Arbeitsverzeichnis der Sitzung. Eine
 Prüfung, die nur eine Sitzung ausführen kann, ist keine; deshalb gehören sie
 seitdem dazu.
+
+Dieselbe Kette läuft nach jedem Push auch auf GitHub, als Workflow
+**Prüfkette** in `.github/workflows/pruefkette.yml`: ein Ubuntu-Runner mit
+Node, ESLint und Playwright, dann die vier Schritte in derselben Reihenfolge
+wie oben, jeder als eigener Schritt, damit im Lauf steht, welcher gekippt ist.
+Die lokale Kette bleibt der erste Weg, weil sie in einer Minute Bescheid gibt;
+der Workflow ist die Sicherung dafür, dass sie nicht vergessen wird, und
+prüft auf einem Rechner, der nichts von der Sitzung weiß, in der geändert
+wurde. Ein Lauf braucht rund drei Minuten, das meiste davon ist das Laden von
+Chromium. Der Stand steht unter
+[Actions](https://github.com/AgentK42/HantelKladde-pwa/actions/workflows/pruefkette.yml).

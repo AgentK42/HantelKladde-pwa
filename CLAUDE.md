@@ -53,7 +53,9 @@ tools/test-app.sh
 ```
 
 Unterwegs reicht `tools/test-app.sh pause aufwaermen` für die Themen, die
-geändert wurden, vor dem Push der ganze Lauf. Eine Änderung an der Oberfläche
+geändert wurden, vor dem Push der ganze Lauf. Nach dem Push läuft dieselbe
+Kette als Workflow **Prüfkette** auf GitHub; ist der Lauf auf dem Branch rot,
+wird das behoben, bevor `main` vorgespult wird. Eine Änderung an der Oberfläche
 wird einmal in hell und dunkel bei 390 Pixel Breite angesehen. Ein Rekord, eine
 Pause, ein Plan: was sich verhält, bekommt einen Test, der das Verhalten
 beschreibt, nicht die Implementierung. Er liegt unter `tools/tests/`, eine
