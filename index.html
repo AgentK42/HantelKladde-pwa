@@ -940,7 +940,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.30.2";
+var APP_VERSION = "1.30.3";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -1184,6 +1184,46 @@ var DEFAULT_SETTINGS = {
      damit es ins Backup kommt; der Entwurf daneben bleibt außen vor, siehe DRAFT_KEY. */
   planDays: {}
 };
+
+/* Die Einzelfelder der Einstellungen mit ihrer Regel, an einer Stelle. Drei Leser
+   greifen darauf zu: load() beim Start (was nicht passt, wird still übergangen und
+   behält den Ausgangswert), cleanSettings() beim Import (was nicht passt, lehnt
+   die Datei ab) und mergeSettings() beim Zusammenführen (nur, wo hier noch der
+   Ausgangswert steht). Bis 1.30.2 stand die Liste in allen drei ausgeschrieben,
+   und beim Import fehlten notifySignal und vibeLong: ein Backup brachte die
+   Signal-Einstellungen nicht mit. Ein neues Feld kommt jetzt hier dazu und sonst
+   nirgends. Die Sammelfelder plates, descOpen, weekGoals, weekGoalLog und planDays
+   haben je Leser eigene Regeln und stehen weiter dort.
+
+   Regeln: bool; positive (Zahl über null); count (ganze Zahl über null); amount
+   (Zahl ab null); names (Liste von Strings). */
+var SETTING_FIELDS = {
+  autoRest:"bool", autoProgress:"bool", repFirst:"bool", focusPlates:"bool",
+  wrapNames:"bool", exHist:"bool", notifySignal:"bool", vibeLong:"bool",
+  rest:"positive", repFirstThresh:"positive", barWeight:"positive",
+  repSpan:"count", defSets:"count", defReps:"count",
+  defWeight:"amount",
+  hiddenPlans:"names", lockedPlans:"names", hiddenEx:"names"
+};
+/* Prüft einen Wert gegen die Regel seines Felds. ok sagt, ob er streng gültig ist
+   (Import); value ist der Wert, den ein nachsichtiger Leser übernimmt (Start,
+   Zusammenführen), oder undefined. Bei names weichen beide ab: ein fremder
+   Eintrag in der Liste macht sie für den Import ungültig, beim Start wird er
+   nur ausgesiebt. */
+function checkSetting(kind, v) {
+  var ok = false, value;
+  if (kind === "bool") ok = typeof v === "boolean";
+  else if (kind === "positive") ok = finiteNumber(v) && v > 0;
+  else if (kind === "count") ok = Number.isInteger(v) && v > 0;
+  else if (kind === "amount") ok = finiteNumber(v) && v >= 0;
+  else if (kind === "names" && Array.isArray(v)) {
+    value = v.filter(function (x) { return typeof x === "string"; });
+    ok = value.length === v.length;
+    return { ok:ok, value:value };
+  }
+  if (ok) value = v;
+  return { ok:ok, value:value };
+}
 
 /* ---------- Doppelte Progression, 1.13.0 ---------- */
 /* Bis 1.12.3 ging ausschließlich das Gewicht hoch. Bei einer Schrittweite von
@@ -1434,38 +1474,18 @@ function load() {
   }
   var st = readJson(SET_KEY, null);
   if (st && typeof st === "object") {
-    if (typeof st.rest === "number") S.settings.rest = st.rest;
-    if (typeof st.autoRest === "boolean") S.settings.autoRest = st.autoRest;
-    if (Array.isArray(st.hiddenPlans)) {
-      S.settings.hiddenPlans = st.hiddenPlans.filter(function (x) { return typeof x === "string"; });
-    }
-    if (Array.isArray(st.lockedPlans)) {
-      S.settings.lockedPlans = st.lockedPlans.filter(function (x) { return typeof x === "string"; });
-    }
-    if (Array.isArray(st.hiddenEx)) {
-      S.settings.hiddenEx = st.hiddenEx.filter(function (x) { return typeof x === "string"; });
-    }
-    if (typeof st.autoProgress === "boolean") S.settings.autoProgress = st.autoProgress;
-    if (typeof st.repFirst === "boolean") S.settings.repFirst = st.repFirst;
-    if (typeof st.repFirstThresh === "number" && st.repFirstThresh > 0) {
-      S.settings.repFirstThresh = st.repFirstThresh;
-    }
-    if (typeof st.repSpan === "number" && st.repSpan > 0) S.settings.repSpan = st.repSpan;
-    if (typeof st.focusPlates === "boolean") S.settings.focusPlates = st.focusPlates;
-    if (typeof st.barWeight === "number" && st.barWeight > 0) S.settings.barWeight = st.barWeight;
+    /* Einzelfelder nach SETTING_FIELDS: was nicht passt, behält den Ausgangswert.
+       Ein Start darf an einem kaputten Feld nicht scheitern, anders als der Import. */
+    Object.keys(SETTING_FIELDS).forEach(function (k) {
+      var r = checkSetting(SETTING_FIELDS[k], st[k]);
+      if (r.value !== undefined) S.settings[k] = r.value;
+    });
     if (Array.isArray(st.plates) && st.plates.length) {
       S.settings.plates = st.plates.filter(function (x) { return typeof x === "number" && x > 0; });
     }
-    if (typeof st.defSets === "number" && st.defSets > 0) S.settings.defSets = st.defSets;
-    if (typeof st.defReps === "number" && st.defReps > 0) S.settings.defReps = st.defReps;
-    if (typeof st.defWeight === "number" && st.defWeight >= 0) S.settings.defWeight = st.defWeight;
     if (st.descOpen && typeof st.descOpen === "object") {
       Object.keys(st.descOpen).forEach(function (k) { S.settings.descOpen[k] = !!st.descOpen[k]; });
     }
-    if (typeof st.wrapNames === "boolean") S.settings.wrapNames = st.wrapNames;
-    if (typeof st.exHist === "boolean") S.settings.exHist = st.exHist;
-    if (typeof st.notifySignal === "boolean") S.settings.notifySignal = st.notifySignal;
-    if (typeof st.vibeLong === "boolean") S.settings.vibeLong = st.vibeLong;
     if (st.weekGoals && typeof st.weekGoals === "object") {
       Object.keys(st.weekGoals).forEach(function (k) {
         var n = st.weekGoals[k];
@@ -6662,19 +6682,17 @@ function mergeSettings(src) {
   if (!src || typeof src !== "object") return;
   var st = S.settings, def = DEFAULT_SETTINGS;
 
-  /* Einzelwerte: Typ prüfen wie beim Laden, dann nur bei unverändertem Stand */
-  [["rest", "number"], ["autoRest", "boolean"], ["autoProgress", "boolean"],
-   ["repFirst", "boolean"], ["repFirstThresh", "number"], ["repSpan", "number"],
-   ["focusPlates", "boolean"], ["wrapNames", "boolean"], ["notifySignal", "boolean"],
-   ["vibeLong", "boolean"], ["exHist", "boolean"],
-   ["barWeight", "number"],
-   ["defSets", "number"], ["defReps", "number"], ["defWeight", "number"]
-  ].forEach(function (f) {
-    var k = f[0], v = src[k];
-    if (typeof v !== f[1]) return;
-    if (f[1] === "number" && !(k === "defWeight" ? v >= 0 : v > 0)) return;
-    if (st[k] !== def[k]) return;
-    st[k] = v;
+  /* Einzelfelder nach SETTING_FIELDS, mit derselben Regel wie beim Laden, dann
+     nur bei unverändertem Stand. Namenslisten werden vereinigt: ein hier
+     ausgeblendeter Plan bleibt ausgeblendet, einer aus dem Backup kommt dazu. */
+  Object.keys(SETTING_FIELDS).forEach(function (k) {
+    var kind = SETTING_FIELDS[k], r = checkSetting(kind, src[k]);
+    if (r.value === undefined) return;
+    if (kind === "names") {
+      r.value.forEach(function (x) { if (st[k].indexOf(x) < 0) st[k].push(x); });
+    } else if (st[k] === def[k]) {
+      st[k] = r.value;
+    }
   });
 
   /* Scheibensatz nur komplett und nur, solange hier noch der Ausgangssatz liegt */
@@ -6683,14 +6701,6 @@ function mergeSettings(src) {
     var pl = src.plates.filter(function (x) { return typeof x === "number" && x > 0; });
     if (pl.length) st.plates = pl;
   }
-
-  /* Namenslisten werden vereinigt, ein hier ausgeblendeter Plan bleibt ausgeblendet */
-  ["hiddenPlans", "lockedPlans", "hiddenEx"].forEach(function (k) {
-    if (!Array.isArray(src[k])) return;
-    src[k].forEach(function (x) {
-      if (typeof x === "string" && st[k].indexOf(x) < 0) st[k].push(x);
-    });
-  });
 
   if (src.descOpen && typeof src.descOpen === "object") {
     Object.keys(src.descOpen).forEach(function (k) {
@@ -6904,20 +6914,18 @@ function cleanNotes(src) {
 function cleanSettings(src) {
   if (!plainObject(src)) importError("Einstellungen sind kein gültiges Objekt.");
   var out = {};
-  ["autoRest", "autoProgress", "repFirst", "focusPlates", "wrapNames",
-   "exHist"].forEach(function (k) {
+  /* Einzelfelder nach SETTING_FIELDS: hier lehnt ein falsches Feld die ganze Datei
+     ab, mit dem Feldnamen in der Meldung. Bei names fliegen zusätzlich Einträge
+     heraus, die als Objektschlüssel nicht sicher wären, siehe safeObjectKey(). */
+  Object.keys(SETTING_FIELDS).forEach(function (k) {
     if (src[k] == null) return;
-    if (typeof src[k] !== "boolean") importError("Einstellung „" + k + "“ ist ungültig.");
-    out[k] = src[k];
-  });
-  ["rest", "repFirstThresh", "repSpan", "barWeight", "defSets", "defReps", "defWeight"].forEach(function (k) {
-    if (src[k] == null) return;
-    var min = k === "defWeight" ? 0 : Number.MIN_VALUE;
-    if (!finiteNumber(src[k]) || src[k] < min) importError("Einstellung „" + k + "“ ist ungültig.");
-    if ((k === "repSpan" || k === "defSets" || k === "defReps") && !Number.isInteger(src[k])) {
-      importError("Einstellung „" + k + "“ muss ganzzahlig sein.");
+    var kind = SETTING_FIELDS[k], r = checkSetting(kind, src[k]);
+    if (!r.ok) {
+      importError("Einstellung „" + k + "“ " +
+        (kind === "count" && finiteNumber(src[k]) && src[k] > 0
+          ? "muss ganzzahlig sein." : "ist ungültig."));
     }
-    out[k] = src[k];
+    out[k] = kind === "names" ? r.value.filter(safeObjectKey) : r.value;
   });
   if (src.plates != null) {
     if (!Array.isArray(src.plates) || !src.plates.length || src.plates.some(function (v) {
@@ -6925,15 +6933,6 @@ function cleanSettings(src) {
     })) importError("Scheibensatz ist ungültig.");
     out.plates = src.plates.slice();
   }
-  ["hiddenPlans", "lockedPlans", "hiddenEx"].forEach(function (k) {
-    if (src[k] == null) return;
-    if (!Array.isArray(src[k]) || src[k].some(function (v) { return typeof v !== "string"; })) {
-      importError("Einstellung „" + k + "“ ist ungültig.");
-    }
-    out[k] = src[k].filter(function (v) { return safeObjectKey(v); }).map(function (v) {
-      return v;
-    });
-  });
   if (src.descOpen != null) {
     if (!plainObject(src.descOpen)) importError("Beschreibungszustände sind ungültig.");
     out.descOpen = {};

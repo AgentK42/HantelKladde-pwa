@@ -38,6 +38,18 @@ der installierten Fassung zunächst einen leeren Stand:
 
 Der Import ergänzt, er überschreibt nicht.
 
+Die Einzelfelder der Einstellungen stehen seit 1.30.3 mit ihrer Regel in einer
+Tabelle, `SETTING_FIELDS` in `index.html`, aus der drei Leser lesen: `load()`
+beim Start übergeht ein kaputtes Feld still und behält den Ausgangswert, weil ein
+Start nicht scheitern darf; `cleanSettings()` beim Import lehnt die Datei mit dem
+Feldnamen ab, weil ein Backup scheitern darf; `mergeSettings()` übernimmt nur,
+wo hier noch der Ausgangswert steht. Vorher stand die Liste in allen drei
+ausgeschrieben, und beim Import fehlten zwei Felder: `notifySignal` und
+`vibeLong` kamen aus einem Backup nicht mit. Ein neues Einstellungsfeld kommt
+jetzt in die Tabelle und sonst nirgendwohin. Die Sammelfelder (Scheibensatz,
+aufgeklappte Beschreibungen, Wochenziele, Historie, zugewiesene Tage) haben je
+Leser eigene Regeln und bleiben dort.
+
 Gelesen werden Backups im Format 6, also aus Fassung 1.14.1 und neuer. Die Nummer
 steht als `version` in der Datei, `BACKUP_VERSION` in `index.html` nennt den
 erwarteten Stand. Ältere Dateien lehnt der Import seit 1.18.0 mit Angabe des
