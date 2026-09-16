@@ -49,12 +49,15 @@ ihrem Grund; sie ist die Dokumentation, nicht dieser Text.
 tools/check-version.sh
 tools/lint.sh
 NODE_PATH=$(npm root -g) node tools/test-pwa.js
+tools/test-app.sh
 ```
 
-Dazu die Playwright-Suiten für das, was geändert wurde. Eine Änderung an der
-Oberfläche wird einmal in hell und dunkel bei 390 Pixel Breite angesehen. Ein
-Rekord, eine Pause, ein Plan: was sich verhält, bekommt einen Test, der das
-Verhalten beschreibt, nicht die Implementierung.
+Unterwegs reicht `tools/test-app.sh pause aufwaermen` für die Themen, die
+geändert wurden, vor dem Push der ganze Lauf. Eine Änderung an der Oberfläche
+wird einmal in hell und dunkel bei 390 Pixel Breite angesehen. Ein Rekord, eine
+Pause, ein Plan: was sich verhält, bekommt einen Test, der das Verhalten
+beschreibt, nicht die Implementierung. Er liegt unter `tools/tests/`, eine
+Datei je Thema mit dem Rahmen aus `lib.js`, nicht im Scratchpad der Sitzung.
 
 ## Commits
 

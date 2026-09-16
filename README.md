@@ -73,6 +73,7 @@ ausliefert und nichts annehmen kann.
 | `icons/` | App-Icons in 192 und 512 Pixel, je randlos und maskierbar |
 | `screenshots/` | drei Bilder für den Installationsdialog von Chrome |
 | `tools/` | Helfer für das Ausrollen und zum Prüfen, siehe unten |
+| `tools/tests/` | Verhaltenstests in Chromium, je Thema eine Datei, siehe **Prüfen** |
 | `CLAUDE.md` | Arbeitsregeln für Claude Code, wird zu Beginn jeder Sitzung gelesen |
 
 ## Aktionen
@@ -494,13 +495,15 @@ Vor dem Push, in dieser Reihenfolge:
 tools/check-version.sh                        # beide Nummern gleich?
 tools/lint.sh                                 # formale Fehler im JavaScript
 NODE_PATH=$(npm root -g) node tools/test-pwa.js   # Offline, Update, Signal, Teilen
+tools/test-app.sh                             # Verhalten: Pause, Planung, Rekorde, ...
 ```
 
 Jeder Schritt meldet Erfolg mit Rückgabewert 0, und der nächste lohnt sich erst,
 wenn der vorige durch ist: eine abweichende Versionsnummer macht den Update-Test
-sinnlos, ein Tippfehler im Skript den Browsertest. Was die drei im Einzelnen tun
+sinnlos, ein Tippfehler im Skript den Browsertest. Was die vier im Einzelnen tun
 und was sie brauchen, steht unter **Prüfen**. Die beiden ersten laufen in unter
-einer Sekunde, der dritte braucht unter einer halben Minute.
+einer Sekunde, der dritte braucht unter einer halben Minute, der vierte rund
+eine Minute.
 
 Die neue Fassung wird im Hintergrund geladen und wartet dann. Die laufende App
 zeigt oben **Ein Update ist vorhanden** mit einem Knopf; ohne einen Tipp darauf
@@ -577,3 +580,29 @@ NODE_PATH=$(npm root -g) node tools/test-pwa.js
 
 Es hebt dabei kurzfristig die Version in `sw.js` an, um den Update-Weg
 auszulösen, und setzt die Datei danach wieder zurück.
+
+Das Verhalten der App selbst, also das, was man sieht und tippt, prüfen die
+Suiten unter `tools/tests/`, je Thema eine Datei und nach den Abschnitten dieser
+README benannt: `pause`, `aufwaermen`, `rekorde`, `planung`, `wochen-trennen`,
+`wochenstreifen`, `vorwahl`, `plan-kopie`, `volumen`, `einstellungen`,
+`eingaben`, `farbschema`. Jede Suite fährt in Chromium einen Ablauf gegen die
+echte `index.html` und prüft Zustand, Speicher und Oberfläche: dass ein
+Aufwärmsatz ohne RPE gespeichert wird, dass ein Import eine Pause von 100 s im
+Auswahlfeld zeigt, dass die Suche nach dem Neuaufbau den Fokus behält. Die
+Prüfungen beschreiben das Verhalten, nicht den Aufbau des Codes, damit ein
+Umbau sie nicht bricht, solange die App sich gleich verhält.
+
+```
+tools/test-app.sh                    # alle Suiten
+tools/test-app.sh pause aufwaermen   # nur die genannten
+```
+
+Das Skript startet jede Suite in einem eigenen Browser, damit kein Zustand von
+einer in die nächste läuft, und setzt `NODE_PATH` selbst. Eine grüne Suite ist
+eine Zeile mit der Zahl ihrer Prüfungen, eine rote bringt ihre ganze Ausgabe
+mit. Den gemeinsamen Rahmen (Server, Browser, `check`, Bilanz) stellt
+`tools/tests/lib.js`, die Suiten selbst bestehen nur aus dem Ablauf. Sie
+entstanden in den Sitzungen, in denen das jeweilige Verhalten gebaut wurde, und
+lagen bis 1.30.5 außerhalb des Repos, im Arbeitsverzeichnis der Sitzung. Eine
+Prüfung, die nur eine Sitzung ausführen kann, ist keine; deshalb gehören sie
+seitdem dazu.

@@ -72,11 +72,13 @@ module.exports = [
   { files: ["sw.js"],
     languageOptions: { ecmaVersion: 2020, sourceType: "script", globals: names(worker) },
     rules: rules },
-  /* test-pwa.js mischt zwei Laufzeiten: der Rahmen laeuft in Node, die
-     Rueckrufe in page.evaluate() laufen im Browser und greifen auf S, render()
-     und die anderen Globals der App zu. ESLint kann das nicht auseinanderhalten,
-     deshalb hier kein no-undef. Alle anderen Regeln gelten. */
-  { files: ["tools/*.js"], ignores: ["tools/.lint-app.js", "tools/eslint.config.js"],
+  /* test-pwa.js und die Suiten unter tools/tests mischen zwei Laufzeiten: der
+     Rahmen laeuft in Node, die Rueckrufe in page.evaluate() laufen im Browser
+     und greifen auf S, render() und die anderen Globals der App zu. ESLint kann
+     das nicht auseinanderhalten, deshalb hier kein no-undef. Alle anderen
+     Regeln gelten. */
+  { files: ["tools/*.js", "tools/tests/*.js"],
+    ignores: ["tools/.lint-app.js", "tools/eslint.config.js"],
     languageOptions: { ecmaVersion: 2022, sourceType: "commonjs", globals: names(node) },
     rules: Object.assign({}, rules, { "no-undef": "off",
       /* Die Pruefskripte sind absichtlich ein einziger langer Ablauf */

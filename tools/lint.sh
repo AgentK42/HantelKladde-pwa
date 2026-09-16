@@ -33,7 +33,7 @@ start=$(grep -n '^<script>$' index.html | head -1 | cut -d: -f1)
 # Erst einsammeln, dann ausgeben: in einer Pipe ginge der Rueckgabewert von
 # eslint verloren, und das Skript meldete Erfolg trotz Funden.
 code=0
-out=$(eslint --config tools/eslint.config.js "$tmp" sw.js tools/*.js 2>&1) || code=$?
+out=$(eslint --config tools/eslint.config.js "$tmp" sw.js tools/*.js tools/tests/*.js 2>&1) || code=$?
 if [ -n "$out" ]; then
   printf '%s\n' "$out" | sed "s#$(pwd)/$tmp#index.html#; s#$(pwd)/##"
 else
