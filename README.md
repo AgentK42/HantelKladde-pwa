@@ -88,9 +88,13 @@ Eine neue Aktion ist damit ein Eintrag `ACTIONS.name = function (v, el) { ... };
 mit `v` aus `data-v` und `el` als angetipptem Element. Bis 1.29.1 war der
 Verteiler eine else-if-Kette mit 106 Zweigen in einer Funktion; weil `var` für
 die ganze Funktion gilt, brauchte jeder Zweig Namen, die in keinem anderen
-vorkamen. Felder, die über `change` statt `click` laufen (Eingabefelder,
-Auswahllisten), stehen in der Ausschlussliste am Anfang des Verteilers und
-haben ihren eigenen, kleineren Verteiler darunter.
+vorkamen. Eingaben beim Tippen laufen seit 1.30.5 nach demselben Muster über
+`INPUT_ACTIONS`, mit einem Unterschied: dort baut der Verteiler nie von sich
+aus neu auf, weil ein `render()` mitten im Tippen dem Feld den Fokus nähme. Die
+beiden Suchfelder, die trotzdem neu aufbauen müssen, holen Fokus und
+Schreibmarke danach selbst zurück (`searchInput()`). Auswahllisten und
+Farbfelder laufen über den kleinen `change`-Verteiler darunter. Alle drei
+Gruppen stehen in der Ausschlussliste am Anfang des Klick-Verteilers.
 
 ## Hosting
 

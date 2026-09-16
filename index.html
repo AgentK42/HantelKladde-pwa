@@ -940,7 +940,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.30.4";
+var APP_VERSION = "1.30.5";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -8092,95 +8092,102 @@ document.addEventListener("touchend", function (ev) {
   window.scrollTo({ top:0 });
 }, { passive:true });
 
+/* Eingaben beim Tippen, das Gegenstück zu ACTIONS für input-Ereignisse, der
+   Schlüssel ist wieder das data-act. Anders als nach einem Tipp auf einen Knopf
+   baut hier der Verteiler nicht neu auf: ein render() mitten im Tippen nähme dem
+   Feld den Fokus. Die zwei Suchfelder, die trotzdem neu aufbauen müssen, holen
+   sich Fokus und Schreibmarke danach selbst zurück, siehe searchInput(). Der
+   Klick-Verteiler kennt diese Aktionen und lässt sie durch. */
+var INPUT_ACTIONS = Object.create(null);
+INPUT_ACTIONS.input = function (el) {
+  var field = el.getAttribute("data-f");
+  S[field] = el.value;
+  if (field === "reps" || field === "weight") {
+    S.source = "";
+    /* Beim Tippen kein komplettes render(), sonst verlöre das Feld den Fokus.
+       Nur die nun überholte Begründungszeile direkt entfernen. */
+    var suggestion = document.querySelector(".suggestion");
+    if (suggestion && suggestion.parentNode) suggestion.parentNode.removeChild(suggestion);
+  }
+};
+/* Ein Suchfeld: Treffer neu aufbauen, dann Fokus und Schreibmarke zurückholen.
+   Bis 1.30.4 stand das zweimal da, für die Übungssuche und die im Verlauf. */
+function searchInput(el, key, id) {
+  var pos = el.selectionStart;
+  S[key] = el.value;
+  render();
+  var again = document.getElementById(id);
+  if (again) {
+    again.focus();
+    var at = pos == null ? again.value.length : pos;
+    try { again.setSelectionRange(at, at); } catch (e) {}
+  }
+}
+INPUT_ACTIONS.search = function (el) { searchInput(el, "search", "searchEx"); };
+INPUT_ACTIONS.hsearch = function (el) { searchInput(el, "hsearch", "histSearch"); };
+INPUT_ACTIONS.defedit = function (el) {
+  var f = el.getAttribute("data-f");
+  var whole = (f === "reps" || f === "sets");
+  var val = whole ? parseInt(el.value, 10) : deci(el.value);
+  if (!isNaN(val) && val >= (whole ? 1 : 0)) {
+    S.settings[f === "sets" ? "defSets" : f === "reps" ? "defReps" : "defWeight"] = val;
+    persistKey(SET_KEY, S.settings);
+  }
+};
+INPUT_ACTIONS.weekgoaledit = function (el) {
+  var n = parseInt(el.value, 10);
+  if (!isNaN(n) && n >= 0) {
+    /* Ändert nur die aktuelle Zahl, noch keinen Log-Eintrag - das macht erst
+       der Knopf "Neues Wochenziel speichern" (weekgoalrestart), sonst würde
+       jeder Tastendruck einen eigenen Historien-Eintrag erzeugen. */
+    S.settings.weekGoals[el.getAttribute("data-v")] = n;
+    /* Kein render() hier (siehe unten bei "change"), also den Knopf von Hand
+       mitziehen statt die Seite neu aufzubauen. */
+    var btn = document.querySelector('[data-act="weekgoalrestart"]');
+    if (btn) btn.disabled = !weekGoalPending();
+  }
+};
+INPUT_ACTIONS.pedit = function (el) {
+  var p = el.getAttribute("data-p"), i = parseInt(el.getAttribute("data-i"), 10);
+  var f = el.getAttribute("data-f");
+  var whole = (f === "reps" || f === "sets");
+  var val = whole ? parseInt(el.value, 10) : deci(el.value);
+  if (!isNaN(val) && S.plans[p] && S.plans[p][i]) {
+    S.plans[p][i][f] = Math.max(whole ? 1 : 0, val);
+  }
+};
+INPUT_ACTIONS.noteinput = function (el) {
+  if (el.value.trim()) S.notes[S.date] = el.value;
+  else delete S.notes[S.date];
+  persistKey(NOTES_KEY, S.notes);
+};
+INPUT_ACTIONS.exnoteinput = function (el, act) {
+  /* Kein render(), das würde das Feld beim Tippen unter dem Finger neu aufbauen.
+     Gesichert wird sofort, aber nur der eine Schlüssel, damit nicht bei jedem
+     Zeichen der gesamte Datenbestand serialisiert wird. */
+  setExNote(act === "exnoteinput" ? S.exercise : el.getAttribute("data-v"), el.value);
+  persistKey(EXMETA_KEY, S.exmeta);
+  /* Die Anzeigezeile darüber zieht von Hand mit, statt über einen Neuaufbau */
+  var lab = document.querySelector(".exnote > span");
+  if (lab && act === "exnoteinput") {
+    var lv = el.value.trim();
+    lab.textContent = lv || "Geräteeinstellung notieren";
+    /* "blank" wie in exNoteBlock(), nicht "empty" - dafür gibt es keine Regel,
+       der Knopf behielte sonst die Optik einer gefüllten Notiz. */
+    lab.parentNode.className = "exnote" + (lv ? "" : " blank");
+  }
+};
+/* Dieselbe Notiz, nur aus der Übungsliste unter Daten statt aus dem Training */
+INPUT_ACTIONS.exnoteset = INPUT_ACTIONS.exnoteinput;
+
 document.addEventListener("input", function (ev) {
   var el = ev.target;
   var act = el.getAttribute ? el.getAttribute("data-act") : null;
-  if (act === "input") {
-    var inputField = el.getAttribute("data-f");
-    S[inputField] = el.value;
-    if (inputField === "reps" || inputField === "weight") {
-      S.source = "";
-      /* Beim Tippen kein komplettes render(), sonst verlöre das Feld den Fokus.
-         Nur die nun überholte Begründungszeile direkt entfernen. */
-      var suggestion = document.querySelector(".suggestion");
-      if (suggestion && suggestion.parentNode) suggestion.parentNode.removeChild(suggestion);
-    }
-  }
-  else if (act === "search") {
-    var cs = el.selectionStart;
-    S.search = el.value;
-    render();
-    var again = document.getElementById("searchEx");
-    if (again) {
-      again.focus();
-      var p2 = cs == null ? again.value.length : cs;
-      try { again.setSelectionRange(p2, p2); } catch (e2) {}
-    }
-  }
-  else if (act === "defedit") {
-    var df = el.getAttribute("data-f");
-    var dwhole = (df === "reps" || df === "sets");
-    var dval = dwhole ? parseInt(el.value,10) : deci(el.value);
-    if (!isNaN(dval) && dval >= (dwhole ? 1 : 0)) {
-      S.settings[df === "sets" ? "defSets" : df === "reps" ? "defReps" : "defWeight"] = dval;
-      persistKey(SET_KEY, S.settings);
-    }
-  }
-  else if (act === "weekgoaledit") {
-    var wgv = parseInt(el.value, 10);
-    if (!isNaN(wgv) && wgv >= 0) {
-      /* Ändert nur die aktuelle Zahl, noch keinen Log-Eintrag - das macht erst
-         der Knopf "Neues Wochenziel speichern" (weekgoalrestart), sonst würde
-         jeder Tastendruck einen eigenen Historien-Eintrag erzeugen. */
-      S.settings.weekGoals[el.getAttribute("data-v")] = wgv;
-      /* Kein render() hier (siehe unten bei "change"), also den Knopf von Hand
-         mitziehen statt die Seite neu aufzubauen. */
-      var wgBtn = document.querySelector('[data-act="weekgoalrestart"]');
-      if (wgBtn) wgBtn.disabled = !weekGoalPending();
-    }
-  }
-  else if (act === "pedit") {
-    var p = el.getAttribute("data-p"), i = parseInt(el.getAttribute("data-i"),10);
-    var f = el.getAttribute("data-f");
-    var whole = (f === "reps" || f === "sets");
-    var val = whole ? parseInt(el.value,10) : deci(el.value);
-    if (!isNaN(val) && S.plans[p] && S.plans[p][i]) {
-      S.plans[p][i][f] = Math.max(whole ? 1 : 0, val);
-    }
-  }
-  else if (act === "noteinput") {
-    if (el.value.trim()) S.notes[S.date] = el.value;
-    else delete S.notes[S.date];
-    persistKey(NOTES_KEY, S.notes);
-  }
-  else if (act === "exnoteinput" || act === "exnoteset") {
-    /* Kein render(), das würde das Feld beim Tippen unter dem Finger neu aufbauen.
-       Gesichert wird sofort, aber nur der eine Schlüssel, damit nicht bei jedem
-       Zeichen der gesamte Datenbestand serialisiert wird. */
-    setExNote(act === "exnoteinput" ? S.exercise : el.getAttribute("data-v"), el.value);
-    persistKey(EXMETA_KEY, S.exmeta);
-    /* Die Anzeigezeile darüber zieht von Hand mit, statt über einen Neuaufbau */
-    var lab = document.querySelector(".exnote > span");
-    if (lab && act === "exnoteinput") {
-      var lv = el.value.trim();
-      lab.textContent = lv || "Geräteeinstellung notieren";
-      /* "blank" wie in exNoteBlock(), nicht "empty" - dafür gibt es keine Regel,
-         der Knopf behielte sonst die Optik einer gefüllten Notiz. */
-      lab.parentNode.className = "exnote" + (lv ? "" : " blank");
-    }
-  }
-  else if (act === "hsearch") {
-    var ch = el.selectionStart;
-    S.hsearch = el.value;
-    render();
-    var hs = document.getElementById("histSearch");
-    if (hs) {
-      hs.focus();
-      var p3 = ch == null ? hs.value.length : ch;
-      try { hs.setSelectionRange(p3, p3); } catch (e3) {}
-    }
-  }
-  else if (el.id === "out") { S.out = el.value; }
+  var fn = act ? INPUT_ACTIONS[act] : null;
+  if (fn) fn(el, act);
+  /* Das Textfeld von "Als Text anzeigen" hat kein data-act, es ist das einzige
+     seiner Art und wird nur gelesen, siehe dataBackup(). */
+  else if (el.id === "out") S.out = el.value;
 });
 
 document.addEventListener("change", function (ev) {
