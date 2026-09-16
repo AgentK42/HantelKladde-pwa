@@ -615,6 +615,6 @@ wie oben, jeder als eigener Schritt, damit im Lauf steht, welcher gekippt ist.
 Die lokale Kette bleibt der erste Weg, weil sie in einer Minute Bescheid gibt;
 der Workflow ist die Sicherung dafür, dass sie nicht vergessen wird, und
 prüft auf einem Rechner, der nichts von der Sitzung weiß, in der geändert
-wurde. Ein Lauf braucht rund drei Minuten, das meiste davon ist das Laden von
-Chromium. Der Stand steht unter
+wurde. Ein Lauf braucht unter zwei Minuten: die Hälfte davon sind die
+Verhaltenstests, eine halbe Minute das Laden von Chromium. Der Stand steht unter
 [Actions](https://github.com/AgentK42/HantelKladde-pwa/actions/workflows/pruefkette.yml).

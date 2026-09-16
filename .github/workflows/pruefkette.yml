@@ -39,7 +39,7 @@ jobs:
           node-version: 22
       # Globale Installation wie in der README; die Skripte finden Playwright
       # über npm root -g. --with-deps holt die Systembibliotheken, die Chromium
-      # auf dem Runner braucht. Das ist der längste Schritt des Laufs.
+      # auf dem Runner braucht. Rund eine halbe Minute.
       - name: ESLint und Playwright
         run: |
           npm i -g eslint playwright
