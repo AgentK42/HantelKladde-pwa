@@ -475,13 +475,21 @@ Aufteilung.
 Drei Stellen gingen vorher auf. Der Rücken zählte aus Reverse Flys und Face
 Pulls zwei halbe Sätze mehr als die Brust (8 zu 10). Der Trizeps bekam aus
 jedem Drücken einen halben Satz dazu und stand mit zwei eigenen Übungen bei 8,
-der Bizeps bei 6, weil es als Bizepsübung nur Preachercurls gibt; Hammercurls
-zählen primär auf den Unterarm. Und der untere Rücken hatte im ganzen Zyklus
-keinen Satz, während der Bauch zwei hatte. Dagegen stehen jetzt drei Sätze
-Bankdrücken, je drei Sätze Preachercurls und Hammercurls, drei Sätze Romanian
-Deadlifts und Beincurls gegen Squats, Beinpresse und Beinstrecker, und der
-Lower Back Crunch am Beintag. Es bleibt bei 9 zu 10, 7,5 zu 8,5 und sonst
-gleich, also höchstens 11,8 Prozent.
+der Bizeps bei 6. Und der untere Rücken hatte im ganzen Zyklus keinen Satz,
+während der Bauch zwei hatte. Dagegen stehen jetzt drei Sätze Bankdrücken, drei
+Sätze Preachercurls, drei Sätze Romanian Deadlifts und Beincurls gegen Squats,
+Beinpresse und Beinstrecker, und der Lower Back Crunch am Beintag. Es bleibt
+bei 9 zu 10, 8 zu 8,5 und sonst gleich, also höchstens 10 Prozent.
+
+Zum Zählen des Bizeps gehört seit 1.30.8 auch der Hammercurl: er stand bis
+dahin mit dem Unterarm als Primärmuskel da, obwohl der neutrale Griff die
+Arbeit auf Brachialis und langen Kopf legt und der Unterarm nur mithält. Seit
+der Umstellung reichen dort zwei Sätze, vorher waren drei nötig. Die
+Zuordnung aus `MUSCLE_GROUPS` gilt vor `S.exmeta` und damit auch rückwirkend:
+schon gespeicherte Hammercurl-Sätze zählen ab dieser Fassung auf den Bizeps.
+Ebenfalls seit 1.30.8 steht Hipadduction im Beintag. Die Adduktoren haben
+keinen Gegenspieler in `MUSCLE_PAIRS`, am Verhältnis ändert das also nichts;
+vorher kamen sie im Zyklus nur über den halben Satz aus den Squats vor.
 
 Die Satzzahlen stehen in `DEFAULT_PLANS` deshalb als Zahl und nicht als
 `DEFAULT_SETS`: sie tragen das Verhältnis, ein geänderter Ausgangswert für neue

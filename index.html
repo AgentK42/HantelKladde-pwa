@@ -944,7 +944,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.30.7";
+var APP_VERSION = "1.30.8";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -1078,7 +1078,12 @@ var MUSCLE_GROUPS = {
   "Reverse Flys":            { primary:"Schulter hinten", secondary:["Rücken"] },
   "Latzug Maschine":         { primary:"Rücken",     secondary:["Bizeps"] },
   "Preachercurls":           { primary:"Bizeps",     secondary:["Unterarm"] },
-  "Hammercurls":             { primary:"Unterarm",   secondary:["Bizeps"] },
+  /* Seit 1.30.8 andersherum als davor: der neutrale Griff nimmt dem kurzen Kopf
+     Arbeit ab und legt sie auf den Brachialis und den langen Kopf, der Unterarm
+     hält mit, führt die Bewegung aber nicht. Als Unterarmübung gezählt fehlte
+     der Bizepsanteil in jeder Auswertung, auch rückwirkend: MUSCLE_GROUPS gilt
+     vor S.exmeta, gespeicherte Sätze zählen also ab sofort mit. */
+  "Hammercurls":             { primary:"Bizeps",     secondary:["Unterarm"] },
   "Rudern Maschine":         { primary:"Rücken",     secondary:["Bizeps", "Schulter hinten"] },
   "Kurzhantelrudern":        { primary:"Rücken",     secondary:["Bizeps", "Schulter hinten"] },
   "Face Pulls":              { primary:"Schulter hinten", secondary:["Rücken"] },
@@ -1171,24 +1176,26 @@ var DEFAULT_PLANS = {
     { name:"Dips", reps:8, weight:30, sets:2 },
     { name:"Schrägbankdrücken", reps:10, weight:30, sets:2 }
   ],
-  /* Je drei Sätze Curls: der Bizeps holt damit auf, was der Trizeps aus jedem
-     Drücken am Push Day als halben Satz mitbekommt. Hammercurls zählen primär
-     auf den Unterarm und nur halb auf den Bizeps, deshalb reichen sie allein
-     dafür nicht. */
+  /* Drei Sätze Preachercurls: der Bizeps holt damit auf, was der Trizeps aus
+     jedem Drücken am Push Day als halben Satz mitbekommt. Hammercurls zählen
+     seit 1.30.8 voll auf den Bizeps und stehen deshalb wieder bei zwei Sätzen,
+     vorher brauchte es dort drei. */
   "Pull Day": [
     { name:"Latzug Maschine", reps:10, weight:50, sets:2 },
     { name:"Rudern Maschine", reps:10, weight:45, sets:2 },
     { name:"Reverse Flys", reps:10, weight:50, sets:2 },
     { name:"Face Pulls", reps:12, weight:20, sets:2 },
     { name:"Preachercurls", reps:8, weight:40, sets:3 },
-    { name:"Hammercurls", reps:10, weight:28, sets:3 },
+    { name:"Hammercurls", reps:10, weight:28, sets:2 },
     { name:"Shrugs", reps:12, weight:40, sets:2 },
     { name:"Kurzhantelrudern", reps:10, weight:22.5, sets:2 }
   ],
   /* Quadrizeps und Beinbeuger stehen mit je 6 gleich, nachdem Romanian
      Deadlifts und Beincurls auf drei Sätze gehen. Der Lower Back Crunch kommt
      wegen des Bauchs dazu: ohne ihn hatte der untere Rücken im ganzen Zyklus
-     keinen Satz. */
+     keinen Satz. Hipadduction hat keinen Gegenspieler in MUSCLE_PAIRS und
+     verschiebt nichts; ohne sie kamen die Adduktoren im Zyklus nur über den
+     halben Satz aus den Squats vor. */
   "Leg Day (PPL)": [
     { name:"Squats", reps:10, weight:80, sets:2 },
     { name:"Beinpresse", reps:10, weight:100, sets:2 },
@@ -1196,6 +1203,7 @@ var DEFAULT_PLANS = {
     { name:"Beinstrecker", reps:10, weight:45, sets:2 },
     { name:"Beincurls", reps:10, weight:45, sets:3 },
     { name:"Hip Thrust", reps:10, weight:60, sets:2 },
+    { name:"Hipadduction", reps:10, weight:45, sets:2 },
     { name:"Wadenheben", reps:12, weight:60, sets:2 },
     { name:"Bauch Crunch", reps:10, weight:10, sets:2 },
     { name:"Lower Back Crunch", reps:10, weight:102.5, sets:2 }
