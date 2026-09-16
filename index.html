@@ -376,6 +376,10 @@ textarea.note { width:100%; margin-top:8px; padding:11px 12px; border-radius:13p
 .fx-body { flex:1 1 auto; min-height:0; overflow-y:auto; padding:0 20px;
   overscroll-behavior:contain; }
 .fx-body.pad { padding-top:2px; }
+/* Der Verlaufsblock schließt die Karte im Fokus ab, siehe exHistBlock(). Ohne
+   den Abstand stößt seine untere Kante beim Scrollen bis ans Ende direkt an die
+   Trennlinie des Fußes. */
+.fx-body > .planhead:last-child, .fx-body > .exhist:last-child { margin-bottom:12px; }
 .fx-blank { padding:20px 0; text-align:center; }
 .fx-blank .save { margin-top:16px; }
 .fx-foot { flex:0 0 auto; position:relative; padding:10px 20px
@@ -940,7 +944,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.30.5";
+var APP_VERSION = "1.30.6";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -1179,7 +1183,7 @@ var DEFAULT_SETTINGS = {
   defSets: DEFAULT_SETS, defReps: 10, defWeight: 20, descOpen: {}, wrapNames: false,
   weekGoals: {}, weekGoalLog: {}, repFirst: true,
   repFirstThresh: 0.05, repSpan: 2, notifySignal: true, vibeLong: false,
-  exHist: true,
+  exHist: true, focusHist: true,
   /* Planung: Tag (ISO) auf Planname, siehe planDaysBlock(). In den Einstellungen,
      damit es ins Backup kommt; der Entwurf daneben bleibt außen vor, siehe DRAFT_KEY. */
   planDays: {}
@@ -1199,7 +1203,7 @@ var DEFAULT_SETTINGS = {
    (Zahl ab null); names (Liste von Strings). */
 var SETTING_FIELDS = {
   autoRest:"bool", autoProgress:"bool", repFirst:"bool", focusPlates:"bool",
-  wrapNames:"bool", exHist:"bool", notifySignal:"bool", vibeLong:"bool",
+  wrapNames:"bool", exHist:"bool", focusHist:"bool", notifySignal:"bool", vibeLong:"bool",
   rest:"positive", repFirstThresh:"positive", barWeight:"positive",
   repSpan:"count", defSets:"count", defReps:"count",
   defWeight:"amount",
@@ -4374,10 +4378,16 @@ function exNoteBlock() {
 
    Der aufgeklappte Zustand hängt wie die Notiz (S.exNoteFor) an der Übung und
    nicht an einem eigenen Schalter: beim Wechsel der Übung klappt der Block
-   deshalb von selbst wieder zu und ist kein Teil des Backups. Abschaltbar unter
-   Daten, siehe S.settings.exHist. */
+   deshalb von selbst wieder zu und ist kein Teil des Backups.
+
+   Derselbe Block steht seit 1.30.6 auch im Fokus-Modus, dort unten in der Karte
+   unter der Eingabe, siehe focusHero(). Abgeschaltet wird er getrennt: exHist
+   gilt für den Trainingsreiter, focusHist für den Fokus. Im Fokus ist der Platz
+   knapper, ein gemeinsamer Schalter würde die eine Entscheidung für beide
+   Ansichten treffen. */
 function exHistBlock() {
-  if (!S.settings.exHist || !S.exercise) return "";
+  /* focusHero() baut nur bei S.focus auf, damit ist der Schalter eindeutig. */
+  if (!(S.focus ? S.settings.focusHist : S.settings.exHist) || !S.exercise) return "";
   var days = lastDaysOf(S.exercise, S.date, 3);
   if (!days.length) return "";
   var open = S.exHistFor === S.exercise;
@@ -4528,7 +4538,10 @@ function focusHero() {
           return '<button data-act="warmpick" data-i="' + ri + '">' + num(r.weight) +
             ' kg <s>&times;' + r.reps + '</s></button>';
         }).join("") + '</div>'
-      : "");
+      : "") +
+    /* Ganz unten, damit Gewicht und Reps oben stehen bleiben: der Verlauf ist
+       zum Nachsehen da, nicht zum Eingeben, siehe exHistBlock(). */
+    exHistBlock();
 }
 /* Der Fuß: Abschluss-Nachfrage oder Meldung, Schnell-Rückgängig, Speichern und
    darunter links der Rückweg (Aufwärmen, andere Übung), rechts der Weg weiter. */
@@ -6238,9 +6251,13 @@ function dataFocus() {
     descText("fokus", '<p>Der Fokus-Modus blendet Reiter, Wochenstreifen und Planliste ' +
       'aus und zeigt nur die gerade gewählte Übung, über „Fokus Mode starten" bei einem ' +
       'gewählten Plan. Scheibenrechner und Aufwärmrampe stehen dort standardmäßig nicht ' +
-      'mit da, weil sie schnell wieder überladen wirken.</p>') +
+      'mit da, weil sie schnell wieder überladen wirken. Der Verlauf der gewählten ' +
+      'Übung sitzt im Fokus unten in der Karte und lässt sich hier getrennt vom ' +
+      'Trainingsreiter abschalten.</p>') +
     '<button class="open" data-act="focusplates">Scheibenrechner und Warmup im ' +
-    'Fokus-Modus: ' + (S.settings.focusPlates ? "an" : "aus") + '</button></div>';
+    'Fokus-Modus: ' + (S.settings.focusPlates ? "an" : "aus") + '</button>' +
+    '<button class="open" data-act="focushisttoggle">Verlauf dieser Übung im ' +
+    'Fokus-Modus: ' + (S.settings.focusHist ? "an" : "aus") + '</button></div>';
 }
 /* Langhantel */
 function dataBarbell() {
@@ -7640,6 +7657,9 @@ ACTIONS.exhisttoggle = function () {
 };
 ACTIONS.focusplates = function () {
   S.settings.focusPlates = !S.settings.focusPlates; persist();
+};
+ACTIONS.focushisttoggle = function () {
+  S.settings.focusHist = !S.settings.focusHist; persist();
 };
 ACTIONS.volrange = function (v) { S.volRange = parseInt(v, 10); };
 ACTIONS.volmode = function (v) { S.volMode = v; };

@@ -12,19 +12,21 @@ suite(async ({ open, check }) => {
     var extra=Object.keys(SETTING_FIELDS).filter(k=>!(k in DEFAULT_SETTINGS));
     return { n:Object.keys(SETTING_FIELDS).length, missing, extra };
   });
-  check("SETTING_FIELDS nennt alle 18 Einzelfelder", cover.n===18 && !cover.missing.length && !cover.extra.length, JSON.stringify(cover));
+  check("SETTING_FIELDS nennt alle 19 Einzelfelder", cover.n===19 && !cover.missing.length && !cover.extra.length, JSON.stringify(cover));
 
   // 2. Laden: gueltige Werte kommen an, ungueltige behalten den Ausgangswert
   const stored = { rest:120, autoRest:false, hiddenPlans:["Push Day", 7, null], repSpan:3,
     repFirstThresh:0.08, barWeight:15, defSets:3, defReps:8, defWeight:0, notifySignal:false,
-    vibeLong:true, exHist:false, wrapNames:true, focusPlates:true, autoProgress:false, repFirst:false,
+    vibeLong:true, exHist:false, focusHist:false, wrapNames:true, focusPlates:true,
+    autoProgress:false, repFirst:false,
     lockedPlans:["Pull Day"], hiddenEx:["Flys"] };
   await p.evaluate((st)=>{ localStorage.setItem("kraftlog:settings", JSON.stringify(st)); }, stored);
   await p.reload({waitUntil:"load"}); await p.waitForTimeout(300);
   const got = await p.evaluate(()=>JSON.parse(JSON.stringify(S.settings)));
   check("Laden: jedes Einzelfeld kommt an", got.rest===120 && got.autoRest===false && got.repSpan===3 &&
     got.repFirstThresh===0.08 && got.barWeight===15 && got.defSets===3 && got.defReps===8 && got.defWeight===0 &&
-    got.notifySignal===false && got.vibeLong===true && got.exHist===false && got.wrapNames===true &&
+    got.notifySignal===false && got.vibeLong===true && got.exHist===false &&
+    got.focusHist===false && got.wrapNames===true &&
     got.focusPlates===true && got.autoProgress===false && got.repFirst===false &&
     got.lockedPlans.join()==="Pull Day" && got.hiddenEx.join()==="Flys", JSON.stringify(got).slice(0,200));
   check("Laden: fremde Einträge in einer Namensliste werden ausgesiebt", got.hiddenPlans.join()==="Push Day");
@@ -55,7 +57,7 @@ suite(async ({ open, check }) => {
   // Der bis 1.30.2 offene Fall: die Signal-Einstellungen kamen nicht durch den Import
   check("Import: notifySignal und vibeLong kommen durch",
     await p.evaluate(()=>{ var o=cleanSettings({ notifySignal:false, vibeLong:true }); return o.notifySignal===false && o.vibeLong===true; }));
-  check("Import: alle 18 Felder gehen durch, wenn sie stimmen", await p.evaluate(()=>{
+  check("Import: alle 19 Felder gehen durch, wenn sie stimmen", await p.evaluate(()=>{
     var o=cleanSettings(JSON.parse(JSON.stringify(DEFAULT_SETTINGS)));
     return Object.keys(SETTING_FIELDS).every(function(k){ return k in o; });
   }));

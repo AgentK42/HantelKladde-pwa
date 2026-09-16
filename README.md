@@ -306,6 +306,15 @@ Der Trainingsreiter ist genauso zerlegt: `tagHeader()`, `planChooser()`,
 `focusFoot()` den Fuß mit Speichern, und `focusRightButton()` entscheidet
 allein, welcher Weg weiter rechts unten steht.
 
+Der Block "Verlauf dieser Übung" (`exHistBlock()`, die letzten drei früheren
+Einheiten mit ihren Arbeitssätzen) steht seit 1.30.6 in beiden Ansichten, im
+Fokus ganz unten in der Karte, damit Gewicht und Reps oben stehen bleiben.
+Aufgeklappt wird er je Übung gemerkt (`S.exHistFor`), nicht je Ansicht, also
+gilt eine Entscheidung dort für beide. Abgeschaltet wird er dagegen getrennt:
+`exHist` für den Trainingsreiter, `focusHist` für den Fokus. Im Fokus ist der
+Platz knapper, und wer ihn dort weghaben will, will ihn im Trainingsreiter
+meist behalten.
+
 Zwei Abschnitte sind lang und starten deshalb zugeklappt, die Übungen mit allen
 Gruppen und die Muskelgruppen mit jeder Übung einzeln. Zusammen machen sie den
 Reiter doppelt so lang: 4757 statt 2386 Pixel. Der Zustand liegt in `S.secOpen`
@@ -586,7 +595,7 @@ Das Verhalten der App selbst, also das, was man sieht und tippt, prüfen die
 Suiten unter `tools/tests/`, je Thema eine Datei und nach den Abschnitten dieser
 README benannt: `pause`, `aufwaermen`, `rekorde`, `planung`, `wochen-trennen`,
 `wochenstreifen`, `vorwahl`, `plan-kopie`, `volumen`, `einstellungen`,
-`eingaben`, `farbschema`. Jede Suite fährt in Chromium einen Ablauf gegen die
+`eingaben`, `farbschema`, `uebungsverlauf`. Jede Suite fährt in Chromium einen Ablauf gegen die
 echte `index.html` und prüft Zustand, Speicher und Oberfläche: dass ein
 Aufwärmsatz ohne RPE gespeichert wird, dass ein Import eine Pause von 100 s im
 Auswahlfeld zeigt, dass die Suche nach dem Neuaufbau den Fokus behält. Die
