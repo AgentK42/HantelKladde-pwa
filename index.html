@@ -944,7 +944,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.30.8";
+var APP_VERSION = "1.30.9";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -1134,6 +1134,14 @@ function muscleOf(name) {
    Ausgangswert würde es verschieben. Wer hier etwas ändert, prüft es mit der
    Suite plan-mix.
 
+   Die Reihenfolge innerhalb eines Plans folgt seit 1.30.9 zwei harten Regeln
+   und einer Rangfolge. Hart: zwei Übungen mit demselben Primärmuskel stehen nie
+   nebeneinander, und der Rumpf steht am Schluss, weil ein müder Rumpf unter
+   jeder schweren Übung davor fehlt. Dazu die Rangfolge mehrgelenkig und schwer,
+   dann Isolation, dann kleine Muskeln und Korrektives: was vorn steht, wird mit
+   den meisten Wiederholungen und der höchsten Last trainiert, und genau dort
+   fallen die Zuwächse am größten aus. Beides prüft plan-mix mit.
+
    Das Verhältnis kam vorher aus der Summe der Übungen und ging an drei Stellen
    auf: der Rücken bekam aus Reverse Flys und Face Pulls zwei halbe Sätze
    zusätzlich, der Trizeps aus jedem Drücken einen halben, und der untere Rücken
@@ -1163,18 +1171,23 @@ var DEFAULT_PLANS = {
     { name:"Hipabduction", reps:10, weight:45, sets:DEFAULT_SETS },
     { name:"Wadenheben", reps:12, weight:60, sets:DEFAULT_SETS }
   ],
-  /* Brust 9 zu Rücken 10, Trizeps 8,5 zu Bizeps 7,5, Schulter vorn 6,5 zu
+  /* Brust 9 zu Rücken 10, Trizeps 8,5 zu Bizeps 8, Schulter vorn 6,5 zu
      hinten 6: drei Sätze Bankdrücken heben die Brust gegen den Rücken, der aus
-     Reverse Flys und Face Pulls mitzählt. */
+     Reverse Flys und Face Pulls mitzählt.
+
+     Vier Brustübungen auf acht Plätzen lassen nur eine Reihenfolge zu, in der
+     nie zwei davon nebeneinander stehen: Brust auf den ungeraden Plätzen, alles
+     andere dazwischen. Innerhalb der Brust geht es von schwer nach leicht, die
+     beiden Trizepsübungen stehen dadurch von selbst auseinander. */
   "Push Day": [
     { name:"Benchpress Maschine", reps:10, weight:40, sets:3 },
     { name:"Shoulderpress Maschine", reps:10, weight:30, sets:2 },
-    { name:"Flys", reps:10, weight:65, sets:2 },
+    { name:"Schrägbankdrücken", reps:10, weight:30, sets:2 },
     { name:"Seitheben", reps:12, weight:10, sets:2 },
-    { name:"Trizeps", reps:10, weight:21.25, sets:2 },
-    { name:"Trizepsdrücken über Kopf", reps:10, weight:20, sets:2 },
     { name:"Dips", reps:8, weight:30, sets:2 },
-    { name:"Schrägbankdrücken", reps:10, weight:30, sets:2 }
+    { name:"Trizeps", reps:10, weight:21.25, sets:2 },
+    { name:"Flys", reps:10, weight:65, sets:2 },
+    { name:"Trizepsdrücken über Kopf", reps:10, weight:20, sets:2 }
   ],
   /* Drei Sätze Preachercurls: der Bizeps holt damit auf, was der Trizeps aus
      jedem Drücken am Push Day als halben Satz mitbekommt. Hammercurls zählen
@@ -1182,27 +1195,30 @@ var DEFAULT_PLANS = {
      vorher brauchte es dort drei. */
   "Pull Day": [
     { name:"Latzug Maschine", reps:10, weight:50, sets:2 },
-    { name:"Rudern Maschine", reps:10, weight:45, sets:2 },
     { name:"Reverse Flys", reps:10, weight:50, sets:2 },
-    { name:"Face Pulls", reps:12, weight:20, sets:2 },
+    { name:"Rudern Maschine", reps:10, weight:45, sets:2 },
     { name:"Preachercurls", reps:8, weight:40, sets:3 },
+    { name:"Kurzhantelrudern", reps:10, weight:22.5, sets:2 },
     { name:"Hammercurls", reps:10, weight:28, sets:2 },
     { name:"Shrugs", reps:12, weight:40, sets:2 },
-    { name:"Kurzhantelrudern", reps:10, weight:22.5, sets:2 }
+    { name:"Face Pulls", reps:12, weight:20, sets:2 }
   ],
   /* Quadrizeps und Beinbeuger stehen mit je 6 gleich, nachdem Romanian
      Deadlifts und Beincurls auf drei Sätze gehen. Der Lower Back Crunch kommt
      wegen des Bauchs dazu: ohne ihn hatte der untere Rücken im ganzen Zyklus
      keinen Satz. Hipadduction hat keinen Gegenspieler in MUSCLE_PAIRS und
      verschiebt nichts; ohne sie kamen die Adduktoren im Zyklus nur über den
-     halben Satz aus den Squats vor. */
+     halben Satz aus den Squats vor. Hip Thrust ist seit 1.30.9 raus: das Gesäß
+     hat ebenfalls keinen Gegenspieler und bekommt aus Squats, Beinpresse und
+     Romanian Deadlifts weiter dreieinhalb Sätze. Quadrizeps und Beinbeuger
+     wechseln sich hier Platz für Platz ab, der Beintag ist der einzige Plan,
+     an dem das ohne Zugeständnis aufgeht. */
   "Leg Day (PPL)": [
     { name:"Squats", reps:10, weight:80, sets:2 },
-    { name:"Beinpresse", reps:10, weight:100, sets:2 },
     { name:"Romanian Deadlifts", reps:10, weight:60, sets:3 },
-    { name:"Beinstrecker", reps:10, weight:45, sets:2 },
+    { name:"Beinpresse", reps:10, weight:100, sets:2 },
     { name:"Beincurls", reps:10, weight:45, sets:3 },
-    { name:"Hip Thrust", reps:10, weight:60, sets:2 },
+    { name:"Beinstrecker", reps:10, weight:45, sets:2 },
     { name:"Hipadduction", reps:10, weight:45, sets:2 },
     { name:"Wadenheben", reps:12, weight:60, sets:2 },
     { name:"Bauch Crunch", reps:10, weight:10, sets:2 },

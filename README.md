@@ -489,7 +489,32 @@ Zuordnung aus `MUSCLE_GROUPS` gilt vor `S.exmeta` und damit auch rückwirkend:
 schon gespeicherte Hammercurl-Sätze zählen ab dieser Fassung auf den Bizeps.
 Ebenfalls seit 1.30.8 steht Hipadduction im Beintag. Die Adduktoren haben
 keinen Gegenspieler in `MUSCLE_PAIRS`, am Verhältnis ändert das also nichts;
-vorher kamen sie im Zyklus nur über den halben Satz aus den Squats vor.
+vorher kamen sie im Zyklus nur über den halben Satz aus den Squats vor. Hip
+Thrust ist seit 1.30.9 raus, das Gesäß hat ebenfalls keinen Gegenspieler und
+bekommt aus Squats, Beinpresse und Romanian Deadlifts weiter dreieinhalb Sätze.
+
+### Reihenfolge innerhalb eines Plans
+
+Zwei harte Regeln und eine Rangfolge, seit 1.30.9:
+
+- Zwei Übungen mit demselben Primärmuskel stehen nie nebeneinander. Am Push Day
+  trennt das die beiden Trizepsübungen, am Pull Day die beiden Curls.
+- Der Rumpf steht am Schluss. Ein müder Rumpf fehlt unter jeder schweren Übung,
+  die davor käme.
+- Rangfolge: mehrgelenkig und schwer, dann Isolation, dann kleine Muskeln und
+  Korrektives. Grundlage ist der Befund, dass die Wiederholungszahl über eine
+  Einheit hinweg fällt und die Kraftzuwächse bei der Übung am größten ausfallen,
+  die vorn steht (ACSM 2009; Simao et al. 2012; Nunes et al. 2021). Das Wechseln
+  zwischen entfernten oder gegenspielenden Gruppen kostet dabei nichts und
+  erlaubt eher kürzere Pausen (Metaanalyse zu Supersätzen, 2025).
+
+Die drei Reihenfolgen sind nicht von Hand gesetzt, sondern über alle
+Permutationen gesucht: beide harten Regeln als Filter, danach die wenigsten
+Verstöße gegen die Rangfolge und die geringste Überschneidung über
+Sekundärmuskeln. Am Push Day und am Pull Day gibt es je vier Übungen derselben
+Gruppe (Brust, Rücken) auf acht Plätzen, dort ist die abwechselnde Form die
+einzig mögliche: die große Gruppe auf den ungeraden Plätzen, alles andere
+dazwischen. Die beiden harten Regeln prüft die Suite `plan-mix` mit.
 
 Die Satzzahlen stehen in `DEFAULT_PLANS` deshalb als Zahl und nicht als
 `DEFAULT_SETS`: sie tragen das Verhältnis, ein geänderter Ausgangswert für neue
