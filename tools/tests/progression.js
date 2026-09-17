@@ -11,24 +11,27 @@ suite(async ({ open, check }) => {
   /* Flys: Schrittweite 3,75 kg, bei 65 kg greift die Rep-zuerst-Regel (3,75/65 > 5 %),
      Planziel 2x10 gibt die Range 8 bis 12. Die Einheiten liegen 3, 6 und 9 Tage zurück. */
   await p.evaluate(() => {
-    window.seed = function (list) {
+    /* cfg wählt Übung und Planziel; ohne cfg Flys 2x10 bei 65 kg. */
+    window.seed = function (list, cfg) {
+      cfg = cfg || { name:"Flys", sets:2, reps:10, weight:65 };
       var entries = [], i = 0;
       list.forEach(function (s, si) {
         var d = shiftISO(todayISO(), -(s.ago != null ? s.ago : 3 * (si + 1)));
         s.r.forEach(function (r, k) {
-          entries.push({ id:"e" + (i++), date:d, exercise:"Flys", set:k + 1, weight:s.w,
+          entries.push({ id:"e" + (i++), date:d, exercise:cfg.name, set:k + 1, weight:s.w,
             reps:r, rpe:s.rpe == null ? null : s.rpe, ts:Date.parse(d + "T10:00:00") + k * 60000 });
         });
       });
-      S.entries = entries; S.plans = { T:[{ name:"Flys", sets:2, reps:10, weight:65 }] };
-      S.plan = "T"; S.exercise = "Flys"; S.date = todayISO(); S.view = "tag";
+      S.entries = entries;
+      S.plans = { T:[{ name:cfg.name, sets:cfg.sets, reps:cfg.reps, weight:cfg.weight }] };
+      S.plan = "T"; S.exercise = cfg.name; S.date = todayISO(); S.view = "tag";
       S.settings.autoProgress = true; S.settings.repFirst = true; S.settings.repSpan = 2;
       S.suggestionHandled = {}; S.source = "";
       persist(); render();
-      return suggestFor("Flys");
+      return suggestFor(cfg.name);
     };
   });
-  const run = (list) => p.evaluate((l) => window.seed(l), list);
+  const run = (list, cfg) => p.evaluate((a) => window.seed(a[0], a[1]), [list, cfg]);
 
   // 1. Das Beispiel aus dem Issue: 8x und 6x bei Range ab 8 ist keine Steigerung
   let s = await run([{ w:65, r:[8,6] }, { w:65, r:[10,10] }]);
@@ -98,6 +101,23 @@ suite(async ({ open, check }) => {
   await p.evaluate(() => { applySuggestion("Flys"); render(); });
   await p.click('[data-act="suggestreject"]'); await p.waitForTimeout(150);
   check("Verwerfen behält 65 kg", await p.evaluate(() => S.weight === "65" && S.plans.T[0].weight === 65));
+
+  // 13. Ohne Range (Squats, 2,5 kg auf 100 kg liegt unter der Schwelle): das Planziel
+  // ist der Rand, dieselbe Regel wie mit Range
+  const sq = { name:"Squats", sets:3, reps:5, weight:100 };
+  const step = await p.evaluate(() => stepOf("Squats"));
+  check("Squats bei 100 kg haben keine Range", await p.evaluate(() => repRange("Squats", 100) === null));
+  s = await run([{ w:100, r:[5,5,4] }, { w:100, r:[5,5,5] }], sq);
+  check("ohne Range, erste verfehlte Einheit: Planziel bleibt, Hinweis", s.reps === 5 && s.weight === 100 && !s.up && /4x/.test(s.hint) && /Ziel 5x/.test(s.hint), JSON.stringify(s));
+  s = await run([{ w:100, r:[5,5,4] }, { w:100, r:[5,4,4] }], sq);
+  check("ohne Range, zweite in Folge: eine Schrittweite weniger", s.weight === 100 - step && s.reps === 5 && s.up === true, JSON.stringify(s));
+  check("ohne Range: Begründung nennt das Ziel", /Ziel 5x in 2 Einheiten verfehlt/.test(s.why), s.why);
+  s = await run([{ w:100, r:[5,5,4], rpe:7 }, { w:100, r:[5,4,4], rpe:7 }], sq);
+  check("ohne Range, nicht ausbelastet: nur der Hinweis", s.weight === 100 && !!s.hint, JSON.stringify(s));
+  s = await run([{ w:100, r:[5,5] }, { w:100, r:[5,5,5] }], sq);
+  check("ohne Range, abgebrochene Einheit: Planziel, kein Hinweis", s.reps === 5 && !s.hint && !s.up, JSON.stringify(s));
+  s = await run([{ w:100, r:[5,5,5] }, { w:100, r:[5,5,5] }, { w:100, r:[5,5,5] }], sq);
+  check("ohne Range, Ziel geschafft: Gewichtssprung wie zuvor", s.weight > 100 && s.up === true, JSON.stringify(s));
 
   // 12. Steht heute schon ein Satz, gibt es weder Hinweis noch Vorschlag
   await run([{ w:65, r:[8,8], ago:0 }, { w:65, r:[8,6], ago:3 }, { w:65, r:[7,6], ago:6 }]);

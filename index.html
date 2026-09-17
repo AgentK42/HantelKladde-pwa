@@ -959,7 +959,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.33.5";
+var APP_VERSION = "1.34.0";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -2316,8 +2316,16 @@ function suggestFor(name) {
    letzte über der Lint-Schwelle war. */
 function suggestWithinRange(name, base, block, rng, goalSets, goalReps) {
   var low = block.low, avg = block.avg;
-  if (!rng) { base.reps = goalReps; return base; }
-  if (block.complete && low < rng.lo) return suggestBelowRange(name, base, block, rng, goalSets);
+  /* Ohne Range ist das Planziel der Rand. Bis 1.33.5 kam hier nach einer
+     verfehlten Einheit einfach wieder das Planziel, beliebig oft, dieselbe Lücke
+     wie mit Range (Issue 2), nur bei den schweren Übungen, deren Schritt unter
+     der Rep-zuerst-Schwelle liegt. Seit 1.34.0 gilt dieselbe Regel. */
+  if (!rng) {
+    if (block.complete && low < goalReps) return suggestBelowRange(name, base, block, null, goalSets, goalReps);
+    base.reps = goalReps;
+    return base;
+  }
+  if (block.complete && low < rng.lo) return suggestBelowRange(name, base, block, rng, goalSets, goalReps);
   /* Nah am Muskelversagen kommt auch keine Wiederholung obendrauf, dieselbe
      Grenze wie beim Gewicht in suggestFor(). Der Vorschlag bleibt dann stehen. */
   if (avg != null && avg >= 9) {
@@ -2359,24 +2367,30 @@ function suggestWithinRange(name, base, block, rng, goalSets, goalReps) {
    Schrittweite weniger, mit Annehmen und Verwerfen. Das folgt der Autoregulation
    nach Leistung (APRE, Mann u.a. 2010: weniger Wiederholungen als das Ziel senken
    die Last), mit derselben Trägheit, die eine Steigerung hier braucht: zwei
-   Einheiten. Eine Schrittweite reicht, weil die Range nur dort greift, wo ein
-   Schritt schon mehr als repFirstThresh des Gewichts ist. Waren die Einheiten
-   nicht ausbelastet (RPE bis 7), fehlt der Grund für weniger Last, dann bleibt
-   es beim Hinweis. */
-function suggestBelowRange(name, base, block, rng, goalSets) {
+   Einheiten. Eine Schrittweite reicht: mit Range greift sie nur dort, wo ein
+   Schritt schon mehr als repFirstThresh des Gewichts ist, und ohne Range liegt
+   ein Schritt von 2,5 kg auf 100 kg in der Spanne, die APRE senkt. Waren die
+   Einheiten nicht ausbelastet (RPE bis 7), fehlt der Grund für weniger Last,
+   dann bleibt es beim Hinweis.
+
+   Seit 1.34.0 auch ohne Range: dann ist das Planziel der Rand (rng null,
+   goalReps das Ziel), der Text nennt "Ziel 5x" statt "ab 8x". */
+function suggestBelowRange(name, base, block, rng, goalSets, goalReps) {
   var step = stepOf(name);
-  var streak = missStreak(name, goalSets, block.weight, rng.lo);
+  var lo = rng ? rng.lo : goalReps;
+  var target = rng ? "ab " + lo : String(lo);
+  var streak = missStreak(name, goalSets, block.weight, lo);
   var lowNote = "schwächster Satz " + block.low + "x" +
     (block.lowRpe != null ? " @ RPE " + num(block.lowRpe) : "");
-  base.reps = rng.lo;
+  base.reps = lo;
   if (streak.n >= 2 && streak.hard && block.weight - step > 0) {
     base.weight = Math.round((block.weight - step) * 100) / 100;
     base.up = true;
-    base.why = "-" + num(step) + " kg, Range ab " + rng.lo + " in " + streak.n +
-      " Einheiten verfehlt, " + lowNote;
+    base.why = "-" + num(step) + " kg, " + (rng ? "Range ab " + lo : "Ziel " + lo + "x") +
+      " in " + streak.n + " Einheiten verfehlt, " + lowNote;
     return base;
   }
-  base.hint = lowNote + ", Ziel ab " + rng.lo + "x";
+  base.hint = lowNote + ", Ziel " + target + "x";
   return base;
 }
 /* Wie viele Einheiten in Folge, die jüngste zuerst, haben am Gewicht w den

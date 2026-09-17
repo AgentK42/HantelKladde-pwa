@@ -270,6 +270,16 @@ jüngste zuerst, bis zur ersten, die den Rand erreicht hat oder anders schwer wa
 Eine abgebrochene Einheit mit weniger Sätzen zählt nicht, für sie gilt weiter der
 alte Weg ohne Hinweis.
 
+Seit 1.34.0 gilt dieselbe Regel auch ohne Range, also bei den schweren Übungen,
+deren Schrittweite unter der Rep-zuerst-Schwelle liegt (2,5 kg auf 100 kg
+Kniebeuge), und überall, wenn die Rep-zuerst-Regel aus ist. Dort ist das
+Planziel der Rand: eine vollständige Einheit unter dem Ziel bringt den Hinweis
+*Zurück in die Range, schwächster Satz 4x, Ziel 5x*, die zweite in Folge am
+selben Gewicht den Vorschlag eine Schrittweite weniger. Vorher kam nach einer
+verfehlten Einheit einfach wieder das Planziel, beliebig oft. Eine Schrittweite
+von 2,5 kg auf 100 kg liegt in der Spanne, die APRE nach einem verfehlten Ziel
+senkt.
+
 ## Signal am Ende der Pause
 
 Drei Wege, je nachdem, wo die App steht.
