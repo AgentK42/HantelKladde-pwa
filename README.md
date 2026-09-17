@@ -383,6 +383,12 @@ gerechnet wird ausschließlich mit Muskelgruppen, weil die alles liefern, was di
 Kategorie lieferte, und feiner. Festgelegt wird die Kategorie beim Anlegen einer
 eigenen Übung; danach hängt sie am Namen.
 
+Die Schwelle der Rep-zuerst-Regel (`repFirstThresh`, fünf Prozent) hat seit
+1.33.3 keine Knöpfe mehr. Sie entscheidet, ab welchem Verhältnis von
+Schrittweite zu Gewicht erst die Wiederholungen steigen, ein Parameter, den
+niemand in Schritten von 0,5 Prozent mit Gewinn verstellt. Das Feld bleibt im
+Backup und in `SETTING_FIELDS`, ein alter Wert gilt weiter.
+
 Zwei Abschnitte sind lang und starten deshalb zugeklappt, die Übungen mit allen
 Gruppen und die Muskelgruppen mit jeder Übung einzeln. Zusammen machen sie den
 Reiter doppelt so lang: 4757 statt 2386 Pixel. Der Zustand liegt in `S.secOpen`

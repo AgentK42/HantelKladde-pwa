@@ -961,7 +961,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.33.2";
+var APP_VERSION = "1.33.3";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -6263,11 +6263,9 @@ function dataProgression() {
       'direkt das Gewicht anhebt. Ab RPE 9 kommt auch keine Rep dazu.</p>') +
     '<button class="open" data-act="repfirst">Erst Reps steigern: ' +
     (S.settings.repFirst ? "an" : "aus") + '</button>' +
-    '<div class="tools" style="margin-top:10px">' +
-    '<button data-act="repthresh" data-d="-0.5">0,5 % weniger</button>' +
-    '<button data-act="repthresh" data-d="0.5">0,5 % mehr</button></div>' +
-    '<p style="margin-top:10px">Grenze aktuell ' + num(S.settings.repFirstThresh * 100) +
-    ' Prozent.</p>' +
+    /* Die Schwelle (repFirstThresh, fünf Prozent) hatte bis 1.33.2 zwei Knöpfe
+       "0,5 % weniger" und "0,5 % mehr". Ein Expertenparameter, den niemand mit
+       Gewinn verstellt; das Feld bleibt im Backup, die Knöpfe sind weg. */
     '<div class="tools" style="margin-top:10px">' +
     '<button data-act="repspan" data-d="-1">Range schmaler</button>' +
     '<button data-act="repspan" data-d="1">Range breiter</button></div>' +
@@ -7659,15 +7657,6 @@ ACTIONS.install = function () { runInstall(); };
 ACTIONS.swupdate = function () { applyUpdate(); return false; };
 ACTIONS.autoprog = function () { S.settings.autoProgress = !S.settings.autoProgress; persist(); };
 ACTIONS.repfirst = function () { S.settings.repFirst = !S.settings.repFirst; persist(); };
-ACTIONS.repthresh = function (v, el) {
-  /* In Prozentpunkten rechnen und erst am Ende durch 100 teilen, sonst
-     akkumuliert sich durch die 0,5-Schritte binärer Rundungsfehler in der
-     gespeicherten Bruchzahl. */
-  var pctNow = Math.round(S.settings.repFirstThresh * 1000) / 10;
-  var pctNext = Math.max(1, Math.min(25, pctNow + parseFloat(el.getAttribute("data-d"))));
-  S.settings.repFirstThresh = Math.round(pctNext * 10) / 1000;
-  persist();
-};
 ACTIONS.repspan = function (v, el) {
   S.settings.repSpan = Math.max(1, Math.min(5,
     S.settings.repSpan + parseInt(el.getAttribute("data-d"), 10)));
