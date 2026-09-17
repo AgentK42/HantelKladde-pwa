@@ -961,7 +961,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.33.3";
+var APP_VERSION = "1.33.4";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -6110,9 +6110,20 @@ function dataBackup() {
         'andere App, etwa an eine Cloud, eine Notiz oder einen Chat">' +
         'Backup teilen</button>'
       : "") +
-    '<button data-act="loadfile">Backup laden</button>' +
-    '<button data-act="dlcsv">CSV speichern</button>' +
-    '<button data-act="showtext">Als Text anzeigen</button></div>' +
+    '<button data-act="loadfile">Backup laden</button></div>' +
+    /* CSV und Textfeld sind seit 1.33.4 zugeklappt: vier Wege für dieselben Daten
+       nebeneinander ließen den einen wichtigen, das Backup, untergehen. Der
+       Textweg bleibt als Ausweg für Browser ohne Dateidialog, CSV für die
+       Auswertung außerhalb. Zustand in S.secOpen wie bei den langen Abschnitten,
+       bei jedem Besuch wieder zu. */
+    '<p style="margin-top:8px;text-align:left"><button class="linklike" data-act="secfold" ' +
+    'data-v="backupmore" aria-expanded="' + (secOpen("backupmore") ? "true" : "false") +
+    '">Weitere Wege: CSV und Text</button></p>' +
+    (secOpen("backupmore")
+      ? '<div class="tools" style="margin-top:8px">' +
+        '<button data-act="dlcsv">CSV speichern</button>' +
+        '<button data-act="showtext">Als Text anzeigen</button></div>'
+      : "") +
     descText("backup", (canShareBackup()
       ? '<p class="notice">Backup teilen reicht die Datei direkt an eine andere App ' +
         'weiter, statt sie im Download-Ordner abzulegen. Sie heißt dabei .txt statt ' +

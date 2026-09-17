@@ -389,6 +389,11 @@ Schrittweite zu Gewicht erst die Wiederholungen steigen, ein Parameter, den
 niemand in Schritten von 0,5 Prozent mit Gewinn verstellt. Das Feld bleibt im
 Backup und in `SETTING_FIELDS`, ein alter Wert gilt weiter.
 
+Unter Backup stehen seit 1.33.4 nur noch die drei Knöpfe, die zählen: speichern,
+teilen, laden. CSV und das Textfeld (anzeigen und einlesen, der Ausweg für
+Browser ohne Dateidialog) liegen hinter "Weitere Wege". Vier Knöpfe für
+dieselben Daten nebeneinander ließen den einen wichtigen untergehen.
+
 Zwei Abschnitte sind lang und starten deshalb zugeklappt, die Übungen mit allen
 Gruppen und die Muskelgruppen mit jeder Übung einzeln. Zusammen machen sie den
 Reiter doppelt so lang: 4757 statt 2386 Pixel. Der Zustand liegt in `S.secOpen`
