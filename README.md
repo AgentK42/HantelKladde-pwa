@@ -284,12 +284,13 @@ nicht die Seite. Die Erlaubnis dafür holt ein Knopf unter **Daten → Pause**,
 bewusst dort und nicht mitten im Training: eine abgelehnte Nachfrage holt Chrome
 nicht von selbst zurück. Danach steht an derselben Stelle ein Schalter.
 
-Das **Vibrationsmuster** unter Daten, Pause hat zwei Stellungen. *Einfach* ist
-ein kurzer Doppelschlag je Signal, *durchgehend* vibriert vom ersten Signal an
-ohne Pause bis zum dritten, also rund zehn Sekunden, gedacht für das Handy in
-der Hosentasche. Das lange Muster startet nur beim ersten Signal, sonst setzte
-jedes weitere es zurück und die Vibration liefe über das Ende hinaus. Bei
-versteckter Seite greift keines von beiden, siehe unten.
+Die **Vibration** läuft vom ersten Signal an ohne Pause bis zum dritten, also
+rund zehn Sekunden, gedacht für das Handy in der Hosentasche. Sie startet nur
+beim ersten Signal, sonst setzte jedes weitere sie zurück und die Vibration
+liefe über das Ende hinaus. Bis 1.32.1 gab es daneben ein kurzes Muster mit
+einem Schalter unter Daten, Pause; er ist weg, weil die Wahl kaum etwas
+entschied: bei versteckter Seite greift keines von beiden, siehe unten, und
+dort bestimmt der Benachrichtigungskanal, was zu spüren ist.
 
 Ton und Vibration werden trotzdem immer versucht, nicht nur im Vordergrund. Die
 Vibration bricht der Browser bei versteckter Seite ab, der Ton dagegen läuft

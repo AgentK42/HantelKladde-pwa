@@ -969,7 +969,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.32.1";
+var APP_VERSION = "1.33.0";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -1207,7 +1207,7 @@ var DEFAULT_SETTINGS = {
   barWeight: 20, plates: DEFAULT_PLATES.slice(), hiddenEx: [], focusPlates: false,
   defSets: DEFAULT_SETS, defReps: 10, defWeight: 20, descOpen: {}, wrapNames: false,
   weekGoals: {}, weekGoalLog: {}, repFirst: true,
-  repFirstThresh: 0.05, repSpan: 2, notifySignal: true, vibeLong: false,
+  repFirstThresh: 0.05, repSpan: 2, notifySignal: true,
   exHist: true, focusHist: true,
   /* Planung: Tag (ISO) auf Planname, siehe planDaysBlock(). In den Einstellungen,
      damit es ins Backup kommt; der Entwurf daneben bleibt außen vor, siehe DRAFT_KEY. */
@@ -1228,7 +1228,7 @@ var DEFAULT_SETTINGS = {
    (Zahl ab null); names (Liste von Strings). */
 var SETTING_FIELDS = {
   autoRest:"bool", autoProgress:"bool", repFirst:"bool", focusPlates:"bool",
-  wrapNames:"bool", exHist:"bool", focusHist:"bool", notifySignal:"bool", vibeLong:"bool",
+  wrapNames:"bool", exHist:"bool", focusHist:"bool", notifySignal:"bool",
   rest:"positive", repFirstThresh:"positive", barWeight:"positive",
   repSpan:"count", defSets:"count", defReps:"count",
   defWeight:"amount",
@@ -2696,18 +2696,13 @@ function signal(first) {
   if (document.hidden) notifyRestOver();
 }
 
-/* Zwei Muster für die Vibration am Ende der Pause.
-
-   einfach:     ein kurzer Doppelschlag je Signal, wie bisher.
-   durchgehend: vom ersten Signal an ohne Pause bis zum dritten, also rund zehn
-                Sekunden. Für das Handy in der Hosentasche, wo ein kurzer
-                Doppelschlag leicht untergeht.
-
-   Beides gilt nur, solange die Seite sichtbar ist. Ist sie versteckt, bricht
-   der Browser jede laufende Vibration ab, und es vibriert stattdessen die
-   Benachrichtigung. Wie stark und wie oft entscheidet dort der
-   Benachrichtigungskanal von Android, nicht diese Einstellung. */
-var VIBE_SHORT = [220, 120, 220];
+/* Die Vibration am Ende der Pause: vom ersten Signal an ohne Pause bis zum
+   dritten, also rund zehn Sekunden, für das Handy in der Hosentasche, wo ein
+   kurzer Doppelschlag leicht untergeht. Bis 1.32.1 stand daneben ein zweites,
+   kurzes Muster mit einem Schalter unter Daten; der Schalter ist weg, weil die
+   Wahl kaum etwas entschied: bei versteckter Seite bricht der Browser jede
+   laufende Vibration ab, und es vibriert stattdessen die Benachrichtigung, so
+   wie der Benachrichtigungskanal von Android es vorgibt. */
 function vibeLongPattern() {
   /* Der Bogen vom ersten bis zum dritten Signal ist zweimal REST_SIGNAL_GAP,
      plus eine Sekunde Zugabe, damit es nicht kurz vor dem letzten Ton aufhört. */
@@ -2718,9 +2713,8 @@ function vibeLongPattern() {
 function buzz(first) {
   try {
     if (!navigator.vibrate) return;
-    if (!S.settings.vibeLong) { navigator.vibrate(VIBE_SHORT); return; }
-    /* Das lange Muster nur beim ersten Signal starten. Jeder weitere Aufruf
-       setzte es zurück, und die Vibration liefe über das dritte Signal hinaus. */
+    /* Nur beim ersten Signal starten. Jeder weitere Aufruf setzte das Muster
+       zurück, und die Vibration liefe über das dritte Signal hinaus. */
     if (first) navigator.vibrate(vibeLongPattern());
   } catch (e) {}
 }
@@ -6226,18 +6220,13 @@ function dataPause() {
     '<p style="margin-top:10px">Aktuell ' + mmss(S.settings.rest) + ' Minuten.</p>' +
     '<button class="open" data-act="autorest">Automatischer Start: ' +
     (S.settings.autoRest ? "an" : "aus") + '</button>' +
-    '<button class="open" data-act="vibepattern">Vibrationsmuster: ' +
-    (S.settings.vibeLong ? "durchgehend" : "einfach") + '</button>' +
     notifyBlock() +
     descText("pause", '<p style="margin-top:10px">Während der Pause bleibt der ' +
       'Bildschirm an, damit das Signal pünktlich kommt. Am Ende wird bis zu drei Mal im ' +
-      'Abstand von fünf Sekunden vibriert und gepiepst, danach geht der Bildschirm ' +
-      'wieder von selbst aus. Der Ton hängt an der Medienlautstärke.</p>' +
-      '<p style="margin-top:8px">Das Vibrationsmuster bestimmt, wie sich das Ende ' +
-      'anfühlt. <b>Einfach</b> ist ein kurzer Doppelschlag je Signal, ' +
-      '<b>durchgehend</b> vibriert vom ersten Signal an ohne Pause bis zum dritten, ' +
-      'also rund zehn Sekunden. Das zweite ist für das Handy in der Hosentasche ' +
-      'gedacht, wo ein kurzer Schlag leicht untergeht.</p>' +
+      'Abstand von fünf Sekunden gepiepst, dazu vibriert es vom ersten Signal an ' +
+      'ohne Pause bis zum dritten, also rund zehn Sekunden, damit es auch in der ' +
+      'Hosentasche ankommt. Danach geht der Bildschirm wieder von selbst aus. Der ' +
+      'Ton hängt an der Medienlautstärke.</p>' +
       '<p style="margin-top:8px">Liegt das Handy in der Tasche oder ist der Bildschirm ' +
       'aus, bricht der Browser jede laufende Vibration ab, das Muster greift dann ' +
       'nicht mehr. Der Ton läuft weiter, und mit der Erlaubnis für Benachrichtigungen ' +
@@ -7857,7 +7846,6 @@ ACTIONS.restlen = function (v, el) {
   persist();
 };
 ACTIONS.autorest = function () { S.settings.autoRest = !S.settings.autoRest; persist(); };
-ACTIONS.vibepattern = function () { S.settings.vibeLong = !S.settings.vibeLong; persist(); };
 ACTIONS.notifyask = function () { askNotify(); };
 ACTIONS.notifytoggle = function () {
   S.settings.notifySignal = !S.settings.notifySignal;
