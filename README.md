@@ -216,7 +216,7 @@ Ein Aufwärmsatz trägt keinen RPE. Das Feld verschwindet, solange aufgewärmt
 wird, im Trainingsreiter, im Fokus-Modus und beim Bearbeiten eines bereits
 gespeicherten Aufwärmsatzes. Gespeichert wird `rpe: null`, auch wenn im Feld
 noch ein Wert von vorher stand. Gezählt hat er ohnehin nie: Aufwärmsätze sind
-über `isWork()` aus Volumen, effektiven Sätzen und Rekorden ausgenommen, die
+über `isWork()` aus Volumen und Rekorden ausgenommen, die
 Zahl stand nur in der Satzliste.
 
 Beim Wechsel ins Aufwärmen merkt sich die App Gewicht, Reps und RPE des

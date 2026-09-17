@@ -489,8 +489,6 @@ textarea.note { width:100%; margin-top:8px; padding:11px 12px; border-radius:13p
 .volrow { display:grid; grid-template-columns:64px 1fr 86px; gap:8px; align-items:center; }
 .volrow .vn { font-size:12px; font-weight:650; color:var(--muted); }
 .volrow .vv { font-size:12.5px; font-weight:700; text-align:right; }
-.volrow .vv s { display:block; text-decoration:none; font-size:10.5px; font-weight:600;
-  color:var(--muted); }
 /* Zeitraum 90 Tage: einfacher Anteilsbalken ohne Vergleich */
 .volrow .vb { position:relative; height:14px; border-radius:7px; background:var(--raise);
   overflow:hidden; }
@@ -969,7 +967,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.33.0";
+var APP_VERSION = "1.33.1";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -1296,7 +1294,7 @@ var S = {
   prowNameOpen:"",
   restEnd:0, restTotal:0, warm:false, warmBase:0, warmReps:"", warmRpe:"",
   noteOpen:false,
-  volRange:7, volMode:"sets", dataClosed:{}, secOpen:{}, exNoteFor:"", exOpen:"",
+  volRange:7, dataClosed:{}, secOpen:{}, exNoteFor:"", exOpen:"",
   exHistFor:"",
   toast:"", pickCat:"", pickGroupBy:"cat", pickMuscle:"", focus:false, pickPlanTarget:"", pickSel:[],
   quickUndo:false, showSummary:false, summaryData:null, summaryReturn:"",
@@ -3527,26 +3525,20 @@ function dayMinutes(iso) {
   }, 0);
 }
 /* Last je Muskelgruppe in einem Zeitraum, Aufwärmsätze bleiben außen vor */
-/* Anstrengungsgewicht für effektive Sätze: nah am Muskelversagen zählt voll,
-   weit davon entfernt kaum. Ohne erfassten RPE wird ein mittlerer Wert angenommen. */
-function effWeight(rpe) {
-  if (rpe == null) return 0.7;
-  if (rpe >= 9) return 1;
-  if (rpe >= 8) return 0.9;
-  if (rpe >= 7) return 0.7;
-  return 0.3;
-}
+/* Gezählt werden Arbeitssätze und Last. Bis 1.33.0 gab es daneben "effektive
+   Sätze", je Satz nach RPE mit 0,3 bis 1,0 gewichtet, ohne RPE pauschal 0,7, und
+   eine Zählung "schwer" ab RPE 8. Die Faktoren waren erfunden: die Evidenz zählt
+   harte Sätze (Schoenfeld 2017, Baz-Valle 2022), eine solche Gewichtung kennt sie
+   nicht. Die Zahl wirkte genauer, als sie war, deshalb ist sie weg. */
 function volByCat(fromISO, toISO) {
   var out = {};
-  CATLIST.concat(["Sonstige"]).forEach(function (c) { out[c] = { vol:0, sets:0, eff:0, heavy:0 }; });
+  CATLIST.concat(["Sonstige"]).forEach(function (c) { out[c] = { vol:0, sets:0 }; });
   S.entries.forEach(function (e) {
     if (!isWork(e) || e.date < fromISO || e.date > toISO) return;
     var c = catOf(e.exercise);
-    if (!out[c]) out[c] = { vol:0, sets:0, eff:0, heavy:0 };
+    if (!out[c]) out[c] = { vol:0, sets:0 };
     out[c].vol += e.weight * e.reps;
     out[c].sets += 1;
-    out[c].eff += effWeight(e.rpe);
-    if (e.rpe != null && e.rpe >= 8) out[c].heavy += 1;
   });
   return out;
 }
@@ -3556,18 +3548,15 @@ function volByCat(fromISO, toISO) {
    Darstellung bedienen kann. */
 function volByMuscle(fromISO, toISO) {
   var out = {};
-  MUSCLE_LIST.forEach(function (m) { out[m] = { vol:0, sets:0, eff:0, heavy:0 }; });
+  MUSCLE_LIST.forEach(function (m) { out[m] = { vol:0, sets:0 }; });
   S.entries.forEach(function (e) {
     if (!isWork(e) || e.date < fromISO || e.date > toISO) return;
     var mo = muscleOf(e.exercise);
     if (!mo) return;
-    var vol = e.weight * e.reps, eff = effWeight(e.rpe);
-    var heavy = (e.rpe != null && e.rpe >= 8) ? 1 : 0;
+    var vol = e.weight * e.reps;
     out[mo.primary].vol += vol; out[mo.primary].sets += 1;
-    out[mo.primary].eff += eff; out[mo.primary].heavy += heavy;
     mo.secondary.forEach(function (s) {
       out[s].vol += vol * 0.5; out[s].sets += 0.5;
-      out[s].eff += eff * 0.5; out[s].heavy += heavy * 0.5;
     });
   });
   return out;
@@ -5413,11 +5402,10 @@ function viewPlanung() {
 /* Last je Muskelgruppe für 7, 30 oder 90 Tage, wählbar über den Zeitraum-Schalter.
    Bei 90 Tagen entfällt der Vergleich mit dem vorherigen Zeitraum, das wäre über so
    lange Spannen wenig aussagekräftig und würde die Karte nur aufblähen. */
-function fmtEff(x) { return num(Math.round(x * 10) / 10); }
 /* Kategorien tragen jeden Satz voll (immer ganzzahlig), Muskelgruppen können
    durch die hälftige Sekundärmuskel-Gewichtung auf x,5 landen, siehe
    volByMuscle(). Eine Stelle, die beides sauber formatiert. */
-function fmtCount(x) { return x % 1 === 0 ? String(x) : fmtEff(x); }
+function fmtCount(x) { return x % 1 === 0 ? String(x) : num(Math.round(x * 10) / 10); }
 /* Dezenter Hinweis, wenn zwei antagonistische Gruppen im gewählten Zeitraum
    deutlich auseinander laufen - relevant für Gelenkhaltung und -gesundheit.
    Bei Kategorien nur Push/Pull, bei Muskelgruppen die üblichen Antagonisten-
@@ -5489,21 +5477,16 @@ function imbalanceThresh(range, covered) {
   IMBALANCE_RANGES.forEach(function (r) { if (r <= cap) pick = r; });
   return IMBALANCE_THRESH[pick];
 }
-/* Satzzahl samt Einheit, in beiden Zählweisen und immer mit deutschem
-   Dezimalkomma. Muskelgruppen landen durch die hälftige Sekundär-Gewichtung auf
-   x,5, deshalb nie roh konkatenieren, siehe fmtCount(). */
-function setCount(v, mode) {
-  if (mode === "eff") return fmtEff(v) + " eff. Sätze";
+/* Satzzahl samt Einheit, immer mit deutschem Dezimalkomma. Muskelgruppen landen
+   durch die hälftige Sekundär-Gewichtung auf x,5, deshalb nie roh konkatenieren,
+   siehe fmtCount(). */
+function setCount(v) {
   return fmtCount(v) + (v === 1 ? " Satz" : " Sätze");
 }
-/* Vergleicht die beiden Gruppen in der gerade gewählten Zählweise, damit die
-   Zahlen im Hinweis zu den Zahlen in den Zeilen darunter passen. Die Schwellen
-   sind an rohen Sätzen kalibriert; effektive Sätze liegen etwas darunter, der
-   Hinweis ist in dieser Zählweise also einen Hauch zurückhaltender - passend,
-   weil effektive Sätze das strengere Maß sind. */
-function imbalanceFlag(a, nameA, nameB, t, mode) {
-  var key = mode === "eff" ? "eff" : "sets";
-  var A = a[nameA] ? a[nameA][key] : 0, B = a[nameB] ? a[nameB][key] : 0;
+/* Vergleicht die beiden Gruppen eines Paares, damit die Zahlen im Hinweis zu den
+   Zahlen in den Zeilen darunter passen. */
+function imbalanceFlag(a, nameA, nameB, t) {
+  var A = a[nameA] ? a[nameA].sets : 0, B = a[nameB] ? a[nameB].sets : 0;
   if (!A && !B) return "";
   var hi = Math.max(A, B), lo = Math.min(A, B);
   /* Der Mindestabstand kommt zuerst und gilt immer. Das Verhältnis entfällt bei
@@ -5515,31 +5498,29 @@ function imbalanceFlag(a, nameA, nameB, t, mode) {
   if (hi - lo < t.minDiff) return "";
   if (lo > 0 && hi / lo < t.factor) return "";
   var heavier = A > B ? nameA : nameB, lighter = heavier === nameA ? nameB : nameA;
-  return '<div class="flag">' + heavier + ' ' + setCount(hi, mode) + ', ' +
-    lighter + ' ' + setCount(lo, mode) + ' &ndash; ' + lighter +
+  return '<div class="flag">' + heavier + ' ' + setCount(hi) + ', ' +
+    lighter + ' ' + setCount(lo) + ', ' + lighter +
     '-Volumen niedrig.</div>';
 }
 var CAT_PAIRS = [["Push", "Pull"]];
 var MUSCLE_PAIRS = [["Brust", "Rücken"], ["Bizeps", "Trizeps"], ["Quadrizeps", "Beinbeuger"],
   ["Bauch", "Unterer Rücken"], ["Schulter vorn", "Schulter hinten"]];
-function imbalanceFlags(a, group, range, mode) {
+function imbalanceFlags(a, group, range) {
   var pairs = group === "muscle" ? MUSCLE_PAIRS : CAT_PAIRS;
   return pairs.map(function (p) {
     var t = imbalanceThresh(range, pairHistoryDays(p[0], p[1], group));
-    return imbalanceFlag(a, p[0], p[1], t, mode);
+    return imbalanceFlag(a, p[0], p[1], t);
   }).join("");
 }
 /* Wahlweise nach den vier Trainingskategorien oder nach den feineren
    Muskelgruppen aus muscleOf() gruppiert, siehe volByCat()/volByMuscle().
-   Je Gruppe zählen Arbeitssätze oder, als Variante, effektive Sätze nach
-   Anstrengung. Bei 7 Tagen zeigt der Balken die Veränderung zur Vorperiode,
+   Je Gruppe zählen Arbeitssätze. Bei 7 Tagen zeigt der Balken die Veränderung zur Vorperiode,
    bei 30 Tagen die letzten vier Wochen einzeln, je Gruppe auf eigener Skala,
    damit eine kleine Gruppe nicht neben einer großen verschwindet. Bei 90 Tagen
    gibt es keinen Vergleich, dort zeigt er den Anteil am größten Wert. Die
    Gesamtlast in kg bleibt als eine Summenzeile erhalten. */
 function volumeBlock() {
   var range = S.volRange || 7;
-  var mode = S.volMode === "eff" ? "eff" : "sets";
   var group = S.volGroup === "muscle" ? "muscle" : "cat";
   var groupList = group === "muscle" ? MUSCLE_LIST : CATLIST.concat(["Sonstige"]);
   var dataFn = group === "muscle" ? volByMuscle : volByCat;
@@ -5566,17 +5547,7 @@ function volumeBlock() {
     [7, 30, 90].map(function (r) {
       return '<button class="mode' + (range === r ? " on" : "") + '" data-act="volrange" ' +
         'data-v="' + r + '">' + r + ' Tage</button>';
-    }).join("") + '</div>' +
-    '<div class="tools" style="grid-template-columns:1fr 1fr; margin-top:8px">' +
-    '<button class="mode' + (mode === "sets" ? " on" : "") + '" data-act="volmode" ' +
-    'data-v="sets">Sätze</button>' +
-    '<button class="mode' + (mode === "eff" ? " on" : "") + '" data-act="volmode" ' +
-    'data-v="eff">Effektive Sätze</button></div>' +
-    (mode === "eff"
-      ? '<p class="notice">Effektive Sätze zählen jeden Satz nach Anstrengung statt nach ' +
-        'Gewicht: ab RPE 9 zu 100 Prozent, RPE 8 zu 90, RPE 7 zu 70, darunter kaum. Ohne ' +
-        'erfassten RPE wird ein mittlerer Wert angenommen.</p>'
-      : "");
+    }).join("") + '</div>';
   if (!cats.length) {
     return h + '<p class="notice">' + (group === "muscle"
       ? "Noch keine Übung in diesem Zeitraum lässt sich einer Muskelgruppe zuordnen."
@@ -5596,7 +5567,7 @@ function volumeBlock() {
         (totB.vol > 0 ? ', das sind ' + (totA.vol >= totB.vol ? "+" : "") +
           Math.round((totA.vol - totB.vol) / totB.vol * 100) + ' Prozent' : '') + '.'
       : '') + '</p>' +
-    imbalanceFlags(a, group, range, mode);
+    imbalanceFlags(a, group, range);
   if (range === 30) {
     var weeks = [];
     for (var w = 0; w < 4; w++) {
@@ -5605,15 +5576,14 @@ function volumeBlock() {
     }
     h += '<div class="wk">';
     cats.forEach(function (c) {
-      var vals = weeks.map(function (wd) { return mode === "eff" ? wd[c].eff : wd[c].sets; });
+      var vals = weeks.map(function (wd) { return wd[c].sets; });
       var maxW = Math.max.apply(null, vals) || 1;
       h += '<div class="wkrow"><span class="vn">' + esc(c) + '</span><div class="wkcols">' +
         vals.map(function (v, i) {
           var isCur = i === 3;
           var barH = Math.max(isCur ? 16 : 3, Math.round(v / maxW * 34));
-          var label = mode === "eff" ? fmtEff(v) : fmtCount(v);
           return '<div class="wkcol"><i style="height:' + barH + 'px">' +
-            (isCur ? '<span class="wkval">' + label + '</span>' : '') + '</i></div>';
+            (isCur ? '<span class="wkval">' + fmtCount(v) + '</span>' : '') + '</i></div>';
         }).join("") + '</div></div>';
     });
     h += '</div><div class="legend"><span><i class="wkpast"></i>frühere Wochen</span>' +
@@ -5623,29 +5593,18 @@ function volumeBlock() {
     var maxAbs = 1;
     if (!compare) {
       cats.forEach(function (c) {
-        var v = mode === "eff" ? a[c].eff : a[c].sets;
-        if (v > maxAbs) maxAbs = v;
+        if (a[c].sets > maxAbs) maxAbs = a[c].sets;
       });
     }
     cats.forEach(function (c) {
-      var aVal = mode === "eff" ? a[c].eff : a[c].sets;
-      var mainVal = mode === "eff" ? fmtEff(a[c].eff) : fmtCount(a[c].sets);
-      var mainUnit = mode === "eff" ? "eff. Sätze" : (a[c].sets === 1 ? "Satz" : "Sätze");
-      var capParts = [];
-      if (mode === "eff") {
-        capParts.push(fmtCount(a[c].sets) + (a[c].sets === 1 ? " Satz" : " Sätze"));
-      }
-      if (a[c].heavy > 0) capParts.push(fmtCount(a[c].heavy) + " schwer");
-      var caption = capParts.length ? '<s>' + capParts.join(", ") + '</s>' : "";
+      var aVal = a[c].sets;
       var barHtml;
       if (compare) {
-        var bVal = mode === "eff" ? b[c].eff : b[c].sets;
+        var bVal = b[c].sets;
         /* Mindestbasis wie bei imbalanceFlag(): unter minDiff Sätzen macht ein
            Prozentsprung (1 auf 3 Sätze = "+200 %") die kleinste Gruppe fälschlich
-           zur auffälligsten. Maßgeblich sind die rohen Sätze, nicht der im Modus
-           "Effektive Sätze" gewichtete Wert, sonst würde die Schwelle je nach
-           RPE-Erfassung wandern. */
-        var hiSets = Math.max(a[c].sets, b[c].sets);
+           zur auffälligsten. */
+        var hiSets = Math.max(aVal, bVal);
         var minDiff = (IMBALANCE_THRESH[range] || IMBALANCE_THRESH[30]).minDiff;
         if (bVal < 0.05) {
           barHtml = '<span class="vb2"><span class="bar"><i class="mid"></i></span>' +
@@ -5670,7 +5629,7 @@ function volumeBlock() {
         barHtml = '<span class="vb"><i class="abs" style="width:' + pctAbs + '%"></i></span>';
       }
       h += '<div class="volrow"><span class="vn">' + esc(c) + '</span>' + barHtml +
-        '<span class="vv">' + mainVal + ' ' + mainUnit + caption + '</span></div>';
+        '<span class="vv">' + setCount(aVal) + '</span></div>';
     });
     h += '</div>';
     if (compare) {
@@ -7780,7 +7739,6 @@ ACTIONS.focushisttoggle = function () {
   S.settings.focusHist = !S.settings.focusHist; persist();
 };
 ACTIONS.volrange = function (v) { S.volRange = parseInt(v, 10); };
-ACTIONS.volmode = function (v) { S.volMode = v; };
 ACTIONS.volgroup = function (v) { S.volGroup = v; };
 ACTIONS.datacat = function (v) { S.dataClosed[v] = !S.dataClosed[v]; };
 ACTIONS.secfold = function (v) { S.secOpen[v] = !S.secOpen[v]; };
