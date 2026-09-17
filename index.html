@@ -964,7 +964,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.34.2";
+var APP_VERSION = "1.34.3";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -6136,20 +6136,8 @@ function dataBackup() {
         'andere App, etwa an eine Cloud, eine Notiz oder einen Chat">' +
         'Backup teilen</button>'
       : "") +
-    '<button data-act="loadfile">Backup laden</button></div>' +
-    /* CSV und Textfeld sind seit 1.33.4 zugeklappt: vier Wege für dieselben Daten
-       nebeneinander ließen den einen wichtigen, das Backup, untergehen. Der
-       Textweg bleibt als Ausweg für Browser ohne Dateidialog, CSV für die
-       Auswertung außerhalb. Zustand in S.secOpen wie bei den langen Abschnitten,
-       bei jedem Besuch wieder zu. */
-    '<p style="margin-top:8px;text-align:left"><button class="linklike" data-act="secfold" ' +
-    'data-v="backupmore" aria-expanded="' + (secOpen("backupmore") ? "true" : "false") +
-    '">Weitere Wege: CSV und Text</button></p>' +
-    (secOpen("backupmore")
-      ? '<div class="tools" style="margin-top:8px">' +
-        '<button data-act="dlcsv">CSV speichern</button>' +
-        '<button data-act="showtext">Als Text anzeigen</button></div>'
-      : "") +
+    '<button data-act="loadfile">Backup laden</button>' +
+    '<button data-act="dlcsv">CSV speichern</button></div>' +
     descText("backup", (canShareBackup()
       ? '<p class="notice">Backup teilen reicht die Datei direkt an eine andere App ' +
         'weiter, statt sie im Download-Ordner abzulegen. Sie heißt dabei .txt statt ' +
@@ -6163,6 +6151,9 @@ function dataBackup() {
     'Pläne kommen nur dazu, wenn es sie noch nicht gibt oder sie hier unverändert ' +
     'sind, eigene Zielwerte bleiben also erhalten. Genauso bei den Einstellungen: ' +
     'übernommen wird nur, was hier noch auf dem Ausgangswert steht.</p>') +
+    /* Das Textfeld hat keinen eigenen Knopf mehr. Es taucht nur noch auf, wenn
+       der Browser den Download blockiert hat: dann steht das Backup darin zum
+       Kopieren, und eingelesen wird daraus genauso. */
     (S.out ? '<textarea id="out">' + esc(S.out) + '</textarea>' +
       '<div class="tools"><button data-act="importtext">Text einlesen</button>' +
       '<button data-act="clear">Feld leeren</button></div>' : "");
@@ -6725,8 +6716,9 @@ function shareBackup() {
         markBackup();
         S.note = "Teilen ging nicht" + why + ", Backup liegt im Download-Ordner: " + name;
       } else {
+        S.out = text;
         S.note = "Teilen ging nicht" + why + " und der Download wurde blockiert. " +
-          "Nutze Als Text anzeigen.";
+          "Das Backup steht unten im Textfeld.";
       }
       render();
     });
@@ -6750,7 +6742,10 @@ function saveBackup() {
     markBackup();
     S.note = "Backup gespeichert: " + backupName() + " im Download-Ordner.";
   } else {
-    S.note = "Der Browser hat den Download blockiert. Nutze Als Text anzeigen.";
+    /* Ohne Knopf für den Textweg bleibt nur, das Backup selbst hinzulegen,
+       sonst steht man ohne Ausweg da. */
+    S.out = backupText();
+    S.note = "Der Browser hat den Download blockiert. Das Backup steht unten im Textfeld.";
   }
   return ok;
 }
@@ -7735,7 +7730,6 @@ ACTIONS.dlcsv = function () {
   download("hantelkladde-" + todayISO() + ".csv", csvText(), "text/csv");
   S.note = "CSV gespeichert.";
 };
-ACTIONS.showtext = function () { S.out = backupText(); S.note = ""; };
 ACTIONS.clear = function () { S.out = ""; S.note = ""; };
 ACTIONS.importtext = function () {
   var ta = document.getElementById("out");
@@ -8244,7 +8238,7 @@ document.addEventListener("input", function (ev) {
   var act = el.getAttribute ? el.getAttribute("data-act") : null;
   var fn = act ? INPUT_ACTIONS[act] : null;
   if (fn) fn(el, act);
-  /* Das Textfeld von "Als Text anzeigen" hat kein data-act, es ist das einzige
+  /* Das Textfeld unter Backup hat kein data-act, es ist das einzige
      seiner Art und wird nur gelesen, siehe dataBackup(). */
   else if (el.id === "out") S.out = el.value;
 });
@@ -8362,7 +8356,7 @@ document.addEventListener("mouseup", finishSelect, true);
 /* Letztes Netz: Die bekannten Stolperstellen im Speicher sind seit 1.14.6
    repariert (repairEntries()/repairPlans()/muscleOf()), aber ein Abbruch hier
    hieße weiterhin weiße Seite statt App - und damit kein Weg mehr an die eigenen
-   Daten oder an "Als Text anzeigen". Deshalb lieber mit dem starten, was gelesen
+   Daten oder an das Backup. Deshalb lieber mit dem starten, was gelesen
    werden konnte, und offen sagen, dass etwas fehlen kann. Automatisch gespeichert
    wird dabei nichts; der nächste bewusste Eingriff überschreibt den Stand. */
 try {

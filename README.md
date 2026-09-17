@@ -399,10 +399,12 @@ Schrittweite zu Gewicht erst die Wiederholungen steigen, ein Parameter, den
 niemand in Schritten von 0,5 Prozent mit Gewinn verstellt. Das Feld bleibt im
 Backup und in `SETTING_FIELDS`, ein alter Wert gilt weiter.
 
-Unter Backup stehen seit 1.33.4 nur noch die drei Knöpfe, die zählen: speichern,
-teilen, laden. CSV und das Textfeld (anzeigen und einlesen, der Ausweg für
-Browser ohne Dateidialog) liegen hinter "Weitere Wege". Vier Knöpfe für
-dieselben Daten nebeneinander ließen den einen wichtigen untergehen.
+Unter Backup stehen seit 1.34.3 wieder alle Knöpfe nebeneinander: speichern,
+teilen, laden, CSV speichern. Die Zeile "Weitere Wege" von 1.33.4 ist weg, vier
+Knöpfe in einer Reihe sehen ruhiger aus als drei plus eine Textzeile. "Als Text
+anzeigen" ist ganz entfallen. Das Textfeld selbst bleibt: blockiert der Browser
+den Download, legt die App das Backup von sich aus hinein, und aus demselben
+Feld liest "Text einlesen" es auch wieder ein.
 
 Zwei Abschnitte sind lang und starten deshalb zugeklappt, die Übungen mit allen
 Gruppen und die Muskelgruppen mit jeder Übung einzeln. Zusammen machen sie den
