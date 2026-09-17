@@ -288,8 +288,19 @@ textarea.note { width:100%; margin-top:8px; padding:11px 12px; border-radius:13p
    der Platz neben "kg" auf einem Telefon nicht für einen mehrstelligen Wert mit
    Komma, siehe Kims Rückmeldung vom 08.09. Feste Breite statt des Attributs
    "size", das sich an dieser Schriftgröße als zu breit erwies und über den
-   Plus-Knopf hinausragte. */
-.wdial .wnum input { width:2.6em; text-align:center; font-size:40px; }
+   Plus-Knopf hinausragte.
+
+   Seit 1.32.1 wächst das Feld mit dem Wert: 2,6em bleibt die Untergrenze, damit
+   kurze Werte aussehen wie bisher, ab fünf Zeichen (61,25; 112,5) zählt die
+   Zeichenzahl aus heroWeightDial() mal 0,58em, etwas mehr als eine Ziffer dieser
+   Schrift samt Laufweite. Wo der Browser field-sizing kennt (Chrome ab 123),
+   misst er den Inhalt selbst und die Schätzung entfällt. */
+.wdial .wnum input { width:max(2.6em, calc(var(--wlen, 2) * 0.58em)); text-align:center;
+  font-size:40px; }
+.wdial .wnum input.long { font-size:34px; }
+@supports (field-sizing: content) {
+  .wdial .wnum input { field-sizing:content; width:auto; min-width:2.6em; }
+}
 .wdial .wnum em { flex:0 0 auto; font-style:normal; font-size:14px; font-weight:700;
   color:var(--muted); }
 
@@ -958,7 +969,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.32.0";
+var APP_VERSION = "1.32.1";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -3874,7 +3885,14 @@ function heroWeightDial(name) {
     '" aria-label="weniger Gewicht">&minus;</button>' +
     '<div class="wmid"><div class="wnum"><span class="val"><input id="in-weight" ' +
     'inputmode="decimal" value="' + esc(S.weight) + '" data-act="input" ' +
-    'data-f="weight" aria-label="Gewicht in Kilogramm"' + (pop ? ' class="pop"' : '') +
+    'data-f="weight" aria-label="Gewicht in Kilogramm"' +
+    /* Die Zeichenzahl für die Breite des Felds, siehe .wdial .wnum input im CSS:
+       ab fünf Zeichen (61,25 bei Schrittweite 3,75, oder 112,5) reichte die feste
+       Breite nicht und die letzte Ziffer verschwand unter dem "kg" (1.32.1). Ab
+       sechs Zeichen (101,25) wird die Schrift kleiner, sonst fehlt auf 390 Pixel
+       neben den beiden Knöpfen ein Pixel. */
+    ' class="' + (pop ? 'pop ' : '') + (String(S.weight).length >= 6 ? 'long' : '') + '"' +
+    ' style="--wlen:' + String(S.weight).length + '"' +
     '></span><em>kg</em></div>' +
     '<div class="wunit">±' + num(st) + '</div></div>' +
     '<button class="up" data-act="step" data-f="weight" data-d="' + st +
