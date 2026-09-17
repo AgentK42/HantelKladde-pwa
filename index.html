@@ -828,12 +828,6 @@ textarea.note { width:100%; margin-top:8px; padding:11px 12px; border-radius:13p
 .sect .secfold .chv.up { transform:rotate(-90deg); }
 .crow { display:grid; grid-template-columns:1fr 58px 34px 26px; gap:6px; align-items:center;
   padding:8px 12px; border-top:1px solid var(--line); }
-.movecat { padding:10px 12px 12px; border-top:1px solid var(--line); background:var(--raise); }
-.movecat > span { display:block; font-size:11.5px; font-weight:650; color:var(--muted);
-  margin-bottom:6px; }
-.movecat .row { display:flex; gap:6px; }
-.movecat select { flex:1; min-width:0; padding:9px 6px; border-radius:10px;
-  border:1px solid var(--line); background:var(--surface); font-size:13px; }
 .crow .xdel { width:30px; height:36px; border:none; background:none; color:var(--muted);
   font-size:13px; padding:0; }
 .crow .nm { font-size:14px; font-weight:650; overflow:hidden; text-overflow:ellipsis;
@@ -967,7 +961,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.33.1";
+var APP_VERSION = "1.33.2";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -1290,7 +1284,6 @@ var S = {
   reps:"10", weight:"20", rpe:"7", pickOpen:false, plan:"",
   editId:"", openEx:"", storeOk:null, out:"", note:"", freshId:"",
   search:"", undo:null, hsearch:"", planOpen:false, plansFold:false, planCardsFold:false,
-  volGroup:"cat",
   prowNameOpen:"",
   restEnd:0, restTotal:0, warm:false, warmBase:0, warmReps:"", warmRpe:"",
   noteOpen:false,
@@ -3525,27 +3518,15 @@ function dayMinutes(iso) {
   }, 0);
 }
 /* Last je Muskelgruppe in einem Zeitraum, Aufwärmsätze bleiben außen vor */
-/* Gezählt werden Arbeitssätze und Last. Bis 1.33.0 gab es daneben "effektive
+/* Sätze und Last je Muskelgruppe: ein Satz zählt voll beim Primärmuskel, halb
+   bei jedem Sekundärmuskel, siehe muscleOf().
+
+   Gezählt werden Arbeitssätze und Last. Bis 1.33.0 gab es daneben "effektive
    Sätze", je Satz nach RPE mit 0,3 bis 1,0 gewichtet, ohne RPE pauschal 0,7, und
    eine Zählung "schwer" ab RPE 8. Die Faktoren waren erfunden: die Evidenz zählt
    harte Sätze (Schoenfeld 2017, Baz-Valle 2022), eine solche Gewichtung kennt sie
-   nicht. Die Zahl wirkte genauer, als sie war, deshalb ist sie weg. */
-function volByCat(fromISO, toISO) {
-  var out = {};
-  CATLIST.concat(["Sonstige"]).forEach(function (c) { out[c] = { vol:0, sets:0 }; });
-  S.entries.forEach(function (e) {
-    if (!isWork(e) || e.date < fromISO || e.date > toISO) return;
-    var c = catOf(e.exercise);
-    if (!out[c]) out[c] = { vol:0, sets:0 };
-    out[c].vol += e.weight * e.reps;
-    out[c].sets += 1;
-  });
-  return out;
-}
-/* Gegenstück zu volByCat() für die Muskelgruppen-Ansicht: ein Satz zählt voll
-   beim Primärmuskel, halb bei jedem Sekundärmuskel, siehe muscleOf(). Gleiche
-   Form wie volByCat(), damit volumeBlock() beide Gruppierungen über dieselbe
-   Darstellung bedienen kann. */
+   nicht. Bis 1.33.1 gab es zudem volByCat() nach Trainingskategorien; die
+   Kategorie ist seitdem nur noch ein Ordner, siehe volumeBlock(). */
 function volByMuscle(fromISO, toISO) {
   var out = {};
   MUSCLE_LIST.forEach(function (m) { out[m] = { vol:0, sets:0 }; });
@@ -3563,7 +3544,7 @@ function volByMuscle(fromISO, toISO) {
 }
 /* Rohsummen eines Zeitraums für die Kopfzeile über dem Balkenblock: Trainings-
    tage, Gesamtlast und Arbeitssätze. Zählt bewusst direkt über die Sätze und
-   nicht über die Gruppensummen aus volByCat()/volByMuscle(). Bis 1.13.3 summierte
+   nicht über die Gruppensummen aus volByMuscle(). Bis 1.13.3 summierte
    volumeBlock() über die angezeigten Gruppen - in der Muskelgruppen-Ansicht trägt
    ein Satz aber einmal voll beim Primär- und halb bei jedem Sekundärmuskel, siehe
    volByMuscle(). Die Summe darüber war damit weder die echte Satzzahl noch die
@@ -5437,21 +5418,15 @@ function daysSince(iso) {
 
    Ein Satz zählt für jede Gruppe, zu der er Volumen beiträgt, also auch als
    Sekundärmuskel mit seinem halben Satz - dieselbe Zuordnung wie in
-   volByMuscle() bzw. volByCat(), damit Beobachtungsdauer und gezähltes Volumen
+   volByMuscle(), damit Beobachtungsdauer und gezähltes Volumen
    nicht auseinanderlaufen. */
-function pairHistoryDays(nameA, nameB, group) {
+function pairHistoryDays(nameA, nameB) {
   var first = "";
   S.entries.forEach(function (e) {
     if (!isWork(e)) return;
-    var hit;
-    if (group === "muscle") {
-      var mo = muscleOf(e.exercise);
-      hit = !!mo && (mo.primary === nameA || mo.primary === nameB ||
-        mo.secondary.indexOf(nameA) >= 0 || mo.secondary.indexOf(nameB) >= 0);
-    } else {
-      var c = catOf(e.exercise);
-      hit = (c === nameA || c === nameB);
-    }
+    var mo = muscleOf(e.exercise);
+    var hit = !!mo && (mo.primary === nameA || mo.primary === nameB ||
+      mo.secondary.indexOf(nameA) >= 0 || mo.secondary.indexOf(nameB) >= 0);
     if (!hit) return;
     if (!first || e.date < first) first = e.date;
   });
@@ -5502,18 +5477,19 @@ function imbalanceFlag(a, nameA, nameB, t) {
     lighter + ' ' + setCount(lo) + ', ' + lighter +
     '-Volumen niedrig.</div>';
 }
-var CAT_PAIRS = [["Push", "Pull"]];
 var MUSCLE_PAIRS = [["Brust", "Rücken"], ["Bizeps", "Trizeps"], ["Quadrizeps", "Beinbeuger"],
   ["Bauch", "Unterer Rücken"], ["Schulter vorn", "Schulter hinten"]];
-function imbalanceFlags(a, group, range) {
-  var pairs = group === "muscle" ? MUSCLE_PAIRS : CAT_PAIRS;
-  return pairs.map(function (p) {
-    var t = imbalanceThresh(range, pairHistoryDays(p[0], p[1], group));
+function imbalanceFlags(a, range) {
+  return MUSCLE_PAIRS.map(function (p) {
+    var t = imbalanceThresh(range, pairHistoryDays(p[0], p[1]));
     return imbalanceFlag(a, p[0], p[1], t);
   }).join("");
 }
-/* Wahlweise nach den vier Trainingskategorien oder nach den feineren
-   Muskelgruppen aus muscleOf() gruppiert, siehe volByCat()/volByMuscle().
+/* Nach Muskelgruppen aus muscleOf() gruppiert, siehe volByMuscle(). Bis 1.33.1
+   ließ sich hier auch nach den Trainingskategorien (Push, Pull, Legs) gruppieren.
+   Zwei Ordnungen je Übung zu pflegen lohnte nicht: die Muskelgruppen liefern
+   alles, was die Kategorie lieferte, und feiner. Die Kategorie bleibt als Ordner
+   im Wähler und in der Übungsliste unter Daten.
    Je Gruppe zählen Arbeitssätze. Bei 7 Tagen zeigt der Balken die Veränderung zur Vorperiode,
    bei 30 Tagen die letzten vier Wochen einzeln, je Gruppe auf eigener Skala,
    damit eine kleine Gruppe nicht neben einer großen verschwindet. Bei 90 Tagen
@@ -5521,37 +5497,28 @@ function imbalanceFlags(a, group, range) {
    Gesamtlast in kg bleibt als eine Summenzeile erhalten. */
 function volumeBlock() {
   var range = S.volRange || 7;
-  var group = S.volGroup === "muscle" ? "muscle" : "cat";
-  var groupList = group === "muscle" ? MUSCLE_LIST : CATLIST.concat(["Sonstige"]);
-  var dataFn = group === "muscle" ? volByMuscle : volByCat;
   var compare = range < 90;
   var td = todayISO();
   var aFrom = shiftISO(td, -(range - 1));
-  var a = dataFn(aFrom, td);
+  var a = volByMuscle(aFrom, td);
   var bFrom, bTo, b;
   if (compare) {
     bTo = shiftISO(aFrom, -1);
     bFrom = shiftISO(bTo, -(range - 1));
-    b = dataFn(bFrom, bTo);
+    b = volByMuscle(bFrom, bTo);
   }
-  var cats = groupList.filter(function (c) {
+  var cats = MUSCLE_LIST.filter(function (c) {
     return a[c].sets || (compare && b[c].sets);
   });
   var h = '<div class="sect"><h2>Letzte ' + range + ' Tage</h2></div>' +
-    '<div class="tools" style="grid-template-columns:1fr 1fr">' +
-    [["cat", "Kategorien"], ["muscle", "Muskelgruppen"]].map(function (g) {
-      return '<button class="mode' + (group === g[0] ? " on" : "") + '" data-act="volgroup" ' +
-        'data-v="' + g[0] + '">' + g[1] + '</button>';
-    }).join("") + '</div>' +
-    '<div class="tools" style="grid-template-columns:1fr 1fr 1fr; margin-top:8px">' +
+    '<div class="tools" style="grid-template-columns:1fr 1fr 1fr">' +
     [7, 30, 90].map(function (r) {
       return '<button class="mode' + (range === r ? " on" : "") + '" data-act="volrange" ' +
         'data-v="' + r + '">' + r + ' Tage</button>';
     }).join("") + '</div>';
   if (!cats.length) {
-    return h + '<p class="notice">' + (group === "muscle"
-      ? "Noch keine Übung in diesem Zeitraum lässt sich einer Muskelgruppe zuordnen."
-      : "Noch keine Arbeitssätze in diesem Zeitraum.") + '</p>';
+    return h + '<p class="notice">Noch keine Übung in diesem Zeitraum lässt sich einer ' +
+      'Muskelgruppe zuordnen.</p>';
   }
   var totA = volTotals(aFrom, td);
   var totB = compare ? volTotals(bFrom, bTo) : null;
@@ -5567,12 +5534,12 @@ function volumeBlock() {
         (totB.vol > 0 ? ', das sind ' + (totA.vol >= totB.vol ? "+" : "") +
           Math.round((totA.vol - totB.vol) / totB.vol * 100) + ' Prozent' : '') + '.'
       : '') + '</p>' +
-    imbalanceFlags(a, group, range);
+    imbalanceFlags(a, range);
   if (range === 30) {
     var weeks = [];
     for (var w = 0; w < 4; w++) {
       var wTo = shiftISO(td, -(3 - w) * 7);
-      weeks.push(dataFn(shiftISO(wTo, -6), wTo));
+      weeks.push(volByMuscle(shiftISO(wTo, -6), wTo));
     }
     h += '<div class="wk">';
     cats.forEach(function (c) {
@@ -5637,16 +5604,14 @@ function volumeBlock() {
         '<span><i class="neg"></i>weniger</span></div>';
     }
   }
-  if (group === "muscle") {
-    var unmapped = volUnmapped(aFrom, td);
-    if (unmapped.sets > 0) {
-      h += '<p class="notice">' + fmtCount(unmapped.sets) +
-        (unmapped.sets === 1 ? ' Satz' : ' Sätze') + ' aus ' + unmapped.exCount +
-        (unmapped.exCount === 1 ? ' Übung ohne Muskelzuordnung' :
-          ' Übungen ohne Muskelzuordnung') +
-        ' stecken in der Summe oben, erscheinen aber in keiner Balkengruppe.' +
-        ' <button class="linklike" data-act="tab" data-v="daten">Zu den Übungen</button></p>';
-    }
+  var unmapped = volUnmapped(aFrom, td);
+  if (unmapped.sets > 0) {
+    h += '<p class="notice">' + fmtCount(unmapped.sets) +
+      (unmapped.sets === 1 ? ' Satz' : ' Sätze') + ' aus ' + unmapped.exCount +
+      (unmapped.exCount === 1 ? ' Übung ohne Muskelzuordnung' :
+        ' Übungen ohne Muskelzuordnung') +
+      ' stecken in der Summe oben, erscheinen aber in keiner Balkengruppe.' +
+      ' <button class="linklike" data-act="tab" data-v="daten">Zu den Übungen</button></p>';
   }
   h += '</div>';
   return h;
@@ -6510,29 +6475,8 @@ function catRows() {
       '</span></button>';
     if (closed) return;
     items.forEach(function (n) { h += catRow(n); });
-    h += moveRow(c, items, order, ci);
   });
   return h;
-}
-/* Die Gruppe steht schon in der Überschrift, deshalb hat die Zeile kein eigenes
-   Kategoriefeld mehr. Umsortiert wird am Ende der Gruppe. */
-function moveRow(c, items, order, ci) {
-  /* "Sonstige" ist seit 1.14.6 auch Ziel, nicht nur Ausgangspunkt. Vorher war die
-     Zuordnung eine Einbahnstraße: einmal nach Push verschoben, kam eine Übung nie
-     wieder in die Sammelgruppe zurück. */
-  var targets = order.filter(function (o) { return o !== c; });
-  if (!targets.length) return "";
-  return '<div class="movecat"><span>Übung in eine andere Gruppe verschieben</span>' +
-    '<div class="row"><select id="mv-' + ci + '" aria-label="Übung aus ' + esc(c) +
-    ' verschieben"><option value="">Übung wählen</option>' +
-    items.map(function (n) {
-      return '<option value="' + esc(n) + '">' + esc(n) + '</option>';
-    }).join("") + '</select>' +
-    '<select data-act="catmove" data-i="' + ci + '" aria-label="Zielgruppe">' +
-    '<option value="">Ziel wählen</option>' +
-    targets.map(function (o) {
-      return '<option value="' + esc(o) + '">nach ' + esc(o) + '</option>';
-    }).join("") + '</select></div></div>';
 }
 function catRow(n) {
     var m = exMeta(n);
@@ -7739,7 +7683,6 @@ ACTIONS.focushisttoggle = function () {
   S.settings.focusHist = !S.settings.focusHist; persist();
 };
 ACTIONS.volrange = function (v) { S.volRange = parseInt(v, 10); };
-ACTIONS.volgroup = function (v) { S.volGroup = v; };
 ACTIONS.datacat = function (v) { S.dataClosed[v] = !S.dataClosed[v]; };
 ACTIONS.secfold = function (v) { S.secOpen[v] = !S.secOpen[v]; };
 ACTIONS.barw = function (v, el) {
@@ -8031,7 +7974,7 @@ document.addEventListener("click", function (ev) {
   if (!el) return;
   var act = el.getAttribute("data-act"), v = el.getAttribute("data-v");
   if (act === "input" || act === "pedit" ||
-      act === "search" || act === "catmove" || act === "hsearch" ||
+      act === "search" || act === "hsearch" ||
       act === "colorset" || act === "noteinput" || act === "stepset" ||
       act === "exnoteinput" || act === "exnoteset" || act === "defedit" ||
       act === "exrestset" ||
@@ -8296,19 +8239,6 @@ document.addEventListener("change", function (ev) {
   }
   else if (act === "colorset") {
     S.colors[el.getAttribute("data-v")] = el.value;
-    persist();
-    render();
-  }
-  else if (act === "catmove") {
-    var msel = document.getElementById("mv-" + el.getAttribute("data-i"));
-    var nm = msel ? msel.value : "", target = el.value;
-    if (!nm || !target) { el.value = ""; return; }
-    S.cats[nm] = target;
-    S.custom.forEach(function (c) {
-      if (typeof c === "object" && c.name === nm) c.cat = target;
-    });
-    S.dataClosed[target] = false;
-    S.note = nm + " steht jetzt unter " + target + ".";
     persist();
     render();
   }

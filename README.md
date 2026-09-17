@@ -374,6 +374,15 @@ gilt eine Entscheidung dort für beide. Abgeschaltet wird er dagegen getrennt:
 Platz knapper, und wer ihn dort weghaben will, will ihn im Trainingsreiter
 meist behalten.
 
+Jede Übung trägt zwei Ordnungen: eine Kategorie (Push, Pull, Legs, Core,
+Sonstige) und eine primäre samt sekundären Muskelgruppen. Bis 1.33.1 wurden
+beide gepflegt und beide ausgewertet, im Wähler wie im Volumenblock, und unter
+Daten ließ sich eine Übung zwischen den Kategorien verschieben. Seit 1.33.2 ist
+die Kategorie nur noch ein Ordner: sie gliedert den Wähler und die Übungsliste,
+gerechnet wird ausschließlich mit Muskelgruppen, weil die alles liefern, was die
+Kategorie lieferte, und feiner. Festgelegt wird die Kategorie beim Anlegen einer
+eigenen Übung; danach hängt sie am Namen.
+
 Zwei Abschnitte sind lang und starten deshalb zugeklappt, die Übungen mit allen
 Gruppen und die Muskelgruppen mit jeder Übung einzeln. Zusammen machen sie den
 Reiter doppelt so lang: 4757 statt 2386 Pixel. Der Zustand liegt in `S.secOpen`
