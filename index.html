@@ -958,7 +958,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.31.1";
+var APP_VERSION = "1.32.0";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -2264,7 +2264,7 @@ function suggestFor(name) {
      Größe, weil alle Zielsätze den Wert erreichen müssen, nicht nur der letzte. */
   var low = block.low;
 
-  if (!hit) return suggestWithinRange(base, block, rng, goalReps);
+  if (!hit) return suggestWithinRange(name, base, block, rng, goalSets, goalReps);
 
   /* Für einen Gewichtssprung muss auch die unmittelbar vorige Einheit denselben
      maßgeblichen Block vollständig geschafft haben. Ohne Range kommt noch eine
@@ -2315,9 +2315,10 @@ function suggestFor(name) {
    suggestFor(); herausgezogen, weil dort die Progressionsregel für den unteren
    Rand der Range dazukommt (Issue 2) und die Funktion mit 47 Verzweigungen die
    letzte über der Lint-Schwelle war. */
-function suggestWithinRange(base, block, rng, goalReps) {
+function suggestWithinRange(name, base, block, rng, goalSets, goalReps) {
   var low = block.low, avg = block.avg;
   if (!rng) { base.reps = goalReps; return base; }
+  if (block.complete && low < rng.lo) return suggestBelowRange(name, base, block, rng, goalSets);
   /* Nah am Muskelversagen kommt auch keine Wiederholung obendrauf, dieselbe
      Grenze wie beim Gewicht in suggestFor(). Der Vorschlag bleibt dann stehen. */
   if (avg != null && avg >= 9) {
@@ -2346,6 +2347,54 @@ function suggestWithinRange(base, block, rng, goalReps) {
       (block.lowRpe != null ? " @ RPE " + num(block.lowRpe) : "");
   }
   return base;
+}
+/* Ab 1.32.0 (Issue 2): eine vollständige Einheit, deren schwächster Satz unter dem
+   unteren Rand der Range liegt, ist keine Steigerung. Bis dahin klemmte
+   Math.max(rng.lo, low + 1) den Vorschlag auf den unteren Rand und meldete den
+   Sprung dorthin als "+2 Reps", so oft die Range verfehlt wurde, während plateau()
+   daneben Stillstand anzeigte. Weniger Wiederholungen bei gleichem Gewicht sind
+   weder Last- noch Wiederholungsprogression (Plotkin u.a. 2022).
+
+   Erste verfehlte Einheit: zurück in die Range, unterer Rand als Ziel, ohne
+   Entscheidung, nur ein Hinweis. Zweite in Folge am selben Gewicht: eine
+   Schrittweite weniger, mit Annehmen und Verwerfen. Das folgt der Autoregulation
+   nach Leistung (APRE, Mann u.a. 2010: weniger Wiederholungen als das Ziel senken
+   die Last), mit derselben Trägheit, die eine Steigerung hier braucht: zwei
+   Einheiten. Eine Schrittweite reicht, weil die Range nur dort greift, wo ein
+   Schritt schon mehr als repFirstThresh des Gewichts ist. Waren die Einheiten
+   nicht ausbelastet (RPE bis 7), fehlt der Grund für weniger Last, dann bleibt
+   es beim Hinweis. */
+function suggestBelowRange(name, base, block, rng, goalSets) {
+  var step = stepOf(name);
+  var streak = missStreak(name, goalSets, block.weight, rng.lo);
+  var lowNote = "schwächster Satz " + block.low + "x" +
+    (block.lowRpe != null ? " @ RPE " + num(block.lowRpe) : "");
+  base.reps = rng.lo;
+  if (streak.n >= 2 && streak.hard && block.weight - step > 0) {
+    base.weight = Math.round((block.weight - step) * 100) / 100;
+    base.up = true;
+    base.why = "-" + num(step) + " kg, Range ab " + rng.lo + " in " + streak.n +
+      " Einheiten verfehlt, " + lowNote;
+    return base;
+  }
+  base.hint = lowNote + ", Ziel ab " + rng.lo + "x";
+  return base;
+}
+/* Wie viele Einheiten in Folge, die jüngste zuerst, haben am Gewicht w den
+   unteren Rand lo verfehlt? Gezählt werden nur vollständige Einheiten an genau
+   diesem Gewicht; die erste, die davon abweicht, beendet die Reihe. hard sagt,
+   ob jede davon ausbelastet war (RPE ab 8 oder ohne Angabe). Höchstens sechs
+   Einheiten zurück, mehr braucht die Regel nicht. */
+function missStreak(name, goalSets, w, lo) {
+  var n = 0, hard = true;
+  var days = lastDaysOf(name, S.date, 6);
+  for (var i = 0; i < days.length; i++) {
+    var b = mainWorkBlock(days[i], goalSets, w);
+    if (!b || !b.complete || Math.abs(b.weight - w) > 0.001 || b.low >= lo) break;
+    n += 1;
+    if (b.avg != null && b.avg < 8) hard = false;
+  }
+  return { n:n, hard:hard };
 }
 /* Zurück auf Gewicht, Wiederholungen und RPE des Arbeitssatzes, von dem die Rampe
    stammt. Der RPE kommt seit 1.27.1 mit: Aufwärmsätze führen keinen, und nach dem
@@ -2405,7 +2454,7 @@ function applySuggestion(name) {
 /* Entwurf 1: kompakter Vorschlag unter „Letztes Top Set“. Der hervorgehobene Wert ist
    das Gewicht bei einem Lastsprung und sonst die vorgeschlagene Wiederholungszahl. */
 function suggestionBlock() {
-  if (!S.source) return "";
+  if (!S.source) return hintBlock();
   var t = planTarget(S.exercise), w = deci(S.weight), r = parseInt(S.reps, 10);
   var prior = t;
   if (!prior) {
@@ -2413,8 +2462,9 @@ function suggestionBlock() {
     prior = mainWorkBlock(priorRun, priorRun ? priorRun.sets.length : 1, NaN);
   }
   var weightChanged = prior && isFinite(w) && Math.abs(w - prior.weight) > 0.001;
+  var down = weightChanged && w < prior.weight;
   var label = weightChanged ? num(w) + " kg" : r + " Reps";
-  return '<div class="suggestion">' + svg("trend", 17) +
+  return '<div class="suggestion">' + svg(down ? "trendab" : "trend", 17) +
     '<div class="suggestion-copy"><b>Vorschlag: ' + esc(label) + '</b>' +
     '<span>' + esc(S.source) + '</span></div>' +
     '<div class="suggestion-actions">' +
@@ -2422,6 +2472,19 @@ function suggestionBlock() {
     'Annehmen</button>' +
     '<button data-act="suggestreject">' + svg("kreuz", 13) + 'Verwerfen</button>' +
     '</div></div>';
+}
+/* Der Hinweis "zurück in die Range" ohne Entscheidung, siehe suggestBelowRange().
+   Er wird beim Aufbau aus dem Vorschlag gelesen statt in S abgelegt: er sagt etwas
+   über die letzte Einheit, nicht über die Eingabefelder, und muss deshalb weder
+   beim Tippen gelöscht noch je Tag gemerkt werden. Steht heute schon ein Satz,
+   liefert suggestFor() keinen Hinweis mehr. */
+function hintBlock() {
+  if (!S.exercise) return "";
+  var s = suggestFor(S.exercise);
+  if (!s || !s.hint) return "";
+  return '<div class="suggestion hint">' + svg("info", 17) +
+    '<div class="suggestion-copy"><b>Zurück in die Range</b>' +
+    '<span>' + esc(s.hint) + '</span></div></div>';
 }
 function planIndex() {
   if (!S.plan || !S.exercise || !S.plans[S.plan]) return -1;
@@ -3570,6 +3633,8 @@ var ICONS = {
   kopie:'<rect x="9" y="9" width="11" height="11" rx="2"/>' +
     '<path d="M15 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3"/>',
   trend:'<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>',
+  /* Gespiegelt zu trend, für den Vorschlag mit weniger Gewicht (1.32.0) */
+  trendab:'<path d="M3 7l6 6 4-4 8 8"/><path d="M15 17h6v-6"/>',
   griff:'<path d="M4 8h16M4 12h16M4 16h16"/>',
   griffgesperrt:'<path d="M4 8h16M4 12h16M4 16h16"/><path d="M4 4l16 16"/>',
   info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><path d="M12 7.5v.01"/>',

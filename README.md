@@ -225,6 +225,51 @@ alle drei zurück, nach jedem gespeicherten Rampensatz und beim Abbrechen über
 *Doch ein Arbeitssatz*. Die drei Werte liegen auch im Sitzungszustand, ein
 Neustart mitten in der Rampe verliert das Ziel also nicht.
 
+## Vorschlag unterhalb der Range
+
+Bei doppelter Progression klettern erst die Wiederholungen innerhalb der Range,
+dann das Gewicht. Bis 1.31.1 hatte der Vorschlag darunter eine Lücke: Wer die
+Range nach unten verfehlte, etwa 8x und 6x bei einer Range ab 8, bekam den
+unteren Rand vorgeschlagen und dazu die Meldung "+2 Reps, Steigerung". Das
+wiederholte sich mit jeder verfehlten Einheit, während die Plateau-Warnung
+daneben Stillstand meldete. Weniger Wiederholungen bei gleichem Gewicht sind
+aber weder Last- noch Wiederholungsprogression; beide Wege sind gleichwertig
+belegt (Plotkin u.a. 2022), ein Rückschritt ist keiner von beiden.
+
+Seit 1.32.0 unterscheidet `suggestBelowRange()` drei Fälle:
+
+1. **Erste verfehlte Einheit.** Der untere Rand bleibt das Ziel, das Gewicht
+   bleibt, statt der Entscheidung steht ein Hinweis in der Karte: *Zurück in die
+   Range, schwächster Satz 6x, Ziel ab 8x*. Kein Annehmen, kein Verwerfen, weil
+   sich nichts ändert, das man ablehnen könnte.
+2. **Zweite verfehlte Einheit in Folge am selben Gewicht.** Vorschlag eine
+   Schrittweite weniger, mit Annehmen und Verwerfen, weil das Gewicht sich
+   ändert. Annehmen senkt wie bei einer Steigerung das Gewicht im Planziel.
+   Das folgt der Autoregulation nach Leistung, deren bekannteste Form APRE ist:
+   weniger Wiederholungen als das Ziel senken die Last (Knight 1979; Mann u.a.
+   2010 fanden damit über sechs Wochen größere Kraftzuwächse als mit linearer
+   Periodisierung). Zwei Einheiten statt einer, weil auch die Steigerung hier
+   zwei Bestätigungen braucht und eine einzelne schlechte Einheit zu oft Gründe
+   außerhalb des Trainings hat. Eine Schrittweite statt eines Prozentsatzes,
+   weil die Range nur dort greift, wo ein Schritt schon mehr als fünf Prozent
+   des Gewichts ist (`repFirstThresh`), also bereits im Bereich der APRE-Regel.
+3. **RPE als Filter.** Lag der RPE der verfehlten Einheiten bei 7 oder darunter,
+   wurde nicht ausbelastet, und es fehlt der Grund für weniger Last: dann bleibt
+   es beim Hinweis aus Fall 1. Ohne RPE oder ab 8 greift Fall 2.
+
+Eine geplante Deload-Woche wäre die falsche Antwort gewesen: Coleman u.a.
+(2024) fanden dafür keinen Vorteil bei der Hypertrophie und einen leichten
+Nachteil bei der Kraft, und der Delphi-Konsens von Bell u.a. (2023) beschreibt
+Deloads als Ermüdungsmanagement, das reaktiv auf Leistungseinbrüche folgt. Genau
+das ist die Lastkorrektur je Übung. `plateau()` bleibt unverändert: die Warnung
+zählt Wochen am gleichen Gewicht, der Vorschlag entscheidet die nächste Einheit,
+und seit sie nicht mehr Fortschritt behauptet, widersprechen sich beide nicht.
+
+Die Reihe zählt `missStreak()`: vollständige Einheiten am selben Gewicht, die
+jüngste zuerst, bis zur ersten, die den Rand erreicht hat oder anders schwer war.
+Eine abgebrochene Einheit mit weniger Sätzen zählt nicht, für sie gilt weiter der
+alte Weg ohne Hinweis.
+
 ## Signal am Ende der Pause
 
 Drei Wege, je nachdem, wo die App steht.
