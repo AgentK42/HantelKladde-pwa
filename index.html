@@ -648,13 +648,6 @@ textarea.note { width:100%; margin-top:8px; padding:11px 12px; border-radius:13p
   justify-content:center; }
 .infob.on { color:var(--accent); }
 /* Gleicher Stil wie die Sichtbarkeits- und Reihenfolgensperre-Icons je Plan
-   (.phead h3 .eye/.lock): 28px-Kreis mit Rahmen statt Fläche, Akzentfarbe erst
-   im aktiven Zustand. Für den globalen Zeilenumbruch-Schalter, siehe wraptoggle. */
-.wrapbtn { width:28px; height:28px; border-radius:50%; padding:0; flex:0 0 auto;
-  display:inline-flex; align-items:center; justify-content:center; background:none;
-  border:1.5px solid var(--line); color:var(--muted); transition:background .15s, color .15s; }
-.wrapbtn[aria-checked="true"] { background:var(--accent); border-color:var(--accent);
-  color:var(--accent-ink); }
 
 .planhead { width:100%; display:flex; align-items:center; gap:8px; margin-top:12px;
   padding:11px 13px; border:1px solid var(--line); border-radius:13px;
@@ -768,12 +761,17 @@ textarea.note { width:100%; margin-top:8px; padding:11px 12px; border-radius:13p
   align-items:center; padding:8px 10px; border-top:1px solid var(--line);
   background:var(--surface); }
 .prow:first-child { border-top:none; }
-.prow .nm { display:block; width:100%; padding:0; border:none; background:none;
-  color:inherit; text-align:left; font-size:14px; font-weight:650; overflow:hidden;
-  text-overflow:ellipsis; white-space:nowrap; }
-/* Ein Tipp auf einen langen, abgeschnittenen Namen zeigt ihn vollständig, ein
-   erneuter Tipp springt zurück in den abgeschnittenen "..."-Modus. */
-.prow .nm.open { white-space:normal; overflow-wrap:break-word; overflow:visible; }
+/* Ein Name darf drei Zeilen lang sein, danach drei Punkte. Bis 1.33.4 stand er
+   auf einer Zeile, abgeschnitten, ein Tipp klappte ihn auf und ein Schalter über
+   der Liste klappte alle auf. Damit sah man erst nach dem Tippen, was da steht.
+   Die Spalte ist neben Griff, Sätzen, Reps und Gewicht nur rund 90 Pixel breit,
+   deshalb drei Zeilen statt zwei, Silbentrennung statt Bruch mitten im Wort und
+   eine halbe Stufe kleinere Schrift; der längste mitgelieferte Name
+   ("Trizepsdrücken über Kopf") passt so ohne Tipp hin, kurze bleiben einzeilig.
+   Drei Zeilen sind nicht höher als die Eingabefelder daneben. */
+.prow .nm { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3;
+  line-clamp:3; overflow:hidden; text-align:left; font-size:13.5px; font-weight:650;
+  line-height:1.2; hyphens:auto; overflow-wrap:break-word; }
 .prow input { width:100%; padding:9px 4px; border-radius:10px; border:1px solid var(--line);
   background:var(--raise); font-size:14px; text-align:center; }
 .prow .handle { width:36px; height:38px; border-radius:10px; border:1px solid var(--line);
@@ -961,7 +959,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.33.4";
+var APP_VERSION = "1.33.5";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -1197,7 +1195,7 @@ var DEFAULT_PLANS = {
 var DEFAULT_SETTINGS = {
   rest: 90, autoRest: true, hiddenPlans: [], lockedPlans: [], autoProgress: true,
   barWeight: 20, plates: DEFAULT_PLATES.slice(), hiddenEx: [], focusPlates: false,
-  defSets: DEFAULT_SETS, defReps: 10, defWeight: 20, descOpen: {}, wrapNames: false,
+  defSets: DEFAULT_SETS, defReps: 10, defWeight: 20, descOpen: {},
   weekGoals: {}, weekGoalLog: {}, repFirst: true,
   repFirstThresh: 0.05, repSpan: 2, notifySignal: true,
   exHist: true, focusHist: true,
@@ -1220,7 +1218,7 @@ var DEFAULT_SETTINGS = {
    (Zahl ab null); names (Liste von Strings). */
 var SETTING_FIELDS = {
   autoRest:"bool", autoProgress:"bool", repFirst:"bool", focusPlates:"bool",
-  wrapNames:"bool", exHist:"bool", focusHist:"bool", notifySignal:"bool",
+  exHist:"bool", focusHist:"bool", notifySignal:"bool",
   rest:"positive", repFirstThresh:"positive", barWeight:"positive",
   repSpan:"count", defSets:"count", defReps:"count",
   defWeight:"amount",
@@ -1284,7 +1282,6 @@ var S = {
   reps:"10", weight:"20", rpe:"7", pickOpen:false, plan:"",
   editId:"", openEx:"", storeOk:null, out:"", note:"", freshId:"",
   search:"", undo:null, hsearch:"", planOpen:false, plansFold:false, planCardsFold:false,
-  prowNameOpen:"",
   restEnd:0, restTotal:0, warm:false, warmBase:0, warmReps:"", warmRpe:"",
   noteOpen:false,
   volRange:7, dataClosed:{}, secOpen:{}, exNoteFor:"", exOpen:"",
@@ -3613,8 +3610,6 @@ var ICONS = {
   griff:'<path d="M4 8h16M4 12h16M4 16h16"/>',
   griffgesperrt:'<path d="M4 8h16M4 12h16M4 16h16"/><path d="M4 4l16 16"/>',
   info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><path d="M12 7.5v.01"/>',
-  wrap:'<path d="M4 7h16"/><path d="M4 13h16"/><path d="M16 17.5h3.5a1.5 1.5 0 0 0 1.5-1.5v-2.5"/>' +
-    '<path d="M16 20l-2.5-2.5L16 15"/>'
 };
 function svg(name, size) {
   return '<svg viewBox="0 0 24 24" width="' + size + '" height="' + size + '" fill="none" ' +
@@ -4878,12 +4873,6 @@ function viewPlans() {
   h += planMuscleBlock();
 
   h += '<div class="sect"><h2>Pläne bearbeiten' + infoBtn("plaene") +
-    '<button class="wrapbtn" role="switch" aria-checked="' +
-    (S.settings.wrapNames ? "true" : "false") + '" aria-label="Lange Übungsnamen umbrechen" ' +
-    'title="' + (S.settings.wrapNames
-      ? "Lange Übungsnamen umbrechen, tippen zum Abschalten"
-      : "Lange Übungsnamen abgeschnitten, tippen zum Umbrechen") +
-    '" data-act="wraptoggle">' + svg("wrap", 15) + '</button>' +
     '</h2><span>' +
     Object.keys(S.plans).length + ' Pläne</span></div>' +
     descText("plaene", '<p class="notice">Änderungen wirken sofort im Training. Die ' +
@@ -4948,10 +4937,7 @@ function viewPlans() {
             svg("griffgesperrt", 13) + '</button>'
           : '<button class="handle" data-act="phandle" data-p="' + esc(p) + '" data-i="' + idx +
             '" aria-label="Position ändern">\u2261</button>') +
-        '<button class="nm' +
-        ((S.settings.wrapNames || S.prowNameOpen === p + "|" + idx) ? " open" : "") +
-        '" data-act="prownm" data-p="' + esc(p) + '" data-i="' + idx + '">' +
-        esc(i.name) + '</button>' +
+        '<span class="nm" title="' + esc(i.name) + '">' + esc(i.name) + '</span>' +
         '<input inputmode="numeric" value="' + (i.sets > 0 ? i.sets : defaultSets()) +
         '" data-act="pedit" data-p="' + esc(p) + '" data-i="' + idx + '" data-f="sets">' +
         '<input inputmode="numeric" value="' + i.reps + '" data-act="pedit" data-p="' +
@@ -7173,7 +7159,6 @@ ACTIONS.weekovr = function () {
 ACTIONS.weekovrclose = function () { closeWeekOverview(); };
 ACTIONS.plansfold = function () { S.plansFold = !S.plansFold; };
 ACTIONS.planfoldall = function () { S.planCardsFold = !S.planCardsFold; };
-ACTIONS.wraptoggle = function () { S.settings.wrapNames = !S.settings.wrapNames; persist(); };
 ACTIONS.focuson = function () {
   S.editId = ""; S.pickOpen = false;
   /* Ohne gewählte Übung oder eine, die nicht zu diesem Plan gehört, wird die
@@ -7780,10 +7765,6 @@ ACTIONS.pdel = function (v, el) {
   S.plans[pp].splice(pi, 1);
   S.note = "";
   persist();
-};
-ACTIONS.prownm = function (v, el) {
-  var nmKey = el.getAttribute("data-p") + "|" + el.getAttribute("data-i");
-  S.prowNameOpen = S.prowNameOpen === nmKey ? "" : nmKey;
 };
 ACTIONS.addplan = function () {
   var np = document.getElementById("newPlan");

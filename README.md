@@ -559,6 +559,19 @@ unterscheidbar bleibt.
 Bei eingeklappten Karten fehlt der Knopf. Dort steht neben dem Namen schon die
 Übungszahl, und ein drittes Symbol schnitt „Push Day“ auf „Push ...“ ab.
 
+## Lange Übungsnamen
+
+In der Planliste steht ein Übungsname seit 1.33.5 auf bis zu drei Zeilen, mit
+Silbentrennung; was darüber hinausgeht, endet in drei Punkten. Die Spalte ist
+neben Griff, Sätzen, Reps und Gewicht nur rund 90 Pixel breit, drei Zeilen sind
+dort nicht höher als die Eingabefelder. Kurze Namen bleiben einzeilig, der
+längste mitgelieferte, "Trizepsdrücken über Kopf", passt ohne Kürzung. Vorher
+stand jeder Name auf einer Zeile, abgeschnitten; ein Tipp klappte ihn auf, und
+ein Schalter über der Liste klappte alle auf. Man sah also erst nach dem Tippen,
+was da steht, und die Einstellung `wrapNames` samt Schalter war die Antwort auf
+eine Frage, die die Oberfläche selbst beantworten kann. Beides ist entfallen,
+ein altes Backup mit dem Feld wird weiter gelesen.
+
 ## Timer und Datum
 
 Der Pausentimer startet nur für den heutigen Tag. Wer einen zurückliegenden Tag
