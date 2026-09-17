@@ -262,6 +262,19 @@ Einstellungen unter Apps, HantelKladde, Benachrichtigungen ein. Der Knopf
 **Signal in 5 Sekunden testen** unter Daten, Pause ist dafür da: einmal tippen,
 Bildschirm sperren, hinhören.
 
+Seit 1.31.0 kommt die Pause außerdem sofort auf den Sperrbildschirm: wer mitten
+in der Pause sperrt oder die App wegwischt, sieht dort **Pause bis 14:32** und
+darunter, womit es weitergeht, etwa *Dann Squats, Satz 3*. Der Moment des
+Versteckens ist der einzige, in dem eine Meldung noch sicher hinauskommt, bevor
+das System die Seite anhält; auf iOS ist es deshalb oft die einzige, die
+überhaupt ankommt. Ein Countdown ist es nicht: der Text steht fest, weil eine
+Aktualisierung je Sekunde laufenden Code im Hintergrund bräuchte. Darum die
+Uhrzeit des Endes, die liest man neben der Uhr des Sperrbildschirms ab. Die
+Meldung trägt denselben `tag` wie **Pause vorbei** und wird von ihr ersetzt,
+klingelt beim Sperren nicht und verschwindet beim Zurückkommen. Eine Web-App
+kann nicht mehr als das: Widgets und Live-Aktivitäten auf dem Sperrbildschirm
+sind nativen Apps vorbehalten.
+
 Was auch das nicht löst: ist die Seite eingefroren, läuft kein Code mehr, der
 etwas melden könnte. Die Benachrichtigung hilft bei "versteckt, aber am Leben",
 und das ist bei anderthalb Minuten Pause der Normalfall. Der Bildschirmwächter

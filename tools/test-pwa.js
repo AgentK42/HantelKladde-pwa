@@ -269,6 +269,41 @@ async function main() {
     });
     check("Zurückkommen räumt die Meldung weg", (await notes()).length === 0);
 
+    /* Sperren mitten in der Pause: die laufende Pause kommt sofort als Meldung */
+    const running = await page.evaluate(async () => {
+      S.restEnd = Date.now() + 90000; S.restTotal = 90;
+      Object.defineProperty(document, "hidden", { get: () => true, configurable: true });
+      document.dispatchEvent(new Event("visibilitychange"));
+      await new Promise(r => setTimeout(r, 300));
+      const d = new Date(S.restEnd);
+      const hm = (d.getHours() < 10 ? "0" : "") + d.getHours() + ":" +
+        (d.getMinutes() < 10 ? "0" : "") + d.getMinutes();
+      return { hm, set: nextSet() };
+    });
+    const lock = await notes();
+    check("Sperren in der Pause bringt genau eine Meldung", lock.length === 1, JSON.stringify(lock));
+    check("Sie nennt die Uhrzeit des Endes",
+      !!lock[0] && lock[0].title === "Pause bis " + running.hm, JSON.stringify(lock[0]));
+    check("Und die nächste Übung mit Satznummer",
+      !!lock[0] && lock[0].body === "Dann Benchpress Maschine, Satz " + running.set, JSON.stringify(lock[0]));
+    await page.evaluate(async () => {
+      Object.defineProperty(document, "hidden", { get: () => false, configurable: true });
+      document.dispatchEvent(new Event("visibilitychange"));
+      await new Promise(r => setTimeout(r, 400));
+    });
+    check("Zurückkommen räumt auch diese Meldung weg", (await notes()).length === 0);
+    await page.evaluate(async () => {
+      S.restEnd = Date.now() - 1000;
+      Object.defineProperty(document, "hidden", { get: () => true, configurable: true });
+      document.dispatchEvent(new Event("visibilitychange"));
+      await new Promise(r => setTimeout(r, 300));
+    });
+    check("Eine abgelaufene Pause wird beim Sperren nicht als laufend gemeldet", (await notes()).length === 0);
+    await page.evaluate(() => {
+      Object.defineProperty(document, "hidden", { get: () => false, configurable: true });
+      S.restEnd = 0;
+    });
+
     await page.evaluate(async () => {
       S.settings.notifySignal = false;
       Object.defineProperty(document, "hidden", { get: () => true, configurable: true });

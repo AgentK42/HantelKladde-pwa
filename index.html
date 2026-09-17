@@ -958,7 +958,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.30.8";
+var APP_VERSION = "1.31.0";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -2542,7 +2542,11 @@ function restoreRest() {
   if (restSignals < REST_SIGNAL_MAX) wakeOn();
 }
 document.addEventListener("visibilitychange", function () {
-  if (document.hidden) return;
+  /* Wer mitten in der Pause sperrt oder wegwischt, bekommt die Pause sofort auf den
+     Sperrbildschirm: bis wann, und womit es weitergeht. Ab 1.31.0. Das ist der
+     einzige Moment, in dem eine Meldung noch sicher hinauskommt, bevor das System
+     die Seite anhält; die Meldung am Ende der Pause ersetzt sie unter demselben tag. */
+  if (document.hidden) { notifyRestRunning(); return; }
   /* Der Bildschirmwächter fällt beim Wegwischen weg und wird hier neu angefordert */
   if (S.restEnd && wakeWanted) wakeOn();
   if (S.restEnd) tickRest();
@@ -2705,6 +2709,26 @@ function notifyRestOver() {
       renotify: true,
       icon: "icons/icon-192.png",
       vibrate: [220,120,220]
+    });
+    return true;
+  } catch (e) { return false; }
+}
+/* Die laufende Pause als Meldung, wenn die Seite versteckt wird. Kein Countdown:
+   der Text steht fest, weil eine Aktualisierung je Sekunde laufenden Code im
+   Hintergrund bräuchte, und genau den drosselt das System. Also die Uhrzeit des
+   Endes, die liest man am Sperrbildschirm neben der Uhr ab. Ohne renotify, sonst
+   klingelte es beim Sperren. Eine schon abgelaufene Pause meldet tickRest(). */
+function notifyRestRunning() {
+  if (!S.restEnd || S.restEnd <= Date.now() || !notifyReady()) return false;
+  var d = new Date(S.restEnd);
+  var hm = (d.getHours() < 10 ? "0" : "") + d.getHours() + ":" +
+    (d.getMinutes() < 10 ? "0" : "") + d.getMinutes();
+  try {
+    swReg.showNotification("Pause bis " + hm, {
+      body: S.exercise ? "Dann " + S.exercise + ", Satz " + nextSet() : "Dann geht es weiter.",
+      tag: REST_TAG,
+      silent: true,
+      icon: "icons/icon-192.png"
     });
     return true;
   } catch (e) { return false; }
