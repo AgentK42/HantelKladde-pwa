@@ -683,6 +683,17 @@ eine Hilfsdatei, mit so vielen Leerzeilen davor, dass die gemeldeten
 Zeilennummern denen in `index.html` entsprechen. Die Regeln stehen in
 `tools/eslint.config.js`. Braucht `npm i -g eslint`, sonst nichts.
 
+Seit 1.34.2 prüft `tools/lint.sh` vorher auch das CSS auf offene Kommentare:
+jedes `/*` im `<style>`-Block braucht sein `*/`, bevor das nächste kommt. Anlass
+war 1.33.5, wo beim Löschen zweier Regeln das Ende eines Kommentars mitging.
+Alles bis zum nächsten Kommentarende fiel stumm aus, darunter `.planhead`, und
+die Köpfe "Verlauf dieser Übung" und der Planübersicht standen als weiße
+Browser-Standardknöpfe da. ESLint liest nur das Skript, die Suiten prüften
+Verhalten, nicht Aussehen; erst das Handy zeigte es. Deshalb misst seitdem
+`tools/tests/stile.js` in jedem Reiter, hell und dunkel, ob ein Knopf auf den
+Browser-Standard zurückgefallen ist, gegen einen frischen, ungestylten Knopf
+derselben Seite als Referenz.
+
 Seit 1.30.0 warnt ESLint zusätzlich vor Strukturwuchs: bei einer zyklomatischen
 Komplexität über 40 und bei Funktionen über 150 Zeilen. Beides sind Warnungen,
 die Kette bleibt grün, aber die Funktionen stehen bei jedem Lauf im Terminal.

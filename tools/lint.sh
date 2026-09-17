@@ -30,6 +30,33 @@ start=$(grep -n '^<script>$' index.html | head -1 | cut -d: -f1)
   sed -n '/^<script>$/,/^<\/script>$/p' index.html | sed '1d;$d'
 } > "$tmp"
 
+# Das CSS prueft ESLint nicht. Ein offener Kommentar dort ist stumm und teuer:
+# in 1.33.5 blieb beim Loeschen zweier Regeln ein "/*" ohne "*/" stehen, und
+# alle Regeln bis zum naechsten Kommentarende fielen aus, die Knoepfe darunter
+# standen als weisse Browser-Standardknoepfe da. Deshalb hier: jedes "/*" im
+# <style>-Block braucht sein "*/", bevor das naechste "/*" kommt, und am Ende
+# darf keiner offen sein.
+css_err=$(python3 - <<'EOF'
+import re, sys
+src = open("index.html", encoding="utf-8").read()
+start = src.index("<style>") + len("<style>"); end = src.index("</style>", start)
+css = src[start:end]; line0 = src[:start].count("\n") + 1
+open_at = None
+for m in re.finditer(r"/\*|\*/", css):
+    ln = line0 + css[:m.start()].count("\n")
+    if m.group() == "/*":
+        if open_at is not None:
+            print("Zeile %d: Kommentar beginnt, waehrend der aus Zeile %d noch offen ist" % (ln, open_at)); sys.exit(1)
+        open_at = ln
+    else:
+        if open_at is None:
+            print("Zeile %d: Kommentarende ohne Anfang" % ln); sys.exit(1)
+        open_at = None
+if open_at is not None:
+    print("Zeile %d: Kommentar bis zum Ende des <style>-Blocks offen" % open_at); sys.exit(1)
+EOF
+) || { echo "CSS in index.html: $css_err" >&2; exit 1; }
+
 # Erst einsammeln, dann ausgeben: in einer Pipe ginge der Rueckgabewert von
 # eslint verloren, und das Skript meldete Erfolg trotz Funden.
 code=0
