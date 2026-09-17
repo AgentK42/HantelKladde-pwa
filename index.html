@@ -958,7 +958,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.31.0";
+var APP_VERSION = "1.31.1";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -2264,37 +2264,7 @@ function suggestFor(name) {
      Größe, weil alle Zielsätze den Wert erreichen müssen, nicht nur der letzte. */
   var low = block.low;
 
-  if (!hit) {
-    if (!rng) { base.reps = goalReps; return base; }
-    /* Nah am Muskelversagen kommt auch keine Wiederholung obendrauf, dieselbe
-       Grenze wie beim Gewicht weiter unten. Der Vorschlag bleibt dann stehen. */
-    if (avg != null && avg >= 9) {
-      base.reps = Math.min(rng.hi, Math.max(rng.lo, low));
-      return base;
-    }
-    /* Unter dem unteren Rand geblieben, etwa nach einem abgebrochenen Satz: dann
-       erst wieder den unteren Rand anpeilen, statt von dort aus weiterzuklettern. */
-    if (!block.complete) {
-      base.reps = Math.min(rng.hi, Math.max(rng.lo, low));
-      return base;
-    }
-    var next = Math.min(rng.hi, Math.max(rng.lo, low + 1));
-    base.reps = next;
-    if (next > low) {
-      /* Der Sprung ist nicht immer eine Wiederholung: liegt der schwächste Satz unter
-         dem unteren Rand der Range, klemmt Math.max() den Vorschlag dorthin hoch. Bis
-         1.17.0 stand hier fest "+1 Rep" und behauptete damit weniger, als der Vorschlag
-         verlangt - nach 8x und 6x bei einer Range ab 8 sind es zwei. Genannt wird der
-         schwächste Satz, denn er ist die bindende Größe; die Zeile "Letztes Top Set"
-         darüber zeigt dagegen den besten, sonst widersprechen sich beide Zahlen. */
-      var gain = next - low;
-      base.up = true;
-      base.why = "+" + gain + (gain === 1 ? " Rep" : " Reps") +
-        ", schwächster Satz " + low + "x" +
-        (block.lowRpe != null ? " @ RPE " + num(block.lowRpe) : "");
-    }
-    return base;
-  }
+  if (!hit) return suggestWithinRange(base, block, rng, goalReps);
 
   /* Für einen Gewichtssprung muss auch die unmittelbar vorige Einheit denselben
      maßgeblichen Block vollständig geschafft haben. Ohne Range kommt noch eine
@@ -2338,6 +2308,44 @@ function suggestFor(name) {
         " in 2 Einheiten bestätigt" +
         (confirmAvg != null ? " @ RPE " + num(confirmAvg) : "")
   };
+}
+/* Der Vorschlag, wenn die letzte Einheit den oberen Rand nicht erreicht hat: die
+   Wiederholungen klettern, das Gewicht bleibt. base trägt Gewicht, letzte Reps und
+   RPE der Einheit und wird hier ergänzt. Bis 1.31.0 stand das als Zweig in
+   suggestFor(); herausgezogen, weil dort die Progressionsregel für den unteren
+   Rand der Range dazukommt (Issue 2) und die Funktion mit 47 Verzweigungen die
+   letzte über der Lint-Schwelle war. */
+function suggestWithinRange(base, block, rng, goalReps) {
+  var low = block.low, avg = block.avg;
+  if (!rng) { base.reps = goalReps; return base; }
+  /* Nah am Muskelversagen kommt auch keine Wiederholung obendrauf, dieselbe
+     Grenze wie beim Gewicht in suggestFor(). Der Vorschlag bleibt dann stehen. */
+  if (avg != null && avg >= 9) {
+    base.reps = Math.min(rng.hi, Math.max(rng.lo, low));
+    return base;
+  }
+  /* Unter dem unteren Rand geblieben, etwa nach einem abgebrochenen Satz: dann
+     erst wieder den unteren Rand anpeilen, statt von dort aus weiterzuklettern. */
+  if (!block.complete) {
+    base.reps = Math.min(rng.hi, Math.max(rng.lo, low));
+    return base;
+  }
+  var next = Math.min(rng.hi, Math.max(rng.lo, low + 1));
+  base.reps = next;
+  if (next > low) {
+    /* Der Sprung ist nicht immer eine Wiederholung: liegt der schwächste Satz unter
+       dem unteren Rand der Range, klemmt Math.max() den Vorschlag dorthin hoch. Bis
+       1.17.0 stand hier fest "+1 Rep" und behauptete damit weniger, als der Vorschlag
+       verlangt - nach 8x und 6x bei einer Range ab 8 sind es zwei. Genannt wird der
+       schwächste Satz, denn er ist die bindende Größe; die Zeile "Letztes Top Set"
+       darüber zeigt dagegen den besten, sonst widersprechen sich beide Zahlen. */
+    var gain = next - low;
+    base.up = true;
+    base.why = "+" + gain + (gain === 1 ? " Rep" : " Reps") +
+      ", schwächster Satz " + low + "x" +
+      (block.lowRpe != null ? " @ RPE " + num(block.lowRpe) : "");
+  }
+  return base;
 }
 /* Zurück auf Gewicht, Wiederholungen und RPE des Arbeitssatzes, von dem die Rampe
    stammt. Der RPE kommt seit 1.27.1 mit: Aufwärmsätze führen keinen, und nach dem
