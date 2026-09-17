@@ -504,6 +504,12 @@ textarea.note { width:100%; margin-top:8px; padding:11px 12px; border-radius:13p
 .volrow.zero .vn, .volrow.zero .vv { color:var(--record); }
 .volrow .vb.stack { display:flex; gap:1px; padding:2px 0; }
 .volrow .vb.stack i { display:block; height:10px; border-radius:5px; }
+/* Die beiden Striche des Referenzbereichs, siehe VOL_BAND. Absolut im Balken, damit
+   sie nicht als Flex-Kinder in der Reihe der Planfarben landen. */
+.volrow .vb .ref { position:absolute; top:0; bottom:0; width:2px; margin-left:-1px;
+  background:var(--ink); opacity:.35; }
+.planlegend .refleg { display:inline-block; width:2px; height:12px; background:var(--ink);
+  opacity:.35; }
 .planlegend { display:flex; flex-wrap:wrap; gap:6px 14px; margin-top:12px;
   font-size:11.5px; color:var(--muted); }
 .planlegend span { display:inline-flex; align-items:center; gap:6px; }
@@ -959,7 +965,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.34.0";
+var APP_VERSION = "1.34.1";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -4780,10 +4786,23 @@ function muscleTally(sources) {
    opts.flagRatio: ein Paar rot markieren, sobald eine Seite so viel mal mehr hat
    als die andere oder ganz leer ausgeht (Planung). Ohne beides genau die Karte,
    die der Pläne-Reiter seit 1.21.0 zeigt. */
+/* Referenzbereich für das Wochenvolumen je Muskelgruppe, als zwei Striche im
+   Balken (1.34.1). Unter 10 Sätzen je Woche wächst wenig, zwischen 10 und 20 liegt
+   der Bereich, in dem die Metaanalysen den Zuwachs sehen (Schoenfeld u.a. 2017:
+   ab 10 Sätzen deutlich mehr als darunter; Baz-Valle u.a. 2022: 12 bis 20 als
+   Anhalt für Trainierte), darüber bringt mehr weiter etwas, aber weniger je Satz.
+   Die Skala der Balken reicht immer mindestens bis knapp über 20, sonst läge der
+   zweite Strich am Rand oder außerhalb. */
+var VOL_BAND = [10, 20];
 function muscleBars(res, sources, opts) {
   var by = res.by;
   var groups = MUSCLE_LIST.filter(function (m) { return opts.showZero || by[m].total > 0; });
-  var max = Math.max.apply(null, MUSCLE_LIST.map(function (m) { return by[m].total; })) || 1;
+  var top = Math.max.apply(null, MUSCLE_LIST.map(function (m) { return by[m].total; }));
+  var max = Math.max(top, VOL_BAND[1] + 2);
+  var refs = VOL_BAND.map(function (v) {
+    return '<b class="ref" style="left:' + (v / max * 100).toFixed(1) + '%" title="' + v +
+      ' Sätze je Woche"></b>';
+  }).join("");
   var h = '<div class="card"><div class="vol bymuscle" style="margin-top:0">';
   groups.forEach(function (m) {
     h += '<div class="volrow' + (by[m].total ? "" : " zero") + '"><span class="vn">' +
@@ -4792,14 +4811,16 @@ function muscleBars(res, sources, opts) {
         return '<i style="width:' + (by[m].src[sc.key] / max * 100).toFixed(1) +
           '%;background:' + sc.color + '" title="' + esc(sc.label) + ': ' +
           fmtCount(by[m].src[sc.key]) + '"></i>';
-      }).join("") + '</div>' +
+      }).join("") + refs + '</div>' +
       '<span class="vv">' + fmtCount(by[m].total) + '</span></div>';
   });
   h += '</div>' +
     '<div class="planlegend">' + sources.map(function (sc) {
       return '<span><span class="pdot" style="background:' + sc.color + '"></span>' +
         esc(sc.label) + (sc.times > 1 ? ' ×' + sc.times : '') + '</span>';
-    }).join("") + '</div>';
+    }).join("") +
+    '<span><i class="refleg"></i>' + VOL_BAND[0] + ' und ' + VOL_BAND[1] +
+    ' Sätze je Woche</span></div>';
   /* Dieselben Gegenspieler-Paare wie die Warnung im Verlauf. Im Pläne-Reiter nur
      als Zahlenpaar ohne Schwelle: die Planung soll das Verhältnis zeigen, bewerten
      kann man es erst am tatsächlichen Training. Der Entwurf markiert ab flagRatio,
@@ -4852,8 +4873,12 @@ function planMuscleBlock() {
       'einem Wochenziel, gezählt wie im Verlauf: Primärmuskel voll, Sekundärmuskel halb, ' +
       'jeder Plan so oft wie sein Wochenziel es vorsieht. Pläne ohne Wochenziel oder ' +
       'ausgeblendete Pläne fehlen, sie laufen ja nicht notwendig regelmäßig. Der Balken ' +
-      'zeigt in den Planfarben, welcher Plan wie viel beiträgt. Einen anderen Mix ' +
-      'durchspielen, ohne die Wochenziele anzufassen, geht im Reiter Planung.</p>');
+      'zeigt in den Planfarben, welcher Plan wie viel beiträgt. Die zwei Striche ' +
+      'markieren 10 und 20 Sätze je Woche: unter 10 wächst wenig, zwischen 10 und 20 ' +
+      'liegt der Bereich, in dem die Metaanalysen den Zuwachs sehen (Schoenfeld 2017, ' +
+      'Baz-Valle 2022), darüber bringt mehr weiter etwas, aber weniger je Satz. Einen ' +
+      'anderen Mix durchspielen, ohne die Wochenziele anzufassen, geht im Reiter ' +
+      'Planung.</p>');
   if (!open) return h;
   if (!plans.length) {
     return h + '<p class="notice">Kein eingeblendeter Plan hat ein Wochenziel. Unter ' +
@@ -5241,7 +5266,9 @@ function draftMuscleBlock() {
       'im Verlauf: Primärmuskel voll, Sekundärmuskel halb, jeder Plan so oft wie oben ' +
       'eingestellt. Gruppen ohne einen Satz stehen rot mit dabei. Ein Gegenspieler-Paar ' +
       'wird rot, sobald eine Seite mindestens anderthalb mal so viele Sätze hat wie die ' +
-      'andere oder ganz leer ausgeht.</p>');
+      'andere oder ganz leer ausgeht. Die zwei Striche im Balken markieren 10 und 20 ' +
+      'Sätze je Woche, den Bereich, in dem die Metaanalysen den Zuwachs sehen ' +
+      '(Schoenfeld 2017, Baz-Valle 2022).</p>');
   if (!sources.length) {
     return h + '<p class="notice">Kein Plan und keine Übung im Entwurf' +
       (mark ? " der " + mark : "") + '.</p>';

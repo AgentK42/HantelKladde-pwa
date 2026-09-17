@@ -27,6 +27,17 @@ suite(async ({ open, check, errs, url }) => {
   check("Brust 16 Saetze (4 Uebungen x 2 Saetze x 2)", brust === 16, String(brust));
   check("Paar Bizeps/Trizeps rot", await page.locator(".pairline b.off").count() >= 1);
   check("Ohne Satz Zeile", (await page.locator(".pairline").allInnerTexts()).some(t => t.startsWith("Ohne Satz im Entwurf")));
+  // Referenzbereich: zwei Striche je Balken bei 10 und 20 Saetzen, links vom Rand
+  const refs = await page.evaluate(() => {
+    const rows = document.querySelectorAll(".vol.bymuscle .volrow");
+    const first = rows[0].querySelectorAll(".vb .ref");
+    const pos = Array.from(first).map(b => parseFloat(b.style.left));
+    return { perRow: first.length, total: document.querySelectorAll(".vol.bymuscle .ref").length,
+      rows: rows.length, pos, legend: document.querySelector(".planlegend").textContent };
+  });
+  check("zwei Striche je Balken", refs.perRow === 2 && refs.total === refs.rows * 2, JSON.stringify(refs));
+  check("Striche bei 10 und 20, im Bild und in Reihenfolge", refs.pos[0] < refs.pos[1] && refs.pos[1] < 100 && Math.abs(refs.pos[0] / refs.pos[1] - 0.5) < 0.01, JSON.stringify(refs.pos));
+  check("Legende nennt den Bereich", /10 und 20 Sätze je Woche/.test(refs.legend), refs.legend);
   // Einzelne Uebung ueber den Waehler
   await page.click('button[data-act="pickmulti"]');
   await page.waitForTimeout(100);

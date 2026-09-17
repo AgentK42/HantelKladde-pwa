@@ -478,6 +478,19 @@ der Knopf im Pläne-Reiter, und leert den Entwurf; die einzelnen Übungen bleibe
 stehen, in den Wochenzielen haben sie keinen Platz. **Entwurf verwerfen** setzt
 alles auf die Wochenziele zurück.
 
+### Referenzbereich im Balken
+
+Die Balken "Sätze je Muskelgruppe" tragen seit 1.34.1 zwei Striche bei 10 und
+20 Sätzen je Woche, im Pläne-Reiter wie in der Planung. Beides sind
+Wochensummen, also passt derselbe Maßstab. Er kommt aus den Metaanalysen zur
+Dosis-Wirkung: Schoenfeld, Ogborn und Krieger (2017) finden ab 10 Sätzen je
+Muskel und Woche deutlich mehr Zuwachs als darunter, Baz-Valle u.a. (2022)
+nennen 12 bis 20 als Anhalt für Trainierte, und über 20 bringt mehr weiter
+etwas, aber weniger je Satz. Zwei Striche statt einer Ampel, weil die Grenzen
+weich sind: der Balken soll zeigen, wo eine Gruppe steht, nicht urteilen. Die
+Skala reicht dafür immer mindestens bis knapp über 20 (`VOL_BAND` in
+`muscleBars()`), sonst läge der zweite Strich am Rand.
+
 ### Wochen getrennt planen
 
 Seit 1.26.0 trennt ein Schalter im Kopf des Entwurfs die Wochen. Ist er an,
