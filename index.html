@@ -964,7 +964,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.34.3";
+var APP_VERSION = "1.34.4";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -2091,15 +2091,34 @@ function plateSplit(total) {
   if (!out.length) return null;
   return { bar:bar, side:out, rest:rest };
 }
-/* Aufwärmrampe aus dem Arbeitsgewicht, gerundet auf die Schrittweite der Übung */
+/* Ein Rampengewicht: vom Arbeitsgewicht aus in ganzen Schrittweiten hinunter, so
+   viele, dass es dem Anteil share am nächsten kommt. Bis 1.34.3 wurde stattdessen
+   der Anteil auf ein Vielfaches der Schrittweite gerundet, also auf das Raster
+   0, 3,75, 7,5. Die Maschinen im Studio beginnen aber bei 5 kg und gehen dann in
+   3,75er Schritten: 5, 8,75, 12,5. Beide Raster treffen sich nie, weil 5 kein
+   Vielfaches von 3,75 ist, und jeder Rampenwert lag 1,25 oder 2,5 kg neben einer
+   echten Stufe. Vom Arbeitsgewicht aus gerechnet liegt jeder Wert auf dessen
+   Raster, wo immer das beginnt, ohne einen Startwert je Maschine zu kennen.
+   Bei 2,5 und 5 kg Schrittweite ändert sich nichts, dort deckten sich die Raster.
+   Die Untergrenze (Stangengewicht, sonst eine Schrittweite) gilt weiter, auch sie
+   im Raster des Arbeitsgewichts. */
+function rampWeight(name, base, share) {
+  var st = stepOf(name), min = isBar(name) ? (S.settings.barWeight || 20) : st;
+  var n = Math.round((base - base * share) / st);
+  var w = base - n * st;
+  if (w < min) {
+    n = Math.floor((base - min) / st + 0.0001);
+    w = n > 0 ? base - n * st : base;
+  }
+  return Math.round(w * 100) / 100;
+}
+/* Aufwärmrampe aus dem Arbeitsgewicht: 50, 70 und 85 Prozent, je in ganzen
+   Schrittweiten darunter, siehe rampWeight(). */
 function warmupPlan(name, weight) {
   if (!(weight > 0)) return [];
-  var st = stepOf(name), min = isBar(name) ? (S.settings.barWeight || 20) : st;
   var out = [], pct = [0.5, 0.7, 0.85], reps = [8, 5, 3];
   pct.forEach(function (p, i) {
-    var w = Math.round(weight * p / st) * st;
-    if (w < min) w = min;
-    w = Math.round(w * 100) / 100;
+    var w = rampWeight(name, weight, p);
     if (w >= weight) return;
     if (out.some(function (o) { return Math.abs(o.weight - w) < 0.001; })) return;
     out.push({ weight:w, reps:reps[i] });
@@ -7376,14 +7395,10 @@ ACTIONS.pillrpe = function (v) { S.rpe = v; };
 ACTIONS.warmon = function () {
   if (!S.warm) {
     enterWarm(deci(S.weight) || 0);
-    /* Gleiche Rundung wie warmupPlan(): auf die Schrittweite der Übung, nach
-       unten durch die Stangenlast begrenzt, damit kein unmögliches Gewicht
-       herauskommt. */
-    var st = stepOf(S.exercise), min = isBar(S.exercise) ? (S.settings.barWeight || 20) : st;
-    var half = Math.round(S.warmBase * 0.5 / st) * st;
-    if (half < min) half = min;
-    half = Math.round(half * 100) / 100;
-    if (half > 0) S.weight = comma(half);
+    /* Das halbe Gewicht als Einstieg, gerechnet wie die Rampe: in ganzen Schritten
+       vom Arbeitsgewicht hinunter, damit es auf dem Raster der Maschine liegt. */
+    var half = S.warmBase > 0 ? rampWeight(S.exercise, S.warmBase, 0.5) : 0;
+    if (half > 0 && half < S.warmBase) S.weight = comma(half);
   }
 };
 ACTIONS.addex = function () {

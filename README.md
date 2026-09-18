@@ -225,6 +225,22 @@ alle drei zurück, nach jedem gespeicherten Rampensatz und beim Abbrechen über
 *Doch ein Arbeitssatz*. Die drei Werte liegen auch im Sitzungszustand, ein
 Neustart mitten in der Rampe verliert das Ziel also nicht.
 
+Die Rampe hat drei Stufen, 50, 70 und 85 Prozent des Arbeitsgewichts mit 8, 5
+und 3 Wiederholungen. Bis 1.34.3 wurde jede Stufe auf ein Vielfaches der
+Schrittweite gerundet, also auf das Raster 0, 3,75, 7,5. Die Maschinen im
+Studio beginnen aber bei 5 kg und gehen dann in 3,75er Schritten weiter: 5,
+8,75, 12,5. Beide Raster treffen sich nie, weil 5 kein Vielfaches von 3,75 ist,
+und jeder Rampenwert lag 1,25 oder 2,5 kg neben einer echten Stufe; bei den elf
+Übungen mit dieser Schrittweite musste man fast jeden Aufwärmsatz von Hand
+korrigieren. Seit 1.34.4 rechnet `rampWeight()` vom Arbeitsgewicht aus in
+ganzen Schrittweiten hinunter: 65 kg Flys ergeben 31,25, 46,25 und 53,75, alles
+Stufen der Maschine. So liegt jede Stufe auf dem Raster des Arbeitsgewichts, wo
+immer das beginnt, ohne dass die App den Startwert einer Maschine kennen muss.
+Bei 2,5 und 5 kg Schrittweite ändert sich nichts, dort deckten sich die Raster
+schon. Die Untergrenze bleibt, Stangengewicht an der Langhantel, sonst eine
+Schrittweite, und auch sie liegt im Raster des Arbeitsgewichts. Der Einstieg
+über *Aufwärmen* nimmt für das halbe Gewicht dieselbe Rechnung.
+
 ## Vorschlag unterhalb der Range
 
 Bei doppelter Progression klettern erst die Wiederholungen innerhalb der Range,

@@ -18,7 +18,9 @@ suite(async ({ open, check }) => {
   check("beim Aufwärmen ist das RPE-Feld weg", await rpeFields() === 0);
   check("die Reps bleiben einstellbar",
     await p.locator('[data-act="step"][data-f="reps"]').count() === 2);
-  check("die Rampe setzt Gewicht und Reps", await p.evaluate(()=>S.warm && S.weight==="18,75"));
+  /* 40 kg an der Maschine mit 3,75er Schritt: fünf Schritte darunter sind 21,25,
+     im Raster des Arbeitsgewichts, siehe rampWeight() und die Suite rampe.js. */
+  check("die Rampe setzt Gewicht und Reps", await p.evaluate(()=>S.warm && S.weight==="21,25"), await p.evaluate(()=>S.weight));
 
   // 2. Speichern eines Aufwaermsatzes
   await p.evaluate(()=>{ S.rpe="6"; render(); });   // haengengebliebener Wert
