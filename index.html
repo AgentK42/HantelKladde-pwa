@@ -964,7 +964,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.34.3";
+var APP_VERSION = "1.35.0";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -1014,7 +1014,18 @@ var DEFAULT_SETS = 2;
    Aufwärmsätze bekommen WARM_REST, aber nie mehr als die Übung selbst. */
 var REST_COMPOUND = 120;
 var WARM_REST = 60;
-var REST_CHOICES = [60, 75, 90, 105, 120, 150, 180];
+/* Obergrenze jeder Pause, seit 1.35.0. Zwei Minuten sind der obere Rand dessen,
+   was die Literatur oben begruendet, und der Plus-Knopf waehrend der Pause soll
+   danach noch zweimal greifen koennen, deshalb 150 und nicht 120. Bis 1.34.3
+   liessen sich 180 s waehlen, der Regler ging bis 600 und addRest() kannte gar
+   keine Grenze. Gedeckelt wird an den zwei Stellen, die eine Pausenlaenge
+   liefern, exRest() und addRest(); die Eingaben sind zusaetzlich begrenzt, damit
+   die Oberflaeche nichts anbietet, was danach gekuerzt wuerde.
+   Nebenwirkung, gewollt: eine Pause unter drei Minuten laesst sich in der
+   geplanten nativen Fassung als shortService fuehren, ohne Sonderberechtigung,
+   siehe docs/kotlin-rewrite-plan.md. */
+var REST_MAX = 150;
+var REST_CHOICES = [60, 75, 90, 105, 120];
 
 /* Schrittweite der Plus- und Minus-Tasten je Übung, dazu die Übungen an der
    Langhantel, für die der Scheibenrechner gilt. Alles unter Daten änderbar. */
@@ -1803,16 +1814,20 @@ function isBar(name) { return name ? exMeta(name).bar : false; }
 /* Die Auswahlwerte fürs Pausenfeld, ein fremder Wert aus dem Import einsortiert */
 function restChoices(cur) {
   var vals = REST_CHOICES.slice();
-  if (cur > 0 && vals.indexOf(cur) < 0) {
+  if (cur > 0 && cur <= REST_MAX && vals.indexOf(cur) < 0) {
     vals.push(cur);
     vals.sort(function (a, b) { return a - b; });
   }
   return vals;
 }
-/* Pause nach einem Arbeitssatz dieser Übung, sonst die aus den Einstellungen */
+/* Pause nach einem Arbeitssatz dieser Übung, sonst die aus den Einstellungen.
+   Gedeckelt auf REST_MAX: ein aelterer Speicherstand oder ein Backup kann noch
+   180 s tragen, denn bis 1.34.3 stand das zur Wahl. Der Wert bleibt liegen, wirkt
+   aber nur bis zur Grenze, und das Auswahlfeld zeigt ihn gekuerzt, siehe
+   exerciseBox(). */
 function exRest(name) {
   var r = name ? exMeta(name).rest : 0;
-  return r > 0 ? r : (S.settings.rest || 90);
+  return Math.min(REST_MAX, r > 0 ? r : (S.settings.rest || 90));
 }
 /* Nach dem Aufwärmen ist die Pause kurz. Steht die Übung selbst unter WARM_REST,
    gilt ihr Wert: Aufwärmen darf nie länger pausieren als Arbeiten. */
@@ -2599,6 +2614,11 @@ function addRest(sec) {
   if (!S.restEnd) return;
   /* Läuft gerade das lange Muster, endet es hier: die Pause geht ja weiter. */
   vibeStop();
+  /* Nicht ueber REST_MAX hinaus, auch nicht in vielen kleinen Schritten. Gerechnet
+     wird auf der Gesamtlaenge, nicht auf der Restzeit: sonst haenge das Ergebnis
+     davon ab, wie frueh in der Pause getippt wird. */
+  sec = Math.min(sec, REST_MAX - S.restTotal);
+  if (sec <= 0) return;
   S.restEnd += sec * 1000;
   S.restTotal += sec;
   var over = S.restEnd <= Date.now();
@@ -6165,7 +6185,8 @@ function dataPause() {
     descText("pause", '<p>Länge der Pause nach einem Arbeitssatz, solange die Übung ' +
       'keine eigene hinterlegt hat. Mehrgelenksübungen bringen ' + mmss(REST_COMPOUND) +
       ' mit, änderbar unter Daten bei der Übung. Nach einem Aufwärmsatz läuft immer ' +
-      'die kurze Pause von ' + mmss(WARM_REST) + '.</p>') +
+      'die kurze Pause von ' + mmss(WARM_REST) + '. Länger als ' + mmss(REST_MAX) +
+      ' wird keine Pause, auch nicht über den Plus-Knopf während sie läuft.</p>') +
     '<div class="tools" style="margin-top:10px">' +
     '<button data-act="restlen" data-d="-15">15 s weniger</button>' +
     '<button data-act="restlen" data-d="15">15 s mehr</button></div>' +
@@ -6506,6 +6527,10 @@ function catRows() {
 }
 function catRow(n) {
     var m = exMeta(n);
+    /* Ein alter Speicherstand kann 180 s tragen, wirksam sind seit 1.35.0 hoechstens
+       REST_MAX. Angezeigt wird der wirksame Wert, sonst behauptete die Zeile eine
+       Pause, die exRest() gar nicht mehr liefert. */
+    var mrest = m.rest ? Math.min(REST_MAX, m.rest) : 0;
     var open = S.exOpen === n;
     var use = open ? exUsage(n) : null;
     return '<div class="crow">' +
@@ -6535,8 +6560,8 @@ function catRow(n) {
         : "") +
       /* Eigene Zeile statt neben der Geräteeinstellung: die kann lang werden und
          würde die Pause sonst aus der Zeile drängen. */
-      (!open && m.rest
-        ? '<div class="cnote">' + svg("uhr", 13) + '<span>Pause ' + mmss(m.rest) +
+      (!open && mrest
+        ? '<div class="cnote">' + svg("uhr", 13) + '<span>Pause ' + mmss(mrest) +
           '</span></div>'
         : "") +
       (open
@@ -6562,14 +6587,14 @@ function catRow(n) {
           '<label for="crest-in">Pause nach einem Arbeitssatz</label>' +
           '<select id="crest-in" data-act="exrestset" aria-label="Pause für ' +
           esc(n) + '" data-v="' + esc(n) + '">' +
-          '<option value="0"' + (m.rest ? "" : " selected") +
+          '<option value="0"' + (mrest ? "" : " selected") +
           '>Wie eingestellt, ' + mmss(S.settings.rest) + '</option>' +
           /* Ein Wert außerhalb der Liste, etwa 100 s aus einem Backup, wird wie bei
              rpePills() einsortiert. Sonst zeigte das Feld "Wie eingestellt", während
              die Übung längst mit ihrer eigenen Pause läuft. */
-          restChoices(m.rest).map(function (o) {
+          restChoices(mrest).map(function (o) {
             return '<option value="' + o + '"' +
-              (m.rest === o ? " selected" : "") + '>' + mmss(o) + '</option>';
+              (mrest === o ? " selected" : "") + '>' + mmss(o) + '</option>';
           }).join("") + '</select>' +
           '</div>'
         : "");
@@ -7761,7 +7786,7 @@ ACTIONS.exdel = function (v) {
   persist();
 };
 ACTIONS.restlen = function (v, el) {
-  S.settings.rest = Math.max(15, Math.min(600,
+  S.settings.rest = Math.max(15, Math.min(REST_MAX,
     S.settings.rest + parseInt(el.getAttribute("data-d"),10)));
   persist();
 };

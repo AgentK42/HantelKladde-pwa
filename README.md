@@ -204,6 +204,32 @@ wären nicht belegt, deshalb nur zwei Werte. Der Mechanismus ist die
 Volumenlast: Eine zu kurze Pause kostet Wiederholungen im Folgesatz, und genau
 an dieser Zahl hängen hier die doppelte Progression und `plateau()`.
 
+### Obergrenze
+
+Seit 1.35.0 wird keine Pause länger als **150 Sekunden** (`REST_MAX`). Das
+Auswahlfeld je Übung endet bei 120, der Regler unter *Daten, Pause* bleibt bei
+150 stehen, und der Plus-Knopf während einer laufenden Pause verlängert bis
+dorthin und nicht weiter. Bis 1.34.3 liessen sich 180 Sekunden wählen, der
+Regler ging bis 600, und `addRest()` kannte gar keine Grenze: zwanzig Tipper
+auf Plus ergaben eine Pause von zehn Minuten.
+
+Der Grund ist derselbe wie oben: Oberhalb von 90 Sekunden findet die Metaanalyse
+keinen weiteren Vorteil, und die drei Minuten des ACSM gelten dem schweren
+Mehrgelenkssatz, nicht dem Regelfall. 150 statt 120 deshalb, weil der Plus-Knopf
+seinen Sinn behalten soll: Wer bei einer schweren Übung mit 120 Sekunden
+startet, kann noch zweimal nachlegen.
+
+Gedeckelt wird an genau zwei Stellen, `exRest()` und `addRest()`, also dort, wo
+eine Pausenlänge entsteht. Die Eingaben sind zusätzlich begrenzt, damit die
+Oberfläche nichts anbietet, was danach gekürzt würde. Ein älterer Speicherstand
+oder ein Backup darf weiterhin 180 tragen, der Import lehnt das nicht ab; der
+Wert wirkt dann bis zur Grenze, und das Auswahlfeld zeigt ihn gekürzt, damit
+Anzeige und Verhalten dasselbe sagen.
+
+Eine Pause unter drei Minuten hat eine zweite, gewollte Folge: Sie lässt sich in
+der geplanten nativen Fassung als `shortService` führen, ohne Sonderberechtigung
+und ohne Play-Deklaration. Siehe `docs/kotlin-rewrite-plan.md`.
+
 Je Übung änderbar ist die Pause unter *Daten, Übungen*, im Kasten hinter dem
 Namen. Der erste Eintrag *Wie eingestellt* nimmt einen eigenen Wert wieder weg,
 auch den mitgelieferten: Er schreibt eine Null, und `exMeta()` liest die Null

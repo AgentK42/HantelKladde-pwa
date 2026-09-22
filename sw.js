@@ -12,7 +12,7 @@
    Beim Anheben von APP_VERSION wird der alte Cache verworfen. Die Trainings-
    daten liegen im localStorage und sind davon nicht berührt. */
 
-var APP_VERSION = "1.34.3";
+var APP_VERSION = "1.35.0";
 
 /* BUILD hochzählen, wenn sich ausgelieferte Dateien ändern, ohne dass die App
    selbst eine neue Versionsnummer bekommt, etwa bei einer Korrektur am Manifest.
