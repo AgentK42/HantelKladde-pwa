@@ -178,4 +178,49 @@ suite(async ({ open, check }) => {
       var t=S.restTotal, left=Math.round((S.restEnd-Date.now())/1000);
       stopRest(); return t===150 && left>=148 && left<=150;
     }));
+  check("an der Grenze wird die Vibration nicht abgewürgt", await p.evaluate(()=>{
+    /* Ein Tipp auf Plus, der nichts mehr verlängern kann, darf auch das Signal
+       nicht beenden: sonst fühlt sich das Verstummen wie eine angenommene
+       Verlängerung an. navigator.vibrate(0) ist der Abbruch, siehe vibeStop().
+       Derselbe Kniff wie in test-pwa.js: der Aufruf wird mitgeschrieben. */
+    var calls=[], orig=navigator.vibrate;
+    navigator.vibrate=function (pat) { calls.push(pat); return true; };
+    startRest(150); calls.length=0; addRest(15);
+    /* Vor stopRest() ablesen, das ruft vibeStop() selbst. */
+    var total=S.restTotal, cut=calls.indexOf(0)>=0;
+    stopRest(); navigator.vibrate=orig;
+    return total===150 && !cut;
+  }));
+  check("unterhalb der Grenze endet das Signal wie bisher", await p.evaluate(()=>{
+    var calls=[], orig=navigator.vibrate;
+    navigator.vibrate=function (pat) { calls.push(pat); return true; };
+    startRest(120); calls.length=0; addRest(15);
+    var total=S.restTotal, cut=calls.indexOf(0)>=0;
+    stopRest(); navigator.vibrate=orig;
+    return total===135 && cut;
+  }));
+
+  // 10. Ein Speicherstand aus 1.34.3 kann bis 600 s tragen, der Regler ging so
+  // weit. Angezeigt und gerechnet wird der wirksame Wert, sonst nennte die
+  // Oberfläche eine Pause, die nie läuft.
+  check("eine zu hohe Einstellung steht gekürzt unter Daten", await p.evaluate(()=>{
+    S.settings.rest=600; S.view="daten"; S.settings.descOpen.pause=true;
+    var h=viewData(); S.settings.rest=90;
+    return h.indexOf("Aktuell 2:30 Minuten")>0 && h.indexOf("3:00")<0;
+  }));
+  check("und gekürzt im Auswahlfeld der Übung", await p.evaluate(()=>{
+    S.settings.rest=600; S.exOpen="Seitheben";
+    var h=catRow("Seitheben"); S.settings.rest=90; S.exOpen="";
+    return h.indexOf("Wie eingestellt, 2:30")>0 && h.indexOf("10:00")<0;
+  }));
+  check("der Regler rechnet vom wirksamen Wert aus weiter", await p.evaluate(()=>{
+    S.settings.rest=600; S.view="daten"; persist(); render(); return true;
+  }) && await (async()=>{
+    await p.waitForTimeout(200);
+    await p.click('button[data-act="restlen"][data-d="-15"]');
+    await p.waitForTimeout(150);
+    const v=await p.evaluate(()=>S.settings.rest);
+    await p.evaluate(()=>{ S.settings.rest=90; persist(); render(); });
+    return v===135;
+  })());
 });

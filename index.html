@@ -1820,14 +1820,19 @@ function restChoices(cur) {
   }
   return vals;
 }
+/* Die eingestellte Pause, gedeckelt. Ein Speicherstand aus 1.34.3 kann bis zu
+   600 s tragen, denn so weit ging der Regler; SETTING_FIELDS prueft rest nur als
+   "positive" und laesst das beim Laden durch. Der Wert bleibt liegen, wirkt aber
+   nur bis zur Grenze. Alles, was ihn anzeigt oder mit ihm rechnet, geht deshalb
+   hier durch, sonst nennte die Oberflaeche eine Pause, die nie laeuft. */
+function restSetting() { return Math.min(REST_MAX, S.settings.rest || 90); }
 /* Pause nach einem Arbeitssatz dieser Übung, sonst die aus den Einstellungen.
-   Gedeckelt auf REST_MAX: ein aelterer Speicherstand oder ein Backup kann noch
-   180 s tragen, denn bis 1.34.3 stand das zur Wahl. Der Wert bleibt liegen, wirkt
-   aber nur bis zur Grenze, und das Auswahlfeld zeigt ihn gekuerzt, siehe
-   exerciseBox(). */
+   Gedeckelt wie restSetting(), aus demselben Grund: ein eigener Wert kann noch
+   180 s sein, denn bis 1.34.3 stand das zur Wahl. Das Auswahlfeld zeigt ihn
+   gekuerzt, siehe catRow(). */
 function exRest(name) {
   var r = name ? exMeta(name).rest : 0;
-  return Math.min(REST_MAX, r > 0 ? r : (S.settings.rest || 90));
+  return r > 0 ? Math.min(REST_MAX, r) : restSetting();
 }
 /* Nach dem Aufwärmen ist die Pause kurz. Steht die Übung selbst unter WARM_REST,
    gilt ihr Wert: Aufwärmen darf nie länger pausieren als Arbeiten. */
@@ -2612,13 +2617,16 @@ function startRest(sec) {
 }
 function addRest(sec) {
   if (!S.restEnd) return;
-  /* Läuft gerade das lange Muster, endet es hier: die Pause geht ja weiter. */
-  vibeStop();
   /* Nicht ueber REST_MAX hinaus, auch nicht in vielen kleinen Schritten. Gerechnet
      wird auf der Gesamtlaenge, nicht auf der Restzeit: sonst haenge das Ergebnis
-     davon ab, wie frueh in der Pause getippt wird. */
+     davon ab, wie frueh in der Pause getippt wird.
+     Die Pruefung steht vor vibeStop(): an der Grenze passiert sonst gar nichts
+     ausser dass das Signal verstummt, und genau das laese sich als "Pause
+     verlaengert" lesen. */
   sec = Math.min(sec, REST_MAX - S.restTotal);
   if (sec <= 0) return;
+  /* Läuft gerade das lange Muster, endet es hier: die Pause geht ja weiter. */
+  vibeStop();
   S.restEnd += sec * 1000;
   S.restTotal += sec;
   var over = S.restEnd <= Date.now();
@@ -6190,7 +6198,7 @@ function dataPause() {
     '<div class="tools" style="margin-top:10px">' +
     '<button data-act="restlen" data-d="-15">15 s weniger</button>' +
     '<button data-act="restlen" data-d="15">15 s mehr</button></div>' +
-    '<p style="margin-top:10px">Aktuell ' + mmss(S.settings.rest) + ' Minuten.</p>' +
+    '<p style="margin-top:10px">Aktuell ' + mmss(restSetting()) + ' Minuten.</p>' +
     '<button class="open" data-act="autorest">Automatischer Start: ' +
     (S.settings.autoRest ? "an" : "aus") + '</button>' +
     notifyBlock() +
@@ -6588,7 +6596,7 @@ function catRow(n) {
           '<select id="crest-in" data-act="exrestset" aria-label="Pause für ' +
           esc(n) + '" data-v="' + esc(n) + '">' +
           '<option value="0"' + (mrest ? "" : " selected") +
-          '>Wie eingestellt, ' + mmss(S.settings.rest) + '</option>' +
+          '>Wie eingestellt, ' + mmss(restSetting()) + '</option>' +
           /* Ein Wert außerhalb der Liste, etwa 100 s aus einem Backup, wird wie bei
              rpePills() einsortiert. Sonst zeigte das Feld "Wie eingestellt", während
              die Übung längst mit ihrer eigenen Pause läuft. */
@@ -7787,7 +7795,7 @@ ACTIONS.exdel = function (v) {
 };
 ACTIONS.restlen = function (v, el) {
   S.settings.rest = Math.max(15, Math.min(REST_MAX,
-    S.settings.rest + parseInt(el.getAttribute("data-d"),10)));
+    restSetting() + parseInt(el.getAttribute("data-d"),10)));
   persist();
 };
 ACTIONS.autorest = function () { S.settings.autoRest = !S.settings.autoRest; persist(); };
