@@ -70,15 +70,48 @@ eine neue Philosophie. Insbesondere die **Ratsche** aus `CLAUDE.md` wird
 Funktion verkleinert, zieht die Schwelle nach unten. Hochsetzen, damit eine
 Warnung verschwindet, entwertet die Regel.
 
+## Wo gearbeitet wird
+
+**Alles wird lokal auf dem Entwicklungsrechner gebaut.** Ab WP 0.1 braucht jeder
+Schritt Android Studio und Gradle, und der Meilenstein aus Phase 1 braucht ein
+angeschlossenes Telefon. Es gibt in diesem Plan keinen Arbeitsschritt, der
+sinnvoll woanders läuft.
+
+Was der Rechner mitbringen muss:
+
+| | |
+|---|---|
+| Android Studio | aktuelle stabile Fassung, bringt SDK, Platform-Tools und Emulator mit |
+| JDK 17 | Android Studio liefert ein passendes JBR mit, ein eigenes JDK geht auch |
+| Android SDK Platform | die Ziel-API des Projekts, plus Build-Tools |
+| `adb` | für Gerätebetrieb, Doze-Tests und das Messprotokoll |
+| Node 20 oder neuer | nur für Phase 2, der Korpus läuft ohne SDK |
+| Git | Klon dieses Repos, der Android-Teil liegt unter `android/` |
+| Ein Android-Telefon per USB | für Phase 1 nicht ersetzbar, siehe unten |
+
+Der Emulator reicht für den Meilenstein aus Phase 1 **nicht**. Gemessen wird, ob
+Android den Prozess unter echten Bedingungen wegräumt, und genau das tut ein
+Emulator nicht wie ein Telefon: Doze, Akkuoptimierung und die Eigenheiten von
+Xiaomi, Samsung oder Huawei sind dort nicht abgebildet. Der Emulator taugt für
+die Oberfläche in Phase 5, nicht für die Frage, die den Rewrite auslöst.
+
+Phase 2 ist die einzige Ausnahme von der SDK-Pflicht: der Referenzkorpus läuft in
+Node gegen die PWA und braucht weder Android Studio noch Gradle. Er kann deshalb
+beginnen, bevor die Einrichtung fertig ist.
+
+Am Telefon selbst hängen: der Doze-Test aus WP 1.2, das Messprotokoll aus WP 1.4,
+der Seite-an-Seite-Vergleich gegen die PWA in Phase 5 und die Signatur in WP 7.1.
+Alles andere läuft am Rechner, Emulator eingeschlossen.
+
 ## Querschnittsregeln, gültig ab WP 0.4
 
-- Ein Paket ist ein Branch und ein PR. Länger als zwei Tage offen heißt: zu groß
+- Ein Paket ist ein Branch. Länger als zwei Tage offen heißt: zu groß
   geschnitten.
-- Merge nur bei grüner Kette. CI läuft bei jedem Push:
-  `ktlintCheck`, `detekt`, `lint` (mit `warningsAsErrors`), `test`, `koverVerify`,
-  `verifyRoborazziDebug`.
-- Lokal derselbe Befehl: `./gradlew check`. Was in CI bricht, muss vorher lokal
-  brechen.
+- **Vor jedem Push läuft die Prüfkette lokal durch**, wie im PWA-Teil dieses
+  Repos: `ktlintCheck`, `detekt`, `lint` (mit `warningsAsErrors`), `test`,
+  `koverVerify`, `verifyRoborazziDebug`. Ein Skript, ein Befehl, je Schritt eine
+  Zeile Ausgabe, siehe WP 0.4.
+- Was die Kette rot macht, wird behoben, bevor gepusht wird. Nicht danach.
 - Neuer Code in `:core:domain` ohne Test senkt die Abdeckung und bricht
   `koverVerify`. Das Gate erzwingt, was sonst Disziplin wäre.
 - Umbau und Feature sind getrennte Commits, wie im PWA-Repo.
@@ -121,12 +154,18 @@ ohne Emulator in Sekunden.
 
 ## Phase 0: Fundament und Qualitätsnetz
 
-Summe 3,5 Tage. Vor der ersten Zeile Fachlogik.
+Summe 3,5 Tage, dazu ein optionales halbes. Vor der ersten Zeile Fachlogik.
 
-### WP 0.1 Projektskelett (1 Tag)
-Verzeichnis `android/` im bestehenden Repo. Gradle mit Version Catalog, der
-Modulschnitt oben, alle Module leer.
-**Gate:** `./gradlew assembleDebug` erzeugt eine startbare, leere App.
+### WP 0.1 Rechner einrichten und Projektskelett (1 Tag)
+Android Studio, SDK und JDK nach der Liste unter "Wo gearbeitet wird", dazu der
+Klon dieses Repos. Dann Verzeichnis `android/` im Repo, Gradle mit Version
+Catalog, der Modulschnitt oben, alle Module leer.
+
+Der Gradle Wrapper wird mit eingecheckt, damit die Gradle-Fassung am Projekt
+hängt und nicht am Rechner.
+**Gate:** `./gradlew assembleDebug` erzeugt eine startbare, leere App, und sie
+startet per `adb install` auf dem Telefon. Das prüft die Werkzeugkette einmal
+vollständig durch, bevor Fachlogik darauf gebaut wird.
 
 ### WP 0.2 Statische Analyse (0,5 Tage)
 ktlint, detekt, Android Lint mit `warningsAsErrors`. Schwellen als Ratsche.
@@ -138,14 +177,37 @@ JUnit 5, Kotest, Turbine, Robolectric, Roborazzi. Je Ebene ein Dummy-Test, damit
 das Gerüst belegt ist und nicht erst beim ersten echten Test auffällt.
 **Gate:** `./gradlew test` grün, Screenshot-Referenz wird erzeugt und verglichen.
 
-### WP 0.4 CI (0,5 Tage)
-GitHub Actions, je Schritt ein eigener Workflow-Schritt, wie `pruefkette.yml`.
-Auslöser `push`, `concurrency` mit `cancel-in-progress`, `TZ: Europe/Berlin`.
-**Gate:** Ein PR mit roter Kette lässt sich nicht mergen.
+### WP 0.4 Prüfkette als lokales Skript (0,5 Tage)
+`android/pruefkette.sh`, Vorbild ist `tools/test-app.sh` im PWA-Teil: ein Befehl,
+je Schritt eine Zeile, die Ausgabe eines Schritts erscheint nur, wenn er nicht
+grün ist. Rückgabewert 0 nur, wenn alles durchläuft.
+
+Ein einzelner Schritt muss sich einzeln aufrufen lassen, `pruefkette.sh test`
+etwa, sonst wird unterwegs nicht geprüft, sondern erst am Ende.
+**Gate:** Ein absichtlich eingebauter Verstoß macht die Kette rot und nennt den
+Schritt, der gekippt ist.
 
 ### WP 0.5 Abdeckungsschwelle (0,5 Tage)
 Kover, 85 Prozent für `:core:domain`, keine Schwelle für UI-Module.
 **Gate:** `koverVerify` bricht bei Unterschreitung.
+
+### WP 0.6 Prüfkette auch auf GitHub (0,5 Tage, empfohlen, nicht eingerechnet)
+Nicht nötig für die Arbeit, aber dieselbe Überlegung wie im PWA-Teil. Dort steht
+im Kopf von `pruefkette.yml`: "Warum überhaupt, wenn die Kette lokal in einer
+Minute durch ist: weil nichts sonst sicherstellt, dass sie vor dem Push auch
+gelaufen ist, und weil der Runner nichts von der Sitzung weiß, in der geändert
+wurde." Das gilt hier genauso. Die GitHub-Runner bringen das Android SDK mit,
+der Workflow ist eine YAML-Datei und kostet danach nichts.
+
+**Ein Vorbehalt, falls doch:** Roborazzi vergleicht gerenderte Bilder, und
+Schriftrasterung unterscheidet sich zwischen deinem Rechner und einem
+Linux-Runner. Entweder werden die Referenzbilder auf derselben Plattform erzeugt,
+auf der CI sie prüft, oder `verifyRoborazziDebug` bleibt der lokalen Kette
+vorbehalten und CI fährt die übrigen Schritte. Das Zweite ist der kleinere
+Aufwand.
+
+Dieses Paket steht bewusst außerhalb der Summe. Wer lokal baut und die Kette vor
+jedem Push fährt, kommt ohne aus.
 
 ---
 
@@ -449,7 +511,11 @@ Summe 2 Tage.
 | 7 Release | 2 | **61,5** |
 
 Rund 61,5 Personentage, mit Puffer dreizehn bis vierzehn Wochen für eine Person.
-Dazu kommt 1 bedingter Tag für WP 1.5, falls die Messung ihn verlangt.
+Nicht eingerechnet: 1 bedingter Tag für WP 1.5, falls die Messung ihn verlangt,
+und ein halber für WP 0.6, falls die Kette zusätzlich auf GitHub laufen soll.
+
+Die Einrichtung des Rechners steckt in WP 0.1. Wer Android Studio und das SDK
+schon hat, ist dort in einem halben statt einem ganzen Tag durch.
 
 Die fett gesetzte Zahl in der Mitte ist die wichtigere: **nach 8,5 Tagen steht
 die Messung**, und erst dann entscheidet sich, ob die übrigen 53 Tage überhaupt
@@ -459,18 +525,6 @@ Der größte Posten ist die Oberfläche, und das ist kein Schätzfehler: fünf R
 darunter die Planung mit Entwurf, Wochentrennung und Zuweisung, sind in Compose
 genauso viel Arbeit wie in der PWA, nur ohne die 8421 Zeilen, die dort schon
 stehen.
-
-## Werkzeuge und wo gearbeitet wird
-
-Der Android-Build braucht das SDK und ist damit lokal zu fahren, Android Studio
-empfohlen wegen Compose-Preview und Profiler. Auf CI läuft alles außer dem
-Gerätebetrieb: die GitHub-Runner bringen das Android SDK mit, also `assembleDebug`,
-ktlint, detekt, Lint, JVM-Tests, Kover und die Roborazzi-Screenshots.
-
-Zwingend am Gerät: die Doze-Tests aus WP 4.2, das Messprotokoll aus WP 4.3, der
-Seite-an-Seite-Vergleich in Phase 5, und die Signatur.
-
-Phase 1 braucht nur Node und kein SDK, lässt sich also unabhängig davon fahren.
 
 ## Was dieser Plan bewusst nicht tut
 
