@@ -223,7 +223,7 @@ Summe 13 Tage. Reines Kotlin, keine UI, keine Datenbank.
 | 2.8 | Verlauf, Volumen, Rekorde, e1RM | Korpus 1.4 | 1,5 |
 | 2.9 | Planung: Entwurf, Wochenziele, Wochentrennung | Korpus 1.5 | 2 |
 | 2.10 | Wochenstreifen und Zuweisung | Korpus 1.6 | 1 |
-| 2.11 | Backup-Parser und Merge | Korpus 1.3, plus Fuzzing ohne Absturz | 1,5 |
+| 2.11 | Backup-Parser und Merge, Pausenwerte bis 600 lesen ohne zu deckeln | Korpus 1.3, plus Fuzzing ohne Absturz | 1,5 |
 
 WP 2.6 ist der eigentliche Beweis, dass der Rewrite tragfähig ist. Nach Phase 2
 existiert noch keine App, aber der teuerste Teil des Risikos ist abgetragen.
@@ -291,35 +291,60 @@ ohne Sonderberechtigung.
 |---|---|---|---|
 | `USE_EXACT_ALARM` | automatisch bei Installation | hoch, Ausschluss im Review | nur als beworbene Timer-App |
 | `SCHEDULE_EXACT_ALARM` | Special App Access, ab Android 14 bei Neuinstallation verweigert | gering | funktioniert, aber Opt-in-Hürde beim Nutzer |
-| **Foreground Service** | keine Sonderberechtigung | keins bis gering | **der vorgesehene Weg für eine laufende Sitzung** |
+| **Foreground Service** (`shortService`) | keine Sonderberechtigung, keine Deklaration | keins | **der vorgesehene Weg für eine laufende Sitzung** |
 | WorkManager, inexakte Alarme | keine | keins | ungeeignet, Toleranz zu groß |
 
-### Ein Vorbehalt zum Service-Typ
+### Die Pause wird bei 150 Sekunden gedeckelt, damit shortService reicht
 
 Apps ab Ziel-API 34 müssen einen `foregroundServiceType` deklarieren.
-`FOREGROUND_SERVICE_TYPE_SHORT_SERVICE` braucht keine Deklaration, hat aber eine
-harte Grenze von drei Minuten, nach denen `onTimeout()` kommt und der Service
-sich beenden muss.
+`FOREGROUND_SERVICE_TYPE_SHORT_SERVICE` braucht keine Deklaration und keinen
+Play-Review, hat aber eine harte Grenze von drei Minuten, nach denen
+`onTimeout()` kommt und der Service sich beenden muss.
+`FOREGROUND_SERVICE_TYPE_SPECIAL_USE` kennt diese Grenze nicht, verlangt dafür
+eine Deklaration in der Play Console samt Review.
 
-Für diese App reicht das nicht: `REST_CHOICES` endet bei **genau 180 Sekunden**,
-`REST_COMPOUND` steht bei 120, und `ACTIONS.restplus` legt im Laufen je Tipp
-15 Sekunden drauf, ohne Obergrenze. Dazu kann ein Import einen fremden Wert
-mitbringen, den `restChoices()` einsortiert. Eine Pause liegt damit regelmäßig
-genau auf oder über der Grenze, und das ist die Art Randfall, die im Betrieb
-kippt.
+**Entscheidung: die Pause wird hart auf 150 Sekunden gedeckelt, damit
+`shortService` genügt.** Damit entfällt die letzte offene Berechtigungsfrage
+dieses Plans vollständig.
 
-Also `FOREGROUND_SERVICE_TYPE_SPECIAL_USE` mit Subtyp im Manifest. Das ist eine
-Deklaration in der Play Console und wird im Review angesehen. Die
-Berechtigungsfrage entfällt damit nicht vollständig, sie wechselt die Form: von
-einer restricted permission mit Ausschlusskategorie zu einer Deklaration für
-einen sichtbaren, vom Nutzer selbst gestarteten Countdown. Das ist die deutlich
-ruhigere Frage, aber sie ist nicht null, und sie gehört in WP 4.2 mit erledigt.
+Das ist keine Einschränkung gegen die App, sondern die Umsetzung dessen, was die
+README ohnehin sagt. Dort steht die Begründung der Stufen: der ACSM Position
+Stand nennt zwei bis drei Minuten für Mehrgelenksübungen, und die
+Bayes-Metaanalyse von Singer u.a. (2024) findet unterhalb von 60 Sekunden einen
+Nachteil, oberhalb von 90 aber keinen weiteren Vorteil. `REST_COMPOUND` steht
+entsprechend bei 120 Sekunden, die Voreinstellung bei 90. Die Werte 150 und 180
+in `REST_CHOICES` sind schon heute die Ausreißer der eigenen Systematik, nicht
+ihr Kern.
+
+Drei Wege führen heute über 180 Sekunden und müssen in der Kotlin-Fassung alle
+drei begrenzt werden. Nur einen zu schließen, reicht nicht:
+
+| Weg | heute | in der Kotlin-Fassung |
+|---|---|---|
+| `REST_CHOICES` | endet bei 180, also genau auf der Grenze | endet bei 120 |
+| `addRest()` über `restplus` | unbegrenzt, je Tipp 15 Sekunden | Deckel bei 150 gesamt |
+| Import über `cleanExmeta` | erlaubt bis 600 Sekunden je Übung | siehe unten |
+
+Der Deckel liegt bei 150 und nicht bei 120, damit der Plus-Knopf während einer
+laufenden Pause seinen Sinn behält: wer bei einer schweren Übung mit 120
+Sekunden startet, kann noch zweimal nachlegen. 150 Sekunden lassen zugleich 30
+Sekunden Luft unter der Drei-Minuten-Grenze, und genau diese Luft fehlt bei den
+heutigen 180.
+
+**Wichtig für den Import:** Bestehende Backups können bis zu 600 Sekunden je
+Übung tragen, `cleanExmeta()` lässt das zu. Der Kotlin-Parser muss solche Werte
+weiterhin **annehmen** und darf sie nicht als ungültig zurückweisen, sonst
+scheitert WP 3.4 an einem echten Backup. Gedeckelt wird erst bei der Verwendung,
+nicht beim Lesen. Ein importierter Wert über 150 wird also gelesen, gespeichert
+und beim Starten der Pause auf 150 begrenzt.
 
 ### WP 4.1 Timer-Domäne (1 Tag)
 Zustandsautomat: gestartet, verlängert, abgebrochen, abgelaufen,
-wiederhergestellt nach Prozessende. Dazu die Pause je Übung (`exRest`) und die
-kurze Pause nach dem Aufwärmen (`warmRest`, nie länger als die der Übung).
-**Gate:** Unit-Tests mit virtueller Zeit über `TestCoroutineScheduler`.
+wiederhergestellt nach Prozessende. Dazu die Pause je Übung (`exRest`), die kurze
+Pause nach dem Aufwärmen (`warmRest`, nie länger als die der Übung) und der
+Deckel von 150 Sekunden aus dem Abschnitt oben.
+**Gate:** Unit-Tests mit virtueller Zeit über `TestCoroutineScheduler`,
+einschließlich Property-Test: keine Folge von Verlängerungen führt über 150.
 
 ### WP 4.2 Foreground Service mit Countdown (2 Tage)
 Pausenstart startet den Service, die Benachrichtigung trägt den laufenden
@@ -331,12 +356,14 @@ Enthält zugleich den Sperrbildschirm: die PWA legt die laufende Pause seit 1.31
 dorthin, nativ wird daraus ein echter Countdown statt einer stehenden Zahl. Die
 Pakete 4.2 und 4.3 der ersten Fassung fallen deshalb zusammen.
 
-Enthält außerdem die `specialUse`-Deklaration samt Begründungstext für die Play
-Console, siehe Vorbehalt oben.
+Der Service läuft als `shortService`, ohne Play-Deklaration, siehe Abschnitt
+oben. Der Deckel bei 150 Sekunden gehört in die Timer-Domäne aus WP 4.1, nicht
+in den Service: er ist eine fachliche Regel, keine Eigenheit von Android.
 
 **Gate:** Instrumentierter Test mit vorgestellter Uhr, dazu
-`adb shell dumpsys deviceidle force-idle`. Zusätzlich ein Lauf über 300 Sekunden
-Pause, weil dort die Drei-Minuten-Grenze läge.
+`adb shell dumpsys deviceidle force-idle`. Dazu zwei Randfälle: eine Pause von
+150 Sekunden läuft vollständig durch, und zwanzig Tipps auf den Plus-Knopf
+verlängern nicht über 150 hinaus.
 
 ### WP 4.3 Berechtigungen und Herstellerfallen (1 Tag)
 `POST_NOTIFICATIONS` ab Android 13, Akkuoptimierung, Xiaomi, Samsung, Huawei.
