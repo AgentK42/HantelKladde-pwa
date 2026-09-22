@@ -260,34 +260,85 @@ einlesen**. Damit bleibt der Rückweg offen.
 
 ## Phase 4: Timer
 
-Summe 4,5 Tage. Früh, weil es der Grund für den Umbau ist.
+Summe 4 Tage, plus 1 bedingter Tag. Früh, weil es der Grund für den Umbau ist.
+
+### Der Mechanismus ist entschieden: Foreground Service, nicht AlarmManager
+
+Die erste Fassung dieses Plans ließ offen, ob `USE_EXACT_ALARM` oder
+`SCHEDULE_EXACT_ALARM` der Weg ist. Die Frage ist beantwortet, und die Antwort
+ist: keins von beidem als Hauptmechanismus.
+
+Die Play-Richtlinie "Permissions and APIs that Access Sensitive Information"
+zählt die zulässigen Fälle für `USE_EXACT_ALARM` abschließend auf: die App **ist**
+eine Wecker- oder Timer-App, oder sie ist eine Kalender-App mit
+Terminbenachrichtigungen. Maßgeblich ist die Kernfunktionalität, die Google an
+anderer Stelle derselben Richtlinie als Hauptzweck auslegt, prominent beworben,
+ohne den die App unbrauchbar wäre. Eine Trainings-App mit Übungsdatenbank,
+Plänen und Verlauf fällt darunter nicht, auch wenn der Pausentimer sichtbar ist.
+`USE_EXACT_ALARM` ist eine restricted permission; wer die Kriterien nicht
+erfüllt, wird von der Veröffentlichung ausgeschlossen. Das ist kein Risiko, das
+für einen Pausentimer einzugehen wäre.
+
+Der eigentliche Punkt ist aber ein technischer: **AlarmManager ist für Ereignisse
+gedacht, die feuern sollen, wenn die App gar nicht läuft.** Eine Satzpause läuft
+in einer vom Nutzer gerade gestarteten Sitzung. Genau dafür sieht Android
+Foreground Services vor. Ein Foreground Service hält den Prozess am Leben, wird
+von Doze nicht eingefroren, und der Countdown läuft im Service statt im
+eingefrorenen Renderer. Damit ist die Ursache der 59 Prozent direkt adressiert,
+ohne Sonderberechtigung.
+
+| Ansatz | Genehmigung | Play-Risiko | Eignung hier |
+|---|---|---|---|
+| `USE_EXACT_ALARM` | automatisch bei Installation | hoch, Ausschluss im Review | nur als beworbene Timer-App |
+| `SCHEDULE_EXACT_ALARM` | Special App Access, ab Android 14 bei Neuinstallation verweigert | gering | funktioniert, aber Opt-in-Hürde beim Nutzer |
+| **Foreground Service** | keine Sonderberechtigung | keins bis gering | **der vorgesehene Weg für eine laufende Sitzung** |
+| WorkManager, inexakte Alarme | keine | keins | ungeeignet, Toleranz zu groß |
+
+### Ein Vorbehalt zum Service-Typ
+
+Apps ab Ziel-API 34 müssen einen `foregroundServiceType` deklarieren.
+`FOREGROUND_SERVICE_TYPE_SHORT_SERVICE` braucht keine Deklaration, hat aber eine
+harte Grenze von drei Minuten, nach denen `onTimeout()` kommt und der Service
+sich beenden muss.
+
+Für diese App reicht das nicht: `REST_CHOICES` endet bei **genau 180 Sekunden**,
+`REST_COMPOUND` steht bei 120, und `ACTIONS.restplus` legt im Laufen je Tipp
+15 Sekunden drauf, ohne Obergrenze. Dazu kann ein Import einen fremden Wert
+mitbringen, den `restChoices()` einsortiert. Eine Pause liegt damit regelmäßig
+genau auf oder über der Grenze, und das ist die Art Randfall, die im Betrieb
+kippt.
+
+Also `FOREGROUND_SERVICE_TYPE_SPECIAL_USE` mit Subtyp im Manifest. Das ist eine
+Deklaration in der Play Console und wird im Review angesehen. Die
+Berechtigungsfrage entfällt damit nicht vollständig, sie wechselt die Form: von
+einer restricted permission mit Ausschlusskategorie zu einer Deklaration für
+einen sichtbaren, vom Nutzer selbst gestarteten Countdown. Das ist die deutlich
+ruhigere Frage, aber sie ist nicht null, und sie gehört in WP 4.2 mit erledigt.
 
 ### WP 4.1 Timer-Domäne (1 Tag)
 Zustandsautomat: gestartet, verlängert, abgebrochen, abgelaufen,
-wiederhergestellt nach Prozessende. Dazu die Pause je Übung und die kurze Pause
-nach dem Aufwärmen, beides seit 1.22 in der PWA.
+wiederhergestellt nach Prozessende. Dazu die Pause je Übung (`exRest`) und die
+kurze Pause nach dem Aufwärmen (`warmRest`, nie länger als die der Übung).
 **Gate:** Unit-Tests mit virtueller Zeit über `TestCoroutineScheduler`.
 
-### WP 4.2 Geplante Benachrichtigung (1,5 Tage)
-`AlarmManager.setExactAndAllowWhileIdle()` beim Start, Storno bei Abbruch,
-Neuplanung bei Verlängerung.
+### WP 4.2 Foreground Service mit Countdown (2 Tage)
+Pausenstart startet den Service, die Benachrichtigung trägt den laufenden
+Countdown über `setUsesChronometer(true)` mit `setChronometerCountDown(true)`.
+Abbruch ist `stopSelf()`, Verlängerung setzt die Restzeit neu. Die Storno- und
+Neuplanungslogik der AlarmManager-Variante entfällt damit.
 
-**Offener Entscheidungspunkt:** Android 12 und neuer verlangt
-`SCHEDULE_EXACT_ALARM`, für neue Apps standardmäßig verweigert, oder
-`USE_EXACT_ALARM`, automatisch gewährt, aber laut Play-Richtlinie nur für Apps,
-deren Kernfunktion Wecker oder Timer ist. Ob ein Trainings-Pausentimer darunter
-fällt, ist Auslegungssache und muss vor Phase 5 geklärt sein.
+Enthält zugleich den Sperrbildschirm: die PWA legt die laufende Pause seit 1.31
+dorthin, nativ wird daraus ein echter Countdown statt einer stehenden Zahl. Die
+Pakete 4.2 und 4.3 der ersten Fassung fallen deshalb zusammen.
+
+Enthält außerdem die `specialUse`-Deklaration samt Begründungstext für die Play
+Console, siehe Vorbehalt oben.
 
 **Gate:** Instrumentierter Test mit vorgestellter Uhr, dazu
-`adb shell dumpsys deviceidle force-idle`.
+`adb shell dumpsys deviceidle force-idle`. Zusätzlich ein Lauf über 300 Sekunden
+Pause, weil dort die Drei-Minuten-Grenze läge.
 
-### WP 4.3 Foreground Service und Sperrbildschirm (1 Tag)
-Laufender Countdown in der Benachrichtigung. Die PWA legt die laufende Pause seit
-1.31 beim Sperren auf den Sperrbildschirm; nativ wird daraus ein echter
-Countdown statt einer stehenden Zahl.
-**Gate:** Instrumentierter Test.
-
-### WP 4.4 Berechtigungen und Herstellerfallen (1 Tag)
+### WP 4.3 Berechtigungen und Herstellerfallen (1 Tag)
 `POST_NOTIFICATIONS` ab Android 13, Akkuoptimierung, Xiaomi, Samsung, Huawei.
 **Gate:** Messprotokoll über mindestens 50 Pausen auf deinem Gerät.
 
@@ -297,6 +348,21 @@ Eine minimale App, die nur den Timer kann, läuft parallel zur PWA. **Hier wird
 gemessen, ob aus 59 Prozent Ausfall nahe null wird, bevor die restlichen gut 25
 Tage investiert sind.** Fällt die Messung schlecht aus, ist der Rest des Plans
 gegenstandslos, und du hast es nach etwa vier statt nach zwölf Wochen erfahren.
+
+### WP 4.4 Exakter Alarm als Rückfallebene (1 Tag, nur bei Bedarf)
+
+**Dieses Paket wird nur gebaut, wenn die Messung aus 4.3 Lücken zeigt.** Der Fall,
+den ein Foreground Service nicht abdeckt, ist das Wegwischen der App aus den
+zuletzt verwendeten. Das ist eine bewusste Nutzerhandlung und etwas anderes als
+ein still eingefrorener Hintergrundtab, also möglicherweise hinnehmbar. Die
+Messung entscheidet das, nicht die Vermutung.
+
+Falls doch nötig: `SCHEDULE_EXACT_ALARM` mit Prüfung über
+`canScheduleExactAlarms()`, In-App-Erklärung, Deeplink nach
+`ACTION_REQUEST_SCHEDULE_EXACT_ALARM` und Listener auf
+`ACTION_SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED`. Bei verweigerter
+Berechtigung bleibt es bei der Service-Variante, ohne Funktionsverlust im
+Normalfall.
 
 ---
 
@@ -360,13 +426,13 @@ Summe 2 Tage.
 | 1 Referenzkorpus | 7 | plus 2,5 (Muskelgruppen, Planung, Zuweisung) |
 | 2 Domänenkern | 13 | plus 5 (Planung, Muskelgruppen, Senkungslogik) |
 | 3 Persistenz | 5 | plus 0,5 (Sitzungszustand) |
-| 4 Timer | 4,5 | unverändert |
+| 4 Timer | 4 | minus 0,5, dazu 1 bedingter Tag |
 | 5 Oberfläche | 21 | plus 6,5 (Planung, Wochenstreifen, Übungsverlauf) |
 | 6 Health Connect | 3,5 | unverändert |
 | 7 Release | 2 | unverändert |
-| **Summe** | **59,5** | **plus 14,5** |
+| **Summe** | **59** | **plus 14** |
 
-Rund 60 Personentage, mit Puffer zwölf bis dreizehn Wochen für eine Person. Der
+Rund 59 Personentage, mit Puffer zwölf bis dreizehn Wochen für eine Person. Der
 Aufschlag gegenüber den 45 Tagen der ersten Planung ist kein Nachschätzen
 derselben Arbeit, sondern Arbeit, die es 1.19.1 noch nicht gab: ein ganzer Reiter,
 fünfzehn Muskelgruppen als Rechengrundlage statt Kategorien, die Senkungslogik,
