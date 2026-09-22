@@ -1,81 +1,67 @@
 # Rewrite nach Kotlin: Arbeitsplan
 
-Stand: 2026-09-22. Referenzfassung der PWA: **1.34.3** (`origin/main`, c3f99d7).
-
-## Was sich gegenüber der ersten Planung geändert hat
-
-Die erste Fassung dieses Plans stand auf dem Stand 1.19.1 und hatte eine
-Annahme, die heute falsch ist: dass die Fachlogik keine Testabdeckung hat. Das
-stimmt nicht mehr.
-
-| | 1.19.1 | 1.34.3 |
-|---|---|---|
-| `index.html` | 6899 Zeilen | 8388 Zeilen |
-| Verhaltenstests | keine | 17 Suiten, 445 Prüfungen |
-| Prüfkette | nur `test-pwa.js` lokal | GitHub-Workflow nach jedem Push |
-| Lint | keiner | ESLint mit Komplexitätsratsche |
-| Arbeitsregeln | keine | `CLAUDE.md` |
-| Reiter | 4 | 5, Planung ist dazugekommen |
-| Muskelgruppen | Kategorien als Rechengrundlage | 15 Gruppen, Kategorie nur noch Ordner |
-
-Das ändert den Plan an drei Stellen, die unten ausgeführt sind: der
-Referenzkorpus bekommt eine andere Rolle, die Oberflächenphase wächst deutlich,
-und der Aufwand steigt von 45 auf rund 60 Personentage.
+Referenzfassung der PWA: **1.35.0**.
 
 ## Warum überhaupt
 
-Zwei Anforderungen lassen sich im Browser nicht lösen:
+Zwei Anforderungen lassen sich im Browser nicht lösen.
 
-1. **Der Pausentimer fällt in rund 59 Prozent der Fälle aus.** `tickRest()` läuft
-   als `setInterval` und ruft `showNotification()` erst, wenn der Tick den Ablauf
-   bemerkt. Friert Android den Renderer ein, tickt nichts mehr. Die Notification
-   Triggers API, die das gelöst hätte, hat Chrome 2023 entfernt. Die Lösung heißt
-   in jedem Fall: die Meldung beim Start der Pause **beim System einplanen**.
-2. **Health Connect** ist ohne native Brücke nicht erreichbar.
+**Der Pausentimer fällt in rund 59 Prozent der Fälle aus.** `tickRest()` läuft als
+`setInterval` und ruft `showNotification()` erst, wenn der Tick den Ablauf
+bemerkt. Friert Android den Renderer ein, tickt nichts mehr. Die Notification
+Triggers API, die das gelöst hätte, hat Chrome 2023 entfernt. Die Lösung heißt
+in jedem Fall: den Countdown in einem Prozess führen, den das System am Leben
+lässt.
+
+**Health Connect** ist ohne native Brücke nicht erreichbar.
+
+Alles andere an der PWA funktioniert. Dieser Plan ist deshalb kein Aufräumen,
+sondern das Auswechseln des Unterbaus unter einer Anwendung, die im Betrieb ist.
 
 ## Leitgedanke
 
 ### Die vorhandenen Suiten sind die Spezifikation
 
-`tools/tests/` beschreibt heute 445 Prüfungen in 17 Themen, und zwar bewusst als
-Verhalten, nicht als Implementierung (`CLAUDE.md`: "was sich verhält, bekommt
-einen Test, der das Verhalten beschreibt"). Das ist die wertvollste Vorarbeit für
-einen Port, die es gibt: **jedes Kotlin-Arbeitspaket bekommt seine
-Abnahmekriterien aus einer benannten Suite.**
+Unter `tools/tests/` liegen 17 Themen mit zusammen **401 Prüfungen**, und zwar
+bewusst als Verhalten formuliert, nicht als Implementierung (`CLAUDE.md`: "was
+sich verhält, bekommt einen Test, der das Verhalten beschreibt"). Das ist die
+wertvollste Vorarbeit für einen Port, die es gibt: **jedes Arbeitspaket der
+Oberfläche bekommt seine Abnahmekriterien aus einer benannten Suite.**
+
+Die Zahlen stammen aus einem Lauf von `tools/test-app.sh`, nicht aus einer
+Schätzung:
 
 | Suite | Prüfungen | | Suite | Prüfungen |
 |---|---|---|---|---|
-| planung | 44 | | plan-kopie | 19 |
-| wochenstreifen | 40 | | eingaben | 19 |
-| wochen-trennen | 38 | | vorwahl | 16 |
-| progression | 34 | | volumen | 16 |
-| pause | 29 | | rekorde | 12 |
-| uebungsverlauf | 21 | | plan-editor | 6 |
-| einstellungen | 21 | | gewichtsrad | 6 |
-| aufwaermen | 21 | | farbschema | 6 |
-| | | | stile | 2 |
+| pause | 45 | | eingaben | 20 |
+| planung | 45 | | vorwahl | 17 |
+| wochenstreifen | 41 | | volumen | 17 |
+| wochen-trennen | 39 | | gewichtsrad | 17 |
+| progression | 35 | | rekorde | 13 |
+| aufwaermen | 22 | | stile | 12 |
+| einstellungen | 22 | | plan-editor | 7 |
+| uebungsverlauf | 22 | | farbschema | 7 |
+| plan-kopie | 20 | | | |
 
-### Der Korpus ergänzt sie, er ersetzt sie nicht mehr
+Dazu prüft `tools/test-pwa.js` die App-Schicht: ServiceWorker, Offline, Update,
+Zurück-Geste, Speicherzusage, Shortcuts, geteiltes Backup.
+
+### Der Korpus deckt ab, was die Suiten nicht erreichen
 
 Die Suiten fahren Chromium gegen die echte `index.html`. Sie sind damit an den
-Browser gebunden und laufen nicht gegen Kotlin. Und 34 Prüfungen für die
-Progression decken den Zustandsraum von `suggestFor()` nicht ab: Rep-zuerst-Regel
-an und aus, Range vorhanden und nicht, Senkung nach zwei verfehlten Einheiten,
-RPE-Filter, abgebrochene Einheiten, Deload unter Planziel, Schrittweiten aller
-Katalogübungen. Das sind Tausende Kombinationen.
+Browser gebunden und laufen nicht gegen Kotlin. Und 35 Prüfungen für die
+Progression decken den Zustandsraum von `suggestFor()` nicht ab:
+Rep-zuerst-Regel an und aus, Range vorhanden und nicht, Senkung nach zwei
+verfehlten Einheiten, RPE-Filter, abgebrochene Einheiten, Deload unter Planziel,
+Schrittweiten aller Katalogübungen. Das sind Tausende Kombinationen.
 
-Also weiterhin ein Referenzkorpus, aber mit zwei Änderungen gegenüber der ersten
-Planung:
+Deshalb ein Referenzkorpus: die bestehende JS-Logik wird kopflos ausgeführt und
+erzeugt Ein- und Ausgabepaare, die der Kotlin-Port exakt reproduzieren muss. Der
+Rahmen dafür ist schon geschrieben. `tools/tests/progression.js` enthält in
+`window.seed()` genau das Muster, das der Generator braucht: Historie aufbauen,
+`suggestFor()` rufen, Ergebnisobjekt zurückgeben.
 
-- **Der Rahmen ist schon geschrieben.** `tools/tests/progression.js` enthält in
-  `window.seed()` genau das Muster, das der Generator braucht: Historie
-  aufbauen, `suggestFor()` rufen, Ergebnisobjekt zurückgeben. Der Harness ist
-  damit eine halbe statt einer ganzen Tagesleistung.
-- **Der Korpus deckt jetzt auch die Bereiche ab, die 1.19.1 noch nicht hatte:**
-  Muskelgruppen mit Alias-Übersetzung, Entwurf und Wochenziele, Zuweisung und
-  Wochentrennung.
-
-### Gates vor der Fachlogik, wie im PWA-Repo
+### Gates vor der Fachlogik
 
 Die Prüfkette dieses Repos ist das Vorbild: vier Schritte, je ein eigener Schritt
 im Workflow, nach jedem Push. Das Kotlin-Projekt bekommt dieselbe Form, nicht
@@ -109,7 +95,7 @@ Warnung verschwindet, entwertet die Regel.
 | Sprache | Kotlin, JDK 17 | |
 | UI | Jetpack Compose, Material 3 | |
 | Persistenz | Room mit exportiertem Schema | Migrationstests ab Tag eins |
-| Timer | AlarmManager, Foreground Service | siehe Phase 4 |
+| Timer | Foreground Service | siehe Phase 1 |
 | DI | manuell (Konstruktor-Injektion) | eine Person, eine App |
 | Tests JVM | JUnit 5, Kotest Property, Turbine | |
 | Tests UI | Robolectric plus Roborazzi | Screenshot-Gates ohne Emulator |
@@ -148,12 +134,13 @@ ktlint, detekt, Android Lint mit `warningsAsErrors`. Schwellen als Ratsche.
 gegenprüfen, dann zurücknehmen.
 
 ### WP 0.3 Testinfrastruktur (1 Tag)
-JUnit 5, Kotest, Turbine, Robolectric, Roborazzi. Je Ebene ein Dummy-Test.
+JUnit 5, Kotest, Turbine, Robolectric, Roborazzi. Je Ebene ein Dummy-Test, damit
+das Gerüst belegt ist und nicht erst beim ersten echten Test auffällt.
 **Gate:** `./gradlew test` grün, Screenshot-Referenz wird erzeugt und verglichen.
 
 ### WP 0.4 CI (0,5 Tage)
 GitHub Actions, je Schritt ein eigener Workflow-Schritt, wie `pruefkette.yml`.
-Auslöser `push`, `concurrency` mit `cancel-in-progress`, gleiche Form.
+Auslöser `push`, `concurrency` mit `cancel-in-progress`, `TZ: Europe/Berlin`.
 **Gate:** Ein PR mit roter Kette lässt sich nicht mergen.
 
 ### WP 0.5 Abdeckungsschwelle (0,5 Tage)
@@ -162,130 +149,35 @@ Kover, 85 Prozent für `:core:domain`, keine Schwelle für UI-Module.
 
 ---
 
-## Phase 1: Referenzkorpus aus der PWA
+## Phase 1: Timer und Messung
 
-Summe 7 Tage. Passiert noch in JavaScript, auf dem eingefrorenen Stand 1.34.3.
+Summe 5 Tage, plus 1 bedingter Tag.
 
-### WP 1.1 Harness (0,5 Tage)
-`tools/extract-logic.js`, aufbauend auf dem `window.seed()`-Muster aus
-`tools/tests/progression.js`. Läuft kopflos in Node statt in Chromium.
-**Gate:** `suggestFor()` liefert ohne Browser dasselbe wie in der Suite.
+**Diese Phase steht bewusst ganz vorn, direkt hinter dem Fundament.** Sie ist der
+Grund für den ganzen Umbau, und sie braucht fast nichts von dem, was danach
+kommt: kein Room, keinen Domänenkern, keine Oberfläche. Nach achteinhalb
+Arbeitstagen, also gut anderthalb Wochen, steht eine App, die nur eine Pause
+starten kann, und damit lässt sich messen, ob das Problem gelöst ist. Erst danach
+werden die restlichen 53 Tage investiert.
 
-### WP 1.2 Korpus Progression (2 Tage)
-Voller Zustandsraum: `suggestWithinRange()`, Senkung nach zwei verfehlten
-Einheiten am selben Gewicht, RPE-Filter (bis 7 keine Senkung, ab 8 ausbelastet),
-Reihe nur am selben Gewicht, Range vorhanden und nicht, abgebrochene Einheiten,
-Deload unter Planziel, alle Katalogschrittweiten. Auch die Textfelder `hint` und
-`why`, denn die Suite prüft sie und der Nutzer liest sie.
-**Gate:** `c8` weist für `suggestFor`, `suggestWithinRange`, `repFirstOn`,
-`repRange`, `mainWorkBlock`, `blockHits` volle Zweigabdeckung nach.
+### Foreground Service, nicht AlarmManager
 
-### WP 1.3 Korpus Backup und Merge (1 Tag)
-`mergeBackup()`, dazu die Reparaturpfade für beschädigten Speicher. Die
-`untouched`-Regel für Pläne, unbekannte Kategorien, abgeschnittenes JSON.
-**Gate:** Zweigabdeckung.
+**AlarmManager ist für Ereignisse gedacht, die feuern sollen, wenn die App gar
+nicht läuft.** Eine Satzpause läuft in einer vom Nutzer gerade gestarteten
+Sitzung. Genau dafür sieht Android Foreground Services vor. Ein Foreground
+Service hält den Prozess am Leben, wird von Doze nicht eingefroren, und der
+Countdown läuft im Service statt im eingefrorenen Renderer. Damit ist die Ursache
+der 59 Prozent direkt adressiert, ohne Sonderberechtigung.
 
-### WP 1.4 Korpus Verlauf (1 Tag)
-Volumen nach Satz und Gewicht, Rekorde inklusive der Regel "ein Rekord braucht
-einen Vorher-Wert", e1RM, Wochenziele.
-**Gate:** Zweigabdeckung.
-
-### WP 1.5 Korpus Muskelgruppen und Entwurf (1,5 Tage)
-Neu gegenüber der ersten Planung. `muscleOf()` mit `MUSCLE_ALIAS` (Schulter auf
-Schulter vorn), `muscleTally()`, `muscleBars()`, `DRAFT_PAIR_RATIO`,
-`draftSources()`, `weekDraft()` und die Wochentrennung.
-**Gate:** Zweigabdeckung.
-
-### WP 1.6 Korpus Wochenstreifen und Zuweisung (1 Tag)
-`weekStrip()`, `weekTally()`, `dayCell()`, `planDays` mit `PLAN_DAYS_KEEP` und
-`PLAN_WEEKS`.
-**Gate:** Zweigabdeckung.
-
-Die Fixtures liegen danach unter
-`android/core/domain/src/test/resources/` und sind die Wahrheit. **Ab hier ist
-1.34.3 eingefroren**, siehe Abschnitt "Das bewegliche Ziel".
-
----
-
-## Phase 2: Domänenkern in Kotlin
-
-Summe 13 Tage. Reines Kotlin, keine UI, keine Datenbank.
-
-| WP | Inhalt | Gate | Tage |
-|---|---|---|---|
-| 2.1 | Datentypen, Gewicht als eigener Typ mit Einheit | Korpus lädt vollständig | 0,5 |
-| 2.2 | Gewichtsarithmetik, Scheiben, `stepOf`, Komma-Parsing | Property-Test: nie unter Stangengewicht, immer darstellbar | 1 |
-| 2.3 | Satzblöcke, `isWork()`, Aufwärmsätze zählen nirgends | Teilkorpus 1.2 | 1 |
-| 2.4 | Rep-zuerst-Regel, Schwelle und Range | Teilkorpus, inklusive der dokumentierten Grenzfälle | 0,5 |
-| 2.5 | `suggestWithinRange`, Rückkehr in die Range, Senkung | Teilkorpus, `hint` und `why` zeichengenau | 1,5 |
-| 2.6 | `suggestFor` komplett | **Voller Progressionskorpus, jede Abweichung ist ein Fehlschlag** | 1,5 |
-| 2.7 | Muskelgruppen inklusive Alias-Übersetzung | Korpus 1.5 | 1 |
-| 2.8 | Verlauf, Volumen, Rekorde, e1RM | Korpus 1.4 | 1,5 |
-| 2.9 | Planung: Entwurf, Wochenziele, Wochentrennung | Korpus 1.5 | 2 |
-| 2.10 | Wochenstreifen und Zuweisung | Korpus 1.6 | 1 |
-| 2.11 | Backup-Parser und Merge, Pausenwerte bis 600 lesen ohne zu deckeln | Korpus 1.3, plus Fuzzing ohne Absturz | 1,5 |
-
-WP 2.6 ist der eigentliche Beweis, dass der Rewrite tragfähig ist. Nach Phase 2
-existiert noch keine App, aber der teuerste Teil des Risikos ist abgetragen.
-
----
-
-## Phase 3: Persistenz
-
-Summe 5 Tage.
-
-### WP 3.1 Room-Schema (1 Tag)
-**Gate:** Schema exportiert und eingecheckt, Migrationstest-Gerüst ab Version 1
-aktiv.
-
-### WP 3.2 Repository mit Flow-API (1 Tag)
-**Gate:** Robolectric gegen In-Memory-Datenbank, Flows mit Turbine.
-
-### WP 3.3 Sitzungszustand getrennt halten (0,5 Tage)
-`CLAUDE.md` verlangt: Pause, Sitzung und Entwurf liegen unter eigenen Schlüsseln,
-nicht in den Einstellungen, und gehören nicht ins Backup. Diese Trennung wandert
-in die Kotlin-Fassung mit.
-**Gate:** Ein Export enthält keinen Sitzungszustand. Test, nicht Konvention.
-
-### WP 3.4 Import eines echten PWA-Backups (1,5 Tage)
-**Gate:** Der Abnahmetest für den Umstieg. Ein Backup aus der laufenden PWA wird
-importiert, danach liefern die Kotlin-Rechnungen für dieselben Daten dieselben
-Zahlen. Abweichung gleich null.
-
-### WP 3.5 Export und Round-Trip (1 Tag)
-**Gate:** Export, Import, Export ist stabil, und **die PWA kann den Export wieder
-einlesen**. Damit bleibt der Rückweg offen.
-
----
-
-## Phase 4: Timer
-
-Summe 4 Tage, plus 1 bedingter Tag. Früh, weil es der Grund für den Umbau ist.
-
-### Der Mechanismus ist entschieden: Foreground Service, nicht AlarmManager
-
-Die erste Fassung dieses Plans ließ offen, ob `USE_EXACT_ALARM` oder
-`SCHEDULE_EXACT_ALARM` der Weg ist. Die Frage ist beantwortet, und die Antwort
-ist: keins von beidem als Hauptmechanismus.
-
-Die Play-Richtlinie "Permissions and APIs that Access Sensitive Information"
-zählt die zulässigen Fälle für `USE_EXACT_ALARM` abschließend auf: die App **ist**
-eine Wecker- oder Timer-App, oder sie ist eine Kalender-App mit
-Terminbenachrichtigungen. Maßgeblich ist die Kernfunktionalität, die Google an
-anderer Stelle derselben Richtlinie als Hauptzweck auslegt, prominent beworben,
-ohne den die App unbrauchbar wäre. Eine Trainings-App mit Übungsdatenbank,
-Plänen und Verlauf fällt darunter nicht, auch wenn der Pausentimer sichtbar ist.
+Die beiden Alarm-Berechtigungen scheiden als Hauptweg aus. Die Play-Richtlinie
+"Permissions and APIs that Access Sensitive Information" zählt die zulässigen
+Fälle für `USE_EXACT_ALARM` abschließend auf: die App **ist** eine Wecker- oder
+Timer-App, oder eine Kalender-App mit Terminbenachrichtigungen. Maßgeblich ist
+die Kernfunktionalität, ausgelegt als Hauptzweck, prominent beworben, ohne den
+die App unbrauchbar wäre. Eine Trainings-App mit Übungsdatenbank, Plänen und
+Verlauf fällt darunter nicht, auch wenn der Pausentimer sichtbar ist.
 `USE_EXACT_ALARM` ist eine restricted permission; wer die Kriterien nicht
-erfüllt, wird von der Veröffentlichung ausgeschlossen. Das ist kein Risiko, das
-für einen Pausentimer einzugehen wäre.
-
-Der eigentliche Punkt ist aber ein technischer: **AlarmManager ist für Ereignisse
-gedacht, die feuern sollen, wenn die App gar nicht läuft.** Eine Satzpause läuft
-in einer vom Nutzer gerade gestarteten Sitzung. Genau dafür sieht Android
-Foreground Services vor. Ein Foreground Service hält den Prozess am Leben, wird
-von Doze nicht eingefroren, und der Countdown läuft im Service statt im
-eingefrorenen Renderer. Damit ist die Ursache der 59 Prozent direkt adressiert,
-ohne Sonderberechtigung.
+erfüllt, wird von der Veröffentlichung ausgeschlossen.
 
 | Ansatz | Genehmigung | Play-Risiko | Eignung hier |
 |---|---|---|---|
@@ -294,95 +186,86 @@ ohne Sonderberechtigung.
 | **Foreground Service** (`shortService`) | keine Sonderberechtigung, keine Deklaration | keins | **der vorgesehene Weg für eine laufende Sitzung** |
 | WorkManager, inexakte Alarme | keine | keins | ungeeignet, Toleranz zu groß |
 
-### Die Pause wird bei 150 Sekunden gedeckelt, damit shortService reicht
+### Der Service-Typ ist `shortService`, weil die Pause gedeckelt ist
 
 Apps ab Ziel-API 34 müssen einen `foregroundServiceType` deklarieren.
-`FOREGROUND_SERVICE_TYPE_SHORT_SERVICE` braucht keine Deklaration und keinen
-Play-Review, hat aber eine harte Grenze von drei Minuten, nach denen
-`onTimeout()` kommt und der Service sich beenden muss.
-`FOREGROUND_SERVICE_TYPE_SPECIAL_USE` kennt diese Grenze nicht, verlangt dafür
-eine Deklaration in der Play Console samt Review.
+`FOREGROUND_SERVICE_TYPE_SHORT_SERVICE` braucht weder Deklaration noch
+Play-Review, hat aber eine harte Grenze von drei Minuten.
+`FOREGROUND_SERVICE_TYPE_SPECIAL_USE` kennt die Grenze nicht, verlangt dafür eine
+Deklaration in der Play Console samt Review.
 
-**Entscheidung: die Pause wird hart auf 150 Sekunden gedeckelt, damit
-`shortService` genügt.** Damit entfällt die letzte offene Berechtigungsfrage
-dieses Plans vollständig.
+Die PWA deckelt seit **1.35.0** jede Pause bei 150 Sekunden (`REST_MAX`). Das
+Auswahlfeld endet bei 120, der Regler unter Daten bleibt bei 150 stehen, und der
+Plus-Knopf während der laufenden Pause verlängert bis dorthin und nicht weiter.
+Gedeckelt wird in `exRest()` und `addRest()`, also dort, wo eine Pausenlänge
+entsteht. Begründung und Literatur stehen in der README unter "Pausenlänge,
+Obergrenze".
 
-Das ist keine Einschränkung gegen die App, sondern die Umsetzung dessen, was die
-README ohnehin sagt. Dort steht die Begründung der Stufen: der ACSM Position
-Stand nennt zwei bis drei Minuten für Mehrgelenksübungen, und die
-Bayes-Metaanalyse von Singer u.a. (2024) findet unterhalb von 60 Sekunden einen
-Nachteil, oberhalb von 90 aber keinen weiteren Vorteil. `REST_COMPOUND` steht
-entsprechend bei 120 Sekunden, die Voreinstellung bei 90. Die Werte 150 und 180
-in `REST_CHOICES` sind schon heute die Ausreißer der eigenen Systematik, nicht
-ihr Kern.
+Damit bleiben 30 Sekunden Luft unter der Drei-Minuten-Grenze, `shortService`
+genügt, und es bleibt **keine Berechtigungsfrage offen**. Der Deckel gehört in
+der Kotlin-Fassung in die Timer-Domäne aus WP 1.1, nicht in den Service: er ist
+eine fachliche Regel, keine Eigenheit von Android.
 
-Drei Wege führen heute über 180 Sekunden und müssen in der Kotlin-Fassung alle
-drei begrenzt werden. Nur einen zu schließen, reicht nicht:
+Ein Backup oder ein älterer Speicherstand darf weiterhin bis 600 Sekunden je
+Übung tragen, `cleanExmeta()` lehnt das nicht ab. Der Wert wird gelesen und erst
+bei der Verwendung begrenzt. Der Kotlin-Parser muss das genauso halten, sonst
+scheitert WP 4.4 an einem echten Backup.
 
-| Weg | heute | in der Kotlin-Fassung |
-|---|---|---|
-| `REST_CHOICES` | endet bei 180, also genau auf der Grenze | endet bei 120 |
-| `addRest()` über `restplus` | unbegrenzt, je Tipp 15 Sekunden | Deckel bei 150 gesamt |
-| Import über `cleanExmeta` | erlaubt bis 600 Sekunden je Übung | siehe unten |
-
-Der Deckel liegt bei 150 und nicht bei 120, damit der Plus-Knopf während einer
-laufenden Pause seinen Sinn behält: wer bei einer schweren Übung mit 120
-Sekunden startet, kann noch zweimal nachlegen. 150 Sekunden lassen zugleich 30
-Sekunden Luft unter der Drei-Minuten-Grenze, und genau diese Luft fehlt bei den
-heutigen 180.
-
-**Wichtig für den Import:** Bestehende Backups können bis zu 600 Sekunden je
-Übung tragen, `cleanExmeta()` lässt das zu. Der Kotlin-Parser muss solche Werte
-weiterhin **annehmen** und darf sie nicht als ungültig zurückweisen, sonst
-scheitert WP 3.4 an einem echten Backup. Gedeckelt wird erst bei der Verwendung,
-nicht beim Lesen. Ein importierter Wert über 150 wird also gelesen, gespeichert
-und beim Starten der Pause auf 150 begrenzt.
-
-### WP 4.1 Timer-Domäne (1 Tag)
+### WP 1.1 Timer-Domäne (1 Tag)
 Zustandsautomat: gestartet, verlängert, abgebrochen, abgelaufen,
 wiederhergestellt nach Prozessende. Dazu die Pause je Übung (`exRest`), die kurze
 Pause nach dem Aufwärmen (`warmRest`, nie länger als die der Übung) und der
-Deckel von 150 Sekunden aus dem Abschnitt oben.
+Deckel `REST_MAX`.
+
+Das ist der einzige Teil des Domänenkerns, der hier vorgezogen wird, und er ist
+klein: die Pause einer Übung, sonst die aus den Einstellungen, gedeckelt, und für
+den Aufwärmsatz das Minimum aus 60 Sekunden und beidem. Phase 3 nimmt ihn später
+in den vollständigen Kern auf und prüft ihn dort gegen den Korpus.
 **Gate:** Unit-Tests mit virtueller Zeit über `TestCoroutineScheduler`,
 einschließlich Property-Test: keine Folge von Verlängerungen führt über 150.
 
-### WP 4.2 Foreground Service mit Countdown (2 Tage)
+### WP 1.2 Foreground Service mit Countdown (2 Tage)
 Pausenstart startet den Service, die Benachrichtigung trägt den laufenden
 Countdown über `setUsesChronometer(true)` mit `setChronometerCountDown(true)`.
-Abbruch ist `stopSelf()`, Verlängerung setzt die Restzeit neu. Die Storno- und
-Neuplanungslogik der AlarmManager-Variante entfällt damit.
+Abbruch ist `stopSelf()`, Verlängerung setzt die Restzeit neu.
 
-Enthält zugleich den Sperrbildschirm: die PWA legt die laufende Pause seit 1.31
-dorthin, nativ wird daraus ein echter Countdown statt einer stehenden Zahl. Die
-Pakete 4.2 und 4.3 der ersten Fassung fallen deshalb zusammen.
-
-Der Service läuft als `shortService`, ohne Play-Deklaration, siehe Abschnitt
-oben. Der Deckel bei 150 Sekunden gehört in die Timer-Domäne aus WP 4.1, nicht
-in den Service: er ist eine fachliche Regel, keine Eigenheit von Android.
+Enthält den Sperrbildschirm: die PWA legt die laufende Pause seit 1.31 dorthin,
+nativ wird daraus ein echter Countdown statt einer stehenden Zahl.
 
 **Gate:** Instrumentierter Test mit vorgestellter Uhr, dazu
-`adb shell dumpsys deviceidle force-idle`. Dazu zwei Randfälle: eine Pause von
-150 Sekunden läuft vollständig durch, und zwanzig Tipps auf den Plus-Knopf
-verlängern nicht über 150 hinaus.
+`adb shell dumpsys deviceidle force-idle`. Dazu der Randfall: eine Pause von
+150 Sekunden läuft vollständig durch, ohne dass `onTimeout()` greift.
 
-### WP 4.3 Berechtigungen und Herstellerfallen (1 Tag)
+### WP 1.3 Messgerüst (1 Tag)
+Ein nackter Bildschirm mit Übungsauswahl und Startknopf, dazu ein Protokoll, das
+jede Pause mit Soll- und Ist-Zeitpunkt des Signals mitschreibt. Muss vor WP 1.4
+stehen, denn dessen Abnahme hängt daran. Wird in Phase 5 durch die echte
+Oberfläche ersetzt.
+**Gate:** Das Protokoll lässt sich als CSV ausleiten.
+
+### WP 1.4 Berechtigungen und Herstellerfallen (1 Tag)
 `POST_NOTIFICATIONS` ab Android 13, Akkuoptimierung, Xiaomi, Samsung, Huawei.
-**Gate:** Messprotokoll über mindestens 50 Pausen auf deinem Gerät.
+**Gate:** Protokoll über mindestens 50 Pausen auf dem eigenen Gerät, aufgenommen
+mit dem Gerüst aus WP 1.3.
 
-### Meilenstein nach Phase 4
+### Meilenstein: die Messung
 
-Eine minimale App, die nur den Timer kann, läuft parallel zur PWA. **Hier wird
-gemessen, ob aus 59 Prozent Ausfall nahe null wird, bevor die restlichen gut 25
-Tage investiert sind.** Fällt die Messung schlecht aus, ist der Rest des Plans
-gegenstandslos, und du hast es nach etwa vier statt nach zwölf Wochen erfahren.
+Die App läuft parallel zur PWA auf demselben Gerät. **Hier wird gemessen, ob aus
+59 Prozent Ausfall nahe null wird, bevor die restlichen 53 Tage investiert
+sind.**
 
-### WP 4.4 Exakter Alarm als Rückfallebene (1 Tag, nur bei Bedarf)
+Das ist die wichtigste Stelle des ganzen Plans. Fällt die Messung gut aus, ist
+die Anforderung erfüllt und alles Weitere ist eine Frage des Komforts. Fällt sie
+schlecht aus, ist der Rest gegenstandslos, und das nach anderthalb statt nach
+dreizehn Wochen.
 
-**Dieses Paket wird nur gebaut, wenn die Messung aus 4.3 Lücken zeigt.** Der Fall,
-den ein Foreground Service nicht abdeckt, ist das Wegwischen der App aus den
-zuletzt verwendeten. Das ist eine bewusste Nutzerhandlung und etwas anderes als
-ein still eingefrorener Hintergrundtab, also möglicherweise hinnehmbar. Die
-Messung entscheidet das, nicht die Vermutung.
+### WP 1.5 Exakter Alarm als Rückfallebene (1 Tag, nur bei Bedarf)
+
+**Nur bauen, wenn die Messung Lücken zeigt.** Der Fall, den ein Foreground
+Service nicht abdeckt, ist das Wegwischen der App aus den zuletzt verwendeten.
+Das ist eine bewusste Nutzerhandlung und etwas anderes als ein still
+eingefrorener Hintergrundtab, also möglicherweise hinnehmbar. Die Messung
+entscheidet das, nicht die Vermutung.
 
 Falls doch nötig: `SCHEDULE_EXACT_ALARM` mit Prüfung über
 `canScheduleExactAlarms()`, In-App-Erklärung, Deeplink nach
@@ -393,15 +276,120 @@ Normalfall.
 
 ---
 
+## Phase 2: Referenzkorpus aus der PWA
+
+Summe 7 Tage. Passiert noch in JavaScript.
+
+### WP 2.1 Harness (0,5 Tage)
+`tools/extract-logic.js`, aufbauend auf dem `window.seed()`-Muster aus
+`tools/tests/progression.js`. Läuft kopflos in Node statt in Chromium.
+**Gate:** `suggestFor()` liefert ohne Browser dasselbe wie in der Suite.
+
+### WP 2.2 Korpus Progression (2 Tage)
+Voller Zustandsraum: `suggestWithinRange()`, Senkung nach zwei verfehlten
+Einheiten am selben Gewicht, RPE-Filter (bis 7 keine Senkung, ab 8 ausbelastet),
+Reihe nur am selben Gewicht, Range vorhanden und nicht, abgebrochene Einheiten,
+Deload unter Planziel, alle Katalogschrittweiten. Auch die Textfelder `hint` und
+`why`, denn die Suite prüft sie und der Nutzer liest sie.
+**Gate:** `c8` weist für `suggestFor`, `suggestWithinRange`, `repFirstOn`,
+`repRange`, `mainWorkBlock`, `blockHits` volle Zweigabdeckung nach.
+
+### WP 2.3 Korpus Backup und Merge (1 Tag)
+`mergeBackup()`, dazu die Reparaturpfade für beschädigten Speicher. Die
+`untouched`-Regel für Pläne, unbekannte Kategorien, abgeschnittenes JSON.
+**Gate:** Zweigabdeckung.
+
+### WP 2.4 Korpus Verlauf (1 Tag)
+Volumen nach Satz und Gewicht, Rekorde inklusive der Regel "ein Rekord braucht
+einen Vorher-Wert", e1RM, Wochenziele.
+**Gate:** Zweigabdeckung.
+
+### WP 2.5 Korpus Muskelgruppen und Entwurf (1,5 Tage)
+`muscleOf()` mit `MUSCLE_ALIAS` (Schulter auf Schulter vorn), `muscleTally()`,
+`muscleBars()`, `DRAFT_PAIR_RATIO`, `draftSources()`, `weekDraft()` und die
+Wochentrennung.
+**Gate:** Zweigabdeckung.
+
+### WP 2.6 Korpus Wochenstreifen und Zuweisung (1 Tag)
+`weekStrip()`, `weekTally()`, `dayCell()`, `planDays` mit `PLAN_DAYS_KEEP` und
+`PLAN_WEEKS`.
+**Gate:** Zweigabdeckung.
+
+### Die Fassung, gegen die der Korpus erzeugt wurde, steht im Korpus
+
+Die Fixtures landen unter `android/core/domain/src/test/resources/` und tragen
+die `APP_VERSION`, aus der sie erzeugt wurden, im Kopf. Ändert sich danach in der
+PWA etwas an einem der abgedeckten Bereiche, wird der Korpus neu erzeugt und die
+betroffenen Pakete aus Phase 3 laufen erneut. Das ist kein Sonderfall, sondern
+der normale Weg: der Korpus ist eine Ableitung der PWA, keine eigene Wahrheit.
+
+Praktisch heißt das: Änderungen an Progression, Verlauf, Planung oder Backup
+gehören während Phase 3 in einen Rutsch und nicht einzeln, sonst wird häufiger
+neu erzeugt als gebaut.
+
+---
+
+## Phase 3: Domänenkern in Kotlin
+
+Summe 13 Tage. Reines Kotlin, keine UI, keine Datenbank.
+
+| WP | Inhalt | Gate | Tage |
+|---|---|---|---|
+| 3.1 | Datentypen, Gewicht als eigener Typ mit Einheit | Korpus lädt vollständig | 0,5 |
+| 3.2 | Gewichtsarithmetik, Scheiben, `stepOf`, Komma-Parsing | Property-Test: nie unter Stangengewicht, immer darstellbar | 1 |
+| 3.3 | Satzblöcke, `isWork()`, Aufwärmsätze zählen nirgends | Teilkorpus 2.2 | 1 |
+| 3.4 | Rep-zuerst-Regel, Schwelle und Range | Teilkorpus, inklusive der dokumentierten Grenzfälle | 0,5 |
+| 3.5 | `suggestWithinRange`, Rückkehr in die Range, Senkung | Teilkorpus, `hint` und `why` zeichengenau | 1,5 |
+| 3.6 | `suggestFor` komplett | **Voller Progressionskorpus, jede Abweichung ist ein Fehlschlag** | 1,5 |
+| 3.7 | Muskelgruppen inklusive Alias-Übersetzung | Korpus 2.5 | 1 |
+| 3.8 | Verlauf, Volumen, Rekorde, e1RM | Korpus 2.4 | 1,5 |
+| 3.9 | Planung: Entwurf, Wochenziele, Wochentrennung | Korpus 2.5 | 2 |
+| 3.10 | Wochenstreifen und Zuweisung | Korpus 2.6 | 1 |
+| 3.11 | Backup-Parser und Merge, Pausenwerte bis 600 lesen ohne zu deckeln | Korpus 2.3, plus Fuzzing ohne Absturz | 1,5 |
+
+WP 3.6 ist der Beweis, dass der Rewrite tragfähig ist. Nach Phase 3 existiert
+noch keine App, aber der teuerste Teil des Risikos ist abgetragen.
+
+---
+
+## Phase 4: Persistenz
+
+Summe 5 Tage.
+
+### WP 4.1 Room-Schema (1 Tag)
+**Gate:** Schema exportiert und eingecheckt, Migrationstest-Gerüst ab Version 1
+aktiv.
+
+### WP 4.2 Repository mit Flow-API (1 Tag)
+**Gate:** Robolectric gegen In-Memory-Datenbank, Flows mit Turbine.
+
+### WP 4.3 Sitzungszustand getrennt halten (0,5 Tage)
+`CLAUDE.md` verlangt: Pause, Sitzung und Entwurf liegen unter eigenen Schlüsseln
+(`kraftlog:rest`, `kraftlog:session`, `kraftlog:entwurf`), nicht in den
+Einstellungen, und gehören nicht ins Backup. Diese Trennung wandert mit.
+**Gate:** Ein Export enthält keinen Sitzungszustand. Test, nicht Konvention.
+
+### WP 4.4 Import eines echten PWA-Backups (1,5 Tage)
+**Gate:** Der Abnahmetest für den Umstieg. Ein Backup aus der laufenden PWA wird
+importiert, danach liefern die Kotlin-Rechnungen für dieselben Daten dieselben
+Zahlen. Abweichung gleich null.
+
+### WP 4.5 Export und Round-Trip (1 Tag)
+**Gate:** Export, Import, Export ist stabil, und **die PWA kann den Export wieder
+einlesen**. Damit bleibt der Rückweg offen.
+
+---
+
 ## Phase 5: Oberfläche
 
-Summe 21 Tage. Ein Thema je Paket. Jedes Paket bringt einen Compose-UI-Test für
-die Interaktion und einen Roborazzi-Screenshot-Test für die Darstellung mit.
+Summe 22,5 Tage. Ein Thema je Paket. Jedes Paket bringt einen Compose-UI-Test für
+die Interaktion und einen Roborazzi-Screenshot-Test für die Darstellung mit,
+beide im JVM-Lauf.
 
 | WP | Inhalt | Abnahme gegen Suite | Tage |
 |---|---|---|---|
 | 5.1 | Designsystem, Theme, hell und dunkel | `farbschema`, `stile` | 1,5 |
-| 5.2 | Navigation, fünf Reiter, Zurück-Verhalten | `test-pwa.js` (Zurück-Geste) | 1 |
+| 5.2 | Navigation, fünf Reiter, Zurück-Verhalten | `test-pwa.js` | 1 |
 | 5.3 | Training, Satzeingabe, Gewichtsrad | `eingaben`, `gewichtsrad` | 2,5 |
 | 5.4 | Übungsauswahl, Vorwahl, Muskelgruppen | `vorwahl` | 1,5 |
 | 5.5 | Fokus-Modus | Teil von `aufwaermen` | 1,5 |
@@ -413,10 +401,10 @@ die Interaktion und einen Roborazzi-Screenshot-Test für die Darstellung mit.
 | 5.11 | Wochenstreifen | `wochenstreifen` | 1 |
 | 5.12 | Verlauf, Diagramme, Volumen, Rekorde | `volumen`, `rekorde` | 2,5 |
 | 5.13 | Daten, Backup, Einstellungen | `einstellungen` | 2 |
-| 5.14 | Share-Target als Intent-Filter | `test-pwa.js` (geteiltes Backup) | 0,5 |
+| 5.14 | Share-Target als Intent-Filter | `test-pwa.js` | 0,5 |
 
 **Gate je Paket:** UI-Test grün, Screenshot bestätigt, und der Reiter zeigt für
-den importierten Echtdatensatz aus WP 3.4 dieselben Zahlen wie die PWA. Die
+den importierten Echtdatensatz aus WP 4.4 dieselben Zahlen wie die PWA. Die
 Prüfungen der genannten Suite werden als Compose-Tests nachgebaut, eine Prüfung
 je Prüfung. Die Suite ist damit nicht nur Vorbild, sondern Checkliste.
 
@@ -431,7 +419,8 @@ Summe 3,5 Tage plus Wartezeit.
 - **WP 6.2** `ExerciseSessionRecord` schreiben (1,5 Tage). **Gate:**
   instrumentierter Test gegen die Health-Connect-Testfassung
 - **WP 6.3** Play-Console-Deklaration einreichen (0,5 Tage Arbeit, Tage bis Wochen
-  Wartezeit). **Spätestens zu Beginn von Phase 5 anstoßen.**
+  Wartezeit). **Spätestens zu Beginn von Phase 5 anstoßen**, sonst wartet der
+  fertige Code auf die Freigabe
 
 ---
 
@@ -441,63 +430,68 @@ Summe 2 Tage.
 
 - **WP 7.1** Signatur, Play App Signing, Keystore-Sicherung (0,5 Tage)
 - **WP 7.2** Store-Eintrag, Data Safety, Altersfreigabe (1 Tag)
-- **WP 7.3** Umstiegsanleitung im README (0,5 Tage)
+- **WP 7.3** Umstiegsanleitung im README: Backup aus der PWA, Import in die App
+  (0,5 Tage)
 
 ---
 
 ## Aufwand
 
-| Phase | Tage | gegenüber erster Planung |
+| Phase | Tage | kumuliert |
 |---|---|---|
-| 0 Fundament | 3,5 | unverändert |
-| 1 Referenzkorpus | 7 | plus 2,5 (Muskelgruppen, Planung, Zuweisung) |
-| 2 Domänenkern | 13 | plus 5 (Planung, Muskelgruppen, Senkungslogik) |
-| 3 Persistenz | 5 | plus 0,5 (Sitzungszustand) |
-| 4 Timer | 4 | minus 0,5, dazu 1 bedingter Tag |
-| 5 Oberfläche | 21 | plus 6,5 (Planung, Wochenstreifen, Übungsverlauf) |
-| 6 Health Connect | 3,5 | unverändert |
-| 7 Release | 2 | unverändert |
-| **Summe** | **59** | **plus 14** |
+| 0 Fundament | 3,5 | 3,5 |
+| 1 Timer und Messung | 5 | **8,5** |
+| 2 Referenzkorpus | 7 | 15,5 |
+| 3 Domänenkern | 13 | 28,5 |
+| 4 Persistenz | 5 | 33,5 |
+| 5 Oberfläche | 22,5 | 56 |
+| 6 Health Connect | 3,5 | 59,5 |
+| 7 Release | 2 | **61,5** |
 
-Rund 59 Personentage, mit Puffer zwölf bis dreizehn Wochen für eine Person. Der
-Aufschlag gegenüber den 45 Tagen der ersten Planung ist kein Nachschätzen
-derselben Arbeit, sondern Arbeit, die es 1.19.1 noch nicht gab: ein ganzer Reiter,
-fünfzehn Muskelgruppen als Rechengrundlage statt Kategorien, die Senkungslogik,
-der Wochenstreifen, der Übungsverlauf.
+Rund 61,5 Personentage, mit Puffer dreizehn bis vierzehn Wochen für eine Person.
+Dazu kommt 1 bedingter Tag für WP 1.5, falls die Messung ihn verlangt.
 
-## Das bewegliche Ziel
+Die fett gesetzte Zahl in der Mitte ist die wichtigere: **nach 8,5 Tagen steht
+die Messung**, und erst dann entscheidet sich, ob die übrigen 53 Tage überhaupt
+sinnvoll sind.
 
-Zwischen 1.19.1 und 1.34.3 liegen gut 50 Commits in wenigen Tagen. Bei dieser
-Geschwindigkeit wächst die PWA während des Rewrites um mehr, als der Rewrite
-aufholen kann. Das ist das größte Risiko dieses Plans, größer als jede einzelne
-technische Frage.
+Der größte Posten ist die Oberfläche, und das ist kein Schätzfehler: fünf Reiter,
+darunter die Planung mit Entwurf, Wochentrennung und Zuweisung, sind in Compose
+genauso viel Arbeit wie in der PWA, nur ohne die 8421 Zeilen, die dort schon
+stehen.
 
-Drei mögliche Umgangsweisen, eine ist zu wählen, bevor Phase 1 beginnt:
+## Werkzeuge und wo gearbeitet wird
 
-1. **Feature-Stopp auf der PWA ab Phase 1.** Nur noch Fehlerbehebungen. Sauberste
-   Variante, verlangt aber Verzicht für drei Monate.
-2. **Die Kotlin-App zieht bewusst hinterher.** Sie erreicht Parität mit 1.34.3 und
-   holt danach auf, was seither dazugekommen ist. Realistisch, aber der Rückstand
-   wächst, solange die PWA weiterläuft.
-3. **Schnitt bei Phase 4.** Der Timer wird nativ gelöst, die PWA bleibt die App.
-   Kein Paritätsproblem, weil es keine zweite App gibt. Kostet vier statt zwölf
-   Wochen und löst die Anforderung, die diesen Plan überhaupt ausgelöst hat.
+Der Android-Build braucht das SDK und ist damit lokal zu fahren, Android Studio
+empfohlen wegen Compose-Preview und Profiler. Auf CI läuft alles außer dem
+Gerätebetrieb: die GitHub-Runner bringen das Android SDK mit, also `assembleDebug`,
+ktlint, detekt, Lint, JVM-Tests, Kover und die Roborazzi-Screenshots.
 
-Nach dem, was auf `main` zu sehen ist, würde ich Variante 3 zumindest ernsthaft
-prüfen, bevor 60 Tage gebunden werden. Die PWA ist in den letzten Wochen nicht
-stehengeblieben, sondern deutlich besser geworden, und sie hat inzwischen eine
-Prüfkette, die ein neues Projekt erst aufbauen müsste.
+Zwingend am Gerät: die Doze-Tests aus WP 4.2, das Messprotokoll aus WP 4.3, der
+Seite-an-Seite-Vergleich in Phase 5, und die Signatur.
+
+Phase 1 braucht nur Node und kein SDK, lässt sich also unabhängig davon fahren.
 
 ## Was dieser Plan bewusst nicht tut
 
 - **Kein iOS.** Fällt mit der Entscheidung für Kotlin weg.
 - **Keine Cloud, keine Anmeldung.** Daten bleiben auf dem Gerät.
-- **Kein Funktionszuwachs während des Ports.** Ein bewegliches Ziel macht den
-  Korpusvergleich wertlos.
+- **Kein Funktionszuwachs während des Ports.** Erst Parität, dann Neues.
+- **Kein Abschalten der PWA.** Sie bleibt Referenz, und die Trainingsdaten der
+  Nutzer hängen an ihrer Adresse. Ohne sie käme niemand mehr an ein Backup, um es
+  in die App zu importieren.
 
 ## Abbruchpunkte
 
-1. **Nach Phase 4.** Der Timer ist gelöst und läuft als Begleit-App neben der PWA.
-2. **Nach Phase 2.** Der Domänenkern ist portiert und bewiesen. Er ließe sich über
-   Kotlin/JS auch in der PWA weiterverwenden, falls die Entscheidung doch noch auf
-   Capacitor fällt.
+Zwei Stellen, an denen sauber Schluss sein kann, ohne dass die Arbeit verloren
+ist.
+
+**Nach Phase 1, also nach 8,5 Tagen.** Der Timer ist gelöst und läuft als
+Begleit-App neben der PWA. Das ist der Punkt, der die eigentliche Anforderung
+erfüllt. Wer nur den ausfallenden Pausentimer loswerden will, ist hier fertig und
+hat 53 Tage gespart. Die Trainingsdaten bleiben dabei in der PWA, die
+Begleit-App kennt nur Übungsnamen und Pausenlängen.
+
+**Nach Phase 3.** Der Domänenkern ist portiert und gegen den Korpus bewiesen. Er
+ließe sich über Kotlin/JS auch in der PWA weiterverwenden, falls die Entscheidung
+doch noch auf Capacitor fällt.
