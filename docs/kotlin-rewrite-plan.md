@@ -72,10 +72,9 @@ Warnung verschwindet, entwertet die Regel.
 
 ## Wo gearbeitet wird
 
-**Alles wird lokal auf dem Entwicklungsrechner gebaut.** Ab WP 0.1 braucht jeder
-Schritt Android Studio und Gradle, und der Meilenstein aus Phase 1 braucht ein
-angeschlossenes Telefon. Es gibt in diesem Plan keinen Arbeitsschritt, der
-sinnvoll woanders läuft.
+**Gebaut wird lokal auf dem Entwicklungsrechner.** Alles, was ein Android-Modul
+berührt, braucht Android Studio und das SDK, und der Meilenstein aus Phase 1
+braucht ein angeschlossenes Telefon.
 
 Was der Rechner mitbringen muss:
 
@@ -95,9 +94,28 @@ Emulator nicht wie ein Telefon: Doze, Akkuoptimierung und die Eigenheiten von
 Xiaomi, Samsung oder Huawei sind dort nicht abgebildet. Der Emulator taugt für
 die Oberfläche in Phase 5, nicht für die Frage, die den Rewrite auslöst.
 
-Phase 2 ist die einzige Ausnahme von der SDK-Pflicht: der Referenzkorpus läuft in
-Node gegen die PWA und braucht weder Android Studio noch Gradle. Er kann deshalb
-beginnen, bevor die Einrichtung fertig ist.
+Zwei Phasen brauchen weder Android Studio noch das SDK und können beginnen,
+bevor die Einrichtung fertig ist, auch in einer Cloud-Sitzung ohne SDK. Beides
+ist am 22.09.2026 ausprobiert, nicht angenommen:
+
+- **Phase 2**, der Referenzkorpus, läuft in Node gegen die PWA. Der Harness lädt
+  den Skriptblock aus `index.html` kopflos und liefert für den Fall aus
+  `tools/tests/progression.js` dasselbe Ergebnis wie die Chromium-Suite. Eine
+  Falle dabei: `navigator.serviceWorker` darf im Stub nicht `undefined` sein,
+  sondern muss ganz fehlen, weil die App mit `"serviceWorker" in navigator`
+  prüft.
+- **Phase 3**, der Domänenkern, ist reines Kotlin. Ein Modul mit
+  `kotlin("jvm")` baut und testet mit Gradle und JDK ohne Android SDK, und ein
+  absichtlich falscher Test macht den Build rot.
+
+Die Bedingung für Phase 3: `settings.gradle.kts` bindet dort nur die JVM-Module
+ein. Steht ein Android-Modul darin, konfiguriert Gradle es auch beim Aufruf von
+`:core:domain:test` und bricht ohne SDK ab.
+
+Ob Phase 3 so früh gezogen wird, ist eine andere Frage als ob es geht: der Timer
+steht vorn, damit die Messung entscheidet, bevor der Kern gebaut wird. Phase 2
+dagegen lohnt in jedem Fall, der Korpus ist auch ohne Rewrite ein dichteres
+Regressionsnetz für die PWA als die Chromium-Suiten.
 
 Am Telefon selbst hängen: der Doze-Test aus WP 1.2, das Messprotokoll aus WP 1.4,
 der Seite-an-Seite-Vergleich gegen die PWA in Phase 5 und die Signatur in WP 7.1.
