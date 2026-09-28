@@ -636,14 +636,15 @@ Nachgerechnet am 28.09.2026 gegen den aktuellen Stand der Skizzen:
 | Bildschirm | Element | Höhe | Abstand zur Kante | Abstand zum Ring |
 |---|---|---|---|---|
 | Heute, Satz, Fertig, Tile | Knopf unten | 48 dp | 12,1 px | |
-| Gewicht am Kranz | Fertig | 48 dp | 34,8 px | 11,8 px zur Innenkante |
-| Pause | +15 s, Weiter | 48 dp | 34,8 px | 11,8 px zur Innenkante |
+| Gewicht am Kranz | Fertig | 48 dp | 37,9 px | 14,9 px zur Innenkante |
+| Pause | +15 s, Weiter | 48 dp | 37,9 px | 14,9 px zur Innenkante |
 | Übungen | Randeinträge | 25 und 27 dp | 13,5 px | |
 
 Daraus zwei Festlegungen für das Gate. Erstens wird der Abstand zum
 Fortschrittsring **zur Innenkante des Strichs** gemessen, nicht zu seiner
-Mittellinie; dann fehlen den Knöpfen auf Pause und Gewicht 0,2 px, und genau
-solche Fälle soll die Rechnung finden. Zweitens gilt die 48-dp-Grenze für einen
+Mittellinie. Beim ersten Nachrechnen fehlten den Knöpfen auf Pause und Gewicht
+so 0,2 px, genau solche Fälle soll die Rechnung finden; die Skizzen sind danach
+auf 14,9 px nachgezogen. Zweitens gilt die 48-dp-Grenze für einen
 Listeneintrag in voller Größe in der Mitte. Gestaucht am Rand ist er kleiner,
 das ist das Verhalten der Bibliothek; ob der Wear-Review das genauso sieht,
 zeigt erst WP 8.6.
