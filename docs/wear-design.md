@@ -5,9 +5,9 @@ https://claude.ai/artifact/4wZM2u6AojvrRqvPtVJufe, Stand 28.09.2026, acht
 Bildschirme. Die Werte stammen per Skript aus den Dateien der Fläche, nicht aus
 dem Augenmaß. Grundlage für WP 8.3 in `docs/kotlin-rewrite-plan.md`.
 
-Wo die Skizzen gegen eine Pflichtanforderung verstoßen, steht das in einem
-eigenen Abschnitt am Ende. **Für die Umsetzung gilt diese Datei, nicht die
-Skizze.**
+Wo die Skizzen gegen eine Pflichtanforderung verstießen und wie das behoben
+ist, steht im Abschnitt "Stand der Skizzen" am Ende. **Für die Umsetzung gilt diese Datei. Die Skizzen
+sind an sie angeglichen, im Zweifel gilt trotzdem die Datei.**
 
 ## Maßstab
 
@@ -71,7 +71,8 @@ ein, siehe unten. Für die Umsetzung gilt stattdessen diese Skala:
 | `displayLarge` | 52 | 800 | -0,05 em | Countdown der Pause |
 | `displayMedium` | 45 | 800 | -0,04 em | Wert am Drehkranz |
 | `headlineLarge` | 28 | 800 | -0,02 em | Planname auf Heute |
-| `headlineMedium` | 24 | 800 | -0,03 em | Zahlen in Wertfeldern, Kennzahlen |
+| `headlineMedium` | 24 | 800 | -0,03 em | Zahlen in Wertfeldern |
+| `headlineSmall` | 18 | 800 | 0 | Kennzahlen auf Fertig, dort reicht die Breite für 24 sp nicht |
 | `titleLarge` | 15 | 700 | -0,01 em | Übungsname, Überschrift Fertig |
 | `labelLarge` | 14 | 700 | 0 | Beschriftung der Knöpfe |
 | `bodyLarge` | 12 | 500 | 0 | wesentlicher Text: Satz, Vorschlag, Übungszeile |
@@ -92,7 +93,7 @@ Wesentlich heißt hier: was man braucht, um den nächsten Satz richtig zu machen
 | Wertfeld Reps, Gewicht | 52 dp (104) | 14 dp (28) | Gewicht 1,35-mal so breit wie Reps |
 | Listeneintrag im Fokus | 50 dp (100) | voll | 184 dp breit |
 | Kennzahl-Karte | 43 dp (86) | 12 dp (24) | drei nebeneinander, mittlere 1,4-fach |
-| Karte "Als Nächstes" im Tile | 45 dp (90) | 13 dp (26) | |
+| Karte nächste Übung im Tile | 45 dp (90) | 13 dp (26) | zwei Zeilen |
 | Akzentstrich in Karten | 22 bis 23 dp hoch, 3,5 bis 4 dp breit | 2 dp | markiert die aktuelle Übung |
 | Fortschrittsring Pause | Strich 8 dp (16) | rund | Mittellinie bei 102 dp vom Zentrum |
 | Fortschrittsring Gewicht | Strich 7 dp (14) | rund | Mittellinie bei 101,5 dp, Knopf am Ring 6 dp |
@@ -145,7 +146,7 @@ Größe in der Mitte.
 | Pause läuft | Ring als Restzeit, PAUSE, Countdown, Übung und Satz, danach | +15 s, Weiter |
 | Pause am Zifferblatt | vom System gezeichnet, die App liefert Symbol, Text, Status | Chip antippen |
 | Einheit fertig | Haken, Überschrift, drei Kennzahlen, Wochenziel als Punkte | Schließen |
-| Tile | Marke, Planname, Karte "Als Nächstes" | Fortsetzen |
+| Tile | Marke, Planname, Karte mit Übung, Satz, Gewicht und Ziel | Fortsetzen |
 
 Das Gewichtsfeld auf "Satz eintragen" hat einen Rand in `primary`, weil das
 Gewicht häufiger geändert wird als die Wiederholungen. Der Vorschlag steht in
@@ -154,25 +155,34 @@ Gewicht häufiger geändert wird als die Wiederholungen. Der Vorschlag steht in
 Auf "Gewicht am Kranz" braucht es einen Weg ohne Drehen, weil offen ist, ob der
 Touch-Kranz der Watch 8 ohne Classic bei Apps als Drehereignis ankommt.
 
-## Wo die Skizzen abweichen
+## Stand der Skizzen
 
-Drei Punkte, die in der Umsetzung nach dieser Datei behoben sind, auf der
-Fläche aber noch nicht:
+Die Skizzen sind am 28.09.2026 an diese Datei angeglichen. Vorher wichen sie an
+drei Stellen ab, festgehalten, weil genau das die Kreis- und Schriftprüfung in
+WP 8.3 finden soll:
 
-**Schrift unter WO-V14.** Zehn Beschriftungen auf App-Bildschirmen liegen
-unter 10 sp, darunter REPS und KG unter den Wertfeldern (8,5 sp), die Einheiten
-der Kennzahlen auf Fertig (8,5 sp), "Als Nächstes" im Tile (9 sp), "Schritt 3,75
-kg" und "danach Trizeps" (9,5 sp). Wesentliche Texte liegen zwischen 10 und
-12 sp: "Satz 3 von 3" und der Vorschlag mit 10 sp, die Übungszeile "65,0 kg,
-Ziel 10" mit 10 sp, die Namen in der Liste mit 11 bis 11,5 sp. Die Skala oben
-hebt alles auf mindestens 10 beziehungsweise 12 sp. Auf den Wertfeldern und im
-Tile wird es dadurch enger; ob alles passt, zeigt erst die Umsetzung mit
-eingeschalteter großer Schrift (WO-V1).
+**Schrift unter WO-V14.** Zehn Beschriftungen lagen unter 10 sp, darunter REPS
+und KG unter den Wertfeldern und die Einheiten der Kennzahlen auf Fertig mit
+8,5 sp. Wesentliche Texte wie "Satz 3 von 3", der Vorschlag und die Übungszeile
+lagen bei 10 sp. Jetzt: Nebensächliches mindestens 10 sp, Wesentliches
+mindestens 12 sp, Knöpfe 14 sp.
 
-**Leisetext knapp unter AA.** `#6E7670` statt `#737B75`, siehe Farben.
+**Leisetext knapp unter AA.** `#6E7670` ist durch `#737B75` ersetzt.
 
-**Zifferblatt.** Der Chip auf "Pause am Zifferblatt" ist beispielhaft, das
-System zeichnet ihn. Die Kreisregel gilt dort nicht.
+**Tile zu eng.** Mit 12 sp für das Gewicht blieb dem Übungsnamen rechnerisch
+ein Pixel Luft. Die Karte hat deshalb zwei Zeilen, Übung mit Satz oben,
+Gewicht und Ziel darunter, statt des Gewichts am rechten Rand; die Marke
+"Als Nächstes" entfällt, der Kopf des Tiles sagt das schon.
+
+Weiterhin ausgenommen:
+
+- Die Randeinträge der Übungsliste bleiben gestaucht. Das ist das Verhalten
+  der scrollenden Liste, Größe und Tippfläche gelten für den Eintrag in der
+  Mitte.
+- Der Chip auf "Pause am Zifferblatt" ist beispielhaft, das System zeichnet
+  ihn. Kreisregel und Schriftskala gelten dort nicht.
+- Ob alles auch mit großer Systemschrift passt (WO-V1), zeigt erst die
+  Umsetzung. Die Skizzen stehen auf Schriftskalierung 1,0.
 
 ## Für Compose
 
