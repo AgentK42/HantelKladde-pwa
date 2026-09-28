@@ -527,11 +527,6 @@ Daraus folgt die Reihenfolge. Phase 8 hängt an Phase 3 und 4 sowie an WP 1.1,
 für die Veröffentlichung an WP 7.1. **Nicht an Phase 5.** Das ist der Grund,
 warum die Uhr eine eigene Phase ist und kein Paket am Ende der Oberfläche.
 
-**Technisch unabhängig heißt aber nicht sofort nützlich.** Solange die PWA die
-Trainingsdaten führt, landen Sätze von der Uhr in einer App, die niemand liest.
-Sinnvoll ist Phase 8 parallel zu Phase 5 oder danach. Wer früher beginnt,
-gewinnt Vorlauf für den Wear-Review, nicht Nutzen im Training.
-
 ### Datenhaltung: die Uhr führt die heutige Einheit selbst
 
 Die Uhr kennt die heutige Einheit und den Plan, schreibt Sätze mit und gleicht
