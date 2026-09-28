@@ -527,17 +527,10 @@ Daraus folgt die Reihenfolge. Phase 8 hängt an Phase 3 und 4 sowie an WP 1.1,
 für die Veröffentlichung an WP 7.1. **Nicht an Phase 5.** Das ist der Grund,
 warum die Uhr eine eigene Phase ist und kein Paket am Ende der Oberfläche.
 
-Zwei Einschränkungen dazu, beide ehrlich zu nennen:
-
-- **Technisch unabhängig heißt nicht sofort nützlich.** Solange die PWA die
-  Trainingsdaten führt, landen Sätze von der Uhr in einer App, die niemand
-  liest. Sinnvoll ist Phase 8 parallel zu Phase 5 oder danach. Wer früher
-  beginnt, gewinnt Vorlauf für den Wear-Review, nicht Nutzen im Training.
-- **Die Uhr ist Funktionszuwachs.** "Was dieser Plan bewusst nicht tut" schließt
-  das während des Ports aus. Vertretbar ist die Ausnahme nur, solange kein
-  Paket dieser Phase eine Oberfläche der Handy-App verändert. Die Handy-Seite
-  von WP 8.2 ist ein Dienst ohne Bildschirm, der in das Repository aus WP 4.2
-  schreibt.
+**Technisch unabhängig heißt aber nicht sofort nützlich.** Solange die PWA die
+Trainingsdaten führt, landen Sätze von der Uhr in einer App, die niemand liest.
+Sinnvoll ist Phase 8 parallel zu Phase 5 oder danach. Wer früher beginnt,
+gewinnt Vorlauf für den Wear-Review, nicht Nutzen im Training.
 
 ### Datenhaltung: die Uhr führt die heutige Einheit selbst
 
@@ -747,7 +740,9 @@ stehen.
 
 - **Kein iOS.** Fällt mit der Entscheidung für Kotlin weg.
 - **Keine Cloud, keine Anmeldung.** Daten bleiben auf dem Gerät.
-- **Kein Funktionszuwachs während des Ports.** Erst Parität, dann Neues.
+- **Kein Funktionszuwachs in der PWA, bis der Port mit Phase 5 abgeschlossen
+  ist.** Erst Parität, dann Neues: sonst läuft das Ziel davon, gegen das die
+  Parität geprüft wird.
 - **Kein Abschalten der PWA.** Sie bleibt Referenz, und die Trainingsdaten der
   Nutzer hängen an ihrer Adresse. Ohne sie käme niemand mehr an ein Backup, um es
   in die App zu importieren.
