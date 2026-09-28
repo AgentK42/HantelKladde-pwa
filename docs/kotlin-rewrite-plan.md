@@ -497,6 +497,220 @@ Summe 2 Tage.
 
 ---
 
+## Phase 8: Wear OS (optional)
+
+Summe 13 Tage plus Wartezeit auf den Wear-Review. **Optional und außerhalb der
+Summe**, wie WP 0.6. Die Tage sind Personentage für einen Menschen, dieselbe
+Einheit wie im übrigen Plan, damit die Zahlen vergleichbar bleiben.
+
+Zielgerät ist die Galaxy Watch 8 mit Wear OS 6. Die 40 mm hat 438 x 438 px, die
+44 mm 480 x 480 px, beide bei 327 ppi, also rund 219 und 240 dp bei Dichte 2.
+Entworfen wird für die 40 mm, sie ist die engere. Die Skizzen der acht
+Bildschirme liegen als Entwurfsfläche vor und sind die Vorlage für WP 8.3.
+
+### Warum die Uhr zum Kernproblem passt
+
+Die Vibration am Handgelenk kommt auch an, wenn das Telefon in der Tasche oder im
+Spind liegt. Damit greift die Uhr die 59 Prozent ausgefallener Pausensignale von
+einer zweiten Seite an: Phase 1 sorgt dafür, dass das Signal ausgelöst wird,
+die Uhr dafür, dass es bemerkt wird.
+
+### Warum eine eigene Phase
+
+:core:model und :core:domain laufen unverändert auf der Uhr, genau dafür sind sie
+ohne Android-Abhängigkeit geschnitten. Die Oberfläche dagegen ist nicht
+wiederverwendbar: Wear Compose (`androidx.wear.compose.material3`) ist eine
+eigene Bibliothek, Phase 5 bringt für die Uhr nichts.
+
+Daraus folgt die Reihenfolge. Phase 8 hängt an Phase 3 und 4 sowie an WP 1.1,
+für die Veröffentlichung an WP 7.1. **Nicht an Phase 5.** Das ist der Grund,
+warum die Uhr eine eigene Phase ist und kein Paket am Ende der Oberfläche.
+
+Zwei Einschränkungen dazu, beide ehrlich zu nennen:
+
+- **Technisch unabhängig heißt nicht sofort nützlich.** Solange die PWA die
+  Trainingsdaten führt, landen Sätze von der Uhr in einer App, die niemand
+  liest. Sinnvoll ist Phase 8 parallel zu Phase 5 oder danach. Wer früher
+  beginnt, gewinnt Vorlauf für den Wear-Review, nicht Nutzen im Training.
+- **Die Uhr ist Funktionszuwachs.** "Was dieser Plan bewusst nicht tut" schließt
+  das während des Ports aus. Vertretbar ist die Ausnahme nur, solange kein
+  Paket dieser Phase eine Oberfläche der Handy-App verändert. Die Handy-Seite
+  von WP 8.2 ist ein Dienst ohne Bildschirm, der in das Repository aus WP 4.2
+  schreibt.
+
+### Datenhaltung: die Uhr führt die heutige Einheit selbst
+
+Die Uhr kennt die heutige Einheit und den Plan, schreibt Sätze mit und gleicht
+über die Data Layer API ab, sobald das Telefon erreichbar ist. Im Manifest steht
+`com.google.android.wearable.standalone` auf `true`. Verlauf, Pläne und Entwurf
+werden **nicht** abgeglichen.
+
+| Modell | Uhr als | standalone | Am Rack ohne Telefon | Abgleich |
+|---|---|---|---|---|
+| 1 | Fernbedienung | `false` | nein, Bluetooth reicht rund 10 m | keiner |
+| **2** | **Mitschreiber für heute** | **`true`** | **ja** | **Einheit hin, Sätze zurück** |
+| 3 | vollwertige App | `true` | ja | alles, mit Konflikten |
+
+Modell 1 scheitert an WO-P5: bei `standalone=false` muss die Begleit-App
+zuverlässig verbinden, und das tut sie nicht, wenn das Telefon im Spind liegt.
+Modell 3 macht aus einem Abgleich in eine Richtung pro Datenart ein verteiltes
+System. Modell 2 ist am Rack ohne Telefon nutzbar und hält den Abgleich klein.
+
+Ausstehende Sätze auf der Uhr sind Sitzungszustand im Sinne von WP 4.3: sie
+liegen getrennt, gehören nicht ins Backup und verschwinden erst, wenn das
+Telefon den Empfang bestätigt hat.
+
+### Qualitätsanforderungen, die diese App direkt treffen
+
+| Kennung | Anforderung | Folge hier |
+|---|---|---|
+| WO-V2 | Tippflächen mindestens 48 x 48 dp | bei Dichte 2 also 96 px |
+| WO-V3 | Wischen zum Schließen fast überall | ausgenommen die laufende Pause als Ongoing Activity |
+| WO-V4 | langlaufende Vorgänge als Ongoing Activity | der Pausentimer, Bibliothek `androidx.wear.ongoing` |
+| WO-V13 | schwarzer Hintergrund | das App-Dunkelgrau `#151816` fällt weg, die Akzentfarben `#5B93F5`, `#5CC48D`, `#F0637A`, `#3FB7C2` bleiben |
+| WO-V16 | Inhalt innerhalb des runden Displays | Mindestkreis 192 dp |
+| WO-P5 | Begleit-App verbindet zuverlässig | trifft nur Modell 1, siehe oben |
+
+### Ziel-API: geklärt am 28.09.2026
+
+Die Qualitätsseite verweist unter WO-P1 auf die Play-Anforderungen und nennt in
+ihrer Terminliste noch API 34 zum 31.08.2025. Das ist überholt. Maßgeblich ist
+die Play-Hilfeseite "Target API level requirements" (answer/11926878), und die
+Entwicklerseite `developer.android.com/google/play/requirements/target-sdk`
+sagt dasselbe:
+
+- **Wear OS, neue Apps und Updates: mindestens API 35 (Android 15)**, seit
+  31.08.2026.
+- **Handy, neue Apps und Updates: mindestens API 36 (Android 16)**, seit
+  31.08.2026.
+- Die Verlängerung bis 01.11.2026 gilt für bestehende Apps, nicht für eine
+  neue.
+
+Beide Module zielen deshalb auf **API 36**. Für die Uhr ist das mehr als
+verlangt, aber Wear OS 6 auf der Watch 8 beruht ohnehin auf Android 16, und zwei
+Module mit derselben Ziel-API sind eine Testmatrix weniger.
+
+Die übrigen Stichtage 2026 auf der Qualitätsseite betreffen Zifferblätter
+(Watch Face Format, Icon-Richtlinie WO-G4) und damit diese App nicht.
+
+### WP 8.1 Modul `:wear`, Manifest und Signatur (1 Tag)
+Eigenes Modul mit eigenem Manifest. Darin
+`<uses-feature android:name="android.hardware.type.watch" />` **ohne**
+`required="false"`: mit `required="false"` entsteht ein gemeinsames APK für
+Handy und Uhr, und das wird nicht unterstützt. Dazu die Meta-Data `standalone`
+aus dem Abschnitt oben.
+
+`applicationId` und Signaturschlüssel sind identisch mit der Handy-App (WO-G7).
+Die Data Layer API verbindet ohnehin nur Apps mit gleichem Namen und gleicher
+Signatur, in der Entwicklung reicht deshalb der gemeinsame Debug-Schlüssel des
+Rechners. Die Version Codes sind eigenständig und von denen des Handys
+verschieden, das Schema wird hier einmal festgelegt und im Build geprüft.
+
+64 Bit und 16 KB Page Size sind seit 15.09.2026 Pflicht. Reines Kotlin ohne
+native Bibliotheken erfüllt beides, aber jede neue Abhängigkeit kann `.so`-Dateien
+mitbringen.
+**Gate:** Die leere Wear-App startet per `adb` über WLAN auf der Uhr. Die
+Prüfkette aus WP 0.4 bekommt einen Schritt, der das Release-APK von `:wear`
+öffnet und rot wird, sobald eine `.so`-Datei ohne `arm64-v8a` oder ohne
+16-KB-Ausrichtung darin liegt.
+
+### WP 8.2 Data Layer: Einheit hin, Sätze zurück (3 Tage)
+Die heutige Einheit und der Plan gehen als DataItem auf die Uhr, jeder Satz als
+eigenes DataItem mit fester Kennung zurück. DataItems statt Nachrichten, weil
+die Data Layer API sie nach einem Verbindungsabbruch selbst nachliefert; eine
+Nachricht wäre verloren. Die feste Kennung macht den Import auf dem Handy
+wiederholbar: derselbe Satz zweimal empfangen ist ein Satz.
+
+Auf dem Handy ein Dienst ohne Oberfläche, der empfangene Sätze über das
+Repository aus WP 4.2 schreibt und den Empfang bestätigt. Erst dann löscht die
+Uhr ihren ausstehenden Satz.
+**Gate:** Ein Satz auf der Uhr erscheint auf dem Handy, auch wenn die
+Verbindung beim Speichern getrennt war und erst danach wiederkommt. Doppelte
+Zustellung erzeugt keinen zweiten Satz. Beides als Test, nicht als Beobachtung.
+
+### WP 8.3 Oberfläche in Wear Compose (4,5 Tage)
+Die Bildschirme der Skizzen: Heute, Übungen, Satz eintragen, Gewicht am Kranz,
+Pause, Einheit fertig. Die Übungsliste staucht Einträge zum Rand hin, wie
+`TransformingLazyColumn` es tut.
+
+Das Gewicht wird in den Skizzen über den Kranz gedreht. Ob die Lünette der
+Watch 8 ohne Classic als Drehereignis ankommt, wird am Gerät geprüft, nicht
+vorausgesetzt. Der Bildschirm braucht in jedem Fall einen Weg ohne Drehen.
+
+**Die Geometrie wird gerechnet, nicht geschätzt.** Im ersten Entwurf ragten die
+Knöpfe am unteren Rand bis zu 18 px über den Kreis, bei der Korrektur wären sie
+fast unter 48 dp gerutscht. Deshalb ein Skript: für jede abgerundete Box der
+weiteste Punkt vom Mittelpunkt, verglichen mit Radius 219.
+
+Nachgerechnet am 28.09.2026 gegen den aktuellen Stand der Skizzen:
+
+| Bildschirm | Element | Höhe | Abstand zur Kante | Abstand zum Ring |
+|---|---|---|---|---|
+| Heute, Satz, Fertig, Tile | Knopf unten | 48 dp | 12,1 px | |
+| Gewicht am Kranz | Fertig | 48 dp | 34,8 px | 11,8 px zur Innenkante |
+| Pause | +15 s, Weiter | 48 dp | 34,8 px | 11,8 px zur Innenkante |
+| Übungen | Randeinträge | 25 und 27 dp | 13,5 px | |
+
+Daraus zwei Festlegungen für das Gate. Erstens wird der Abstand zum
+Fortschrittsring **zur Innenkante des Strichs** gemessen, nicht zu seiner
+Mittellinie; dann fehlen den Knöpfen auf Pause und Gewicht 0,2 px, und genau
+solche Fälle soll die Rechnung finden. Zweitens gilt die 48-dp-Grenze für einen
+Listeneintrag in voller Größe in der Mitte. Gestaucht am Rand ist er kleiner,
+das ist das Verhalten der Bibliothek; ob der Wear-Review das genauso sieht,
+zeigt erst WP 8.6.
+
+Die Ongoing Activity auf dem Zifferblatt zeichnet das System. Die App liefert
+Symbol, Statustext und Ziel beim Antippen, das Gate prüft diesen Bildschirm
+deshalb nicht.
+**Gate:** Das Geometrie-Skript läuft in der Prüfkette: jede Box mindestens
+12 px zur Kante, auf Bildschirmen mit Fortschrittsring mindestens 12 px zur
+Innenkante des Rings, jede Tippfläche mindestens 48 x 48 dp. Roborazzi-Screenshots
+aller Bildschirme in rund, schwarzer Hintergrund, 40 und 44 mm.
+
+### WP 8.4 Pause als Ongoing Activity mit Haptik (2 Tage)
+Die Timer-Domäne aus WP 1.1 läuft unverändert, das Service-Muster aus WP 1.2
+wird übertragen, samt `shortService` und dem Deckel von 150 Sekunden. Neu ist
+die Ongoing Activity aus `androidx.wear.ongoing`, damit die laufende Pause auf
+dem Zifferblatt und in der Übersicht erscheint (WO-V4), und die Vibration zum
+Ende.
+**Gate:** Protokoll über mindestens 50 Pausen am Handgelenk, das Telefon dabei
+außer Reichweite, aufgenommen wie in WP 1.3 und bewertet wie in WP 1.4.
+
+### WP 8.5 Tile (1,5 Tage)
+Die Tile zeigt die heutige Einheit und den nächsten Satz, Fortsetzen öffnet die
+App an dieser Stelle. Tiles werden mit ProtoLayout gebaut, nicht mit Compose;
+auch hier nützt Phase 5 nichts.
+**Gate:** Nach dem Speichern eines Satzes zeigt die Tile den nächsten. Geprüft
+mit einem Vorschautest der Tile und einmal am Gerät.
+
+### WP 8.6 Play: Formfaktor, Track, Review (1 Tag plus Wartezeit)
+Hängt an WP 7.1 wegen des gemeinsamen Schlüssels und an WP 7.2 wegen des
+Store-Eintrags.
+
+- In der Play Console unter Test and release, Advanced Settings, Form factors
+  Wear OS hinzufügen.
+- Eigene Wear-OS-Release-Tracks sind Pflicht.
+- Mindestens ein Wear-Screenshot, 1:1, ohne Geräterahmen. Die Bilder aus
+  WP 8.3 taugen dafür.
+- Die Beschreibung nennt "Wear OS" ausdrücklich.
+- Erst geschlossener Test und Pre-Launch-Report, dann opt-in und Rollout.
+
+Google prüft die Wear-App zusätzlich gegen die Qualitätsanforderungen, in einem
+eigenen Review mit unbekannter Dauer. Wie bei WP 6.3 gilt: früh anstoßen.
+**Gate:** Wear-Review bestanden, die App lässt sich auf der Uhr aus Play
+installieren.
+
+| WP | Inhalt | Tage |
+|---|---|---|
+| 8.1 | Modul, Manifest, Signatur, Version Codes | 1 |
+| 8.2 | Data Layer | 3 |
+| 8.3 | Oberfläche | 4,5 |
+| 8.4 | Pause als Ongoing Activity | 2 |
+| 8.5 | Tile | 1,5 |
+| 8.6 | Play | 1 plus Wartezeit |
+
+---
+
 ## Aufwand
 
 | Phase | Tage | kumuliert |
@@ -512,7 +726,9 @@ Summe 2 Tage.
 
 Rund 61,5 Personentage, mit Puffer dreizehn bis vierzehn Wochen für eine Person.
 Nicht eingerechnet: 1 bedingter Tag für WP 1.5, falls die Messung ihn verlangt,
-und ein halber für WP 0.6, falls die Kette zusätzlich auf GitHub laufen soll.
+ein halber für WP 0.6, falls die Kette zusätzlich auf GitHub laufen soll, und
+13 Tage für die optionale Phase 8, falls die App auch auf die Uhr soll, dazu die
+Wartezeit auf den Wear-Review.
 
 Die Einrichtung des Rechners steckt in WP 0.1. Wer Android Studio und das SDK
 schon hat, ist dort in einem halben statt einem ganzen Tag durch.
