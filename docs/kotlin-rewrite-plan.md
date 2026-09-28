@@ -83,7 +83,7 @@ Was der Rechner mitbringen muss:
 |---|---|
 | Android Studio | aktuelle stabile Fassung, bringt SDK, Platform-Tools und Emulator mit |
 | JDK 17 | Android Studio liefert ein passendes JBR mit, ein eigenes JDK geht auch |
-| Android SDK Platform | die Ziel-API des Projekts, plus Build-Tools |
+| Android SDK Platform | die Ziel-API des Projekts, also 36, plus Build-Tools |
 | `adb` | für Gerätebetrieb, Doze-Tests und das Messprotokoll |
 | Node 20 oder neuer | nur für Phase 2, der Korpus läuft ohne SDK |
 | Git | Klon dieses Repos, der Android-Teil liegt unter `android/` |
@@ -126,6 +126,7 @@ Alles andere läuft am Rechner, Emulator eingeschlossen.
 | Bereich | Wahl | Begründung |
 |---|---|---|
 | Sprache | Kotlin, JDK 17 | |
+| Ziel-API | 36 (Android 16) | Pflicht für neue Handy-Apps seit 31.08.2026, belegt in Phase 8 |
 | UI | Jetpack Compose, Material 3 | |
 | Persistenz | Room mit exportiertem Schema | Migrationstests ab Tag eins |
 | Timer | Foreground Service | siehe Phase 1 |
