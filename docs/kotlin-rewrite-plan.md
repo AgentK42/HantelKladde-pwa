@@ -82,7 +82,7 @@ Was der Rechner mitbringen muss:
 |---|---|
 | Android Studio | aktuelle stabile Fassung, bringt SDK, Platform-Tools und Emulator mit |
 | JDK 17 | Android Studio liefert ein passendes JBR mit, ein eigenes JDK geht auch |
-| Android SDK Platform | die Ziel-API des Projekts, also 36, plus Build-Tools |
+| Android SDK Platform | API 36 für `compileSdk` und `targetSdk`, plus Build-Tools |
 | `adb` | für Gerätebetrieb, Doze-Tests und das Messprotokoll |
 | Node 20 oder neuer | nur für Phase 2, der Korpus läuft ohne SDK |
 | Git | Klon dieses Repos, der Android-Teil liegt unter `android/` |
@@ -144,7 +144,7 @@ Alles andere läuft am Rechner, Emulator eingeschlossen.
 | Bereich | Wahl | Begründung |
 |---|---|---|
 | Sprache | Kotlin, JDK 17 | |
-| Ziel-API | 36 (Android 16) | Pflicht für neue Handy-Apps seit 31.08.2026, belegt in Phase 8 |
+| Ziel-API | `targetSdk` 36 (Android 16), `minSdk` getrennt davon | Pflicht für neue Handy-Apps seit 31.08.2026, belegt in Phase 8 |
 | UI | Jetpack Compose, Material 3 | |
 | Persistenz | Room mit exportiertem Schema | Migrationstests ab Tag eins |
 | Timer | Foreground Service | siehe Phase 1 |
@@ -593,9 +593,16 @@ sagt dasselbe:
 - Die Verlängerung bis 01.11.2026 gilt für bestehende Apps, nicht für eine
   neue.
 
-Beide Module zielen deshalb auf **API 36**. Für die Uhr ist das mehr als
+Beide Module setzen deshalb **`targetSdk` 36**. Für die Uhr ist das mehr als
 verlangt, aber Wear OS 6 auf der Watch 8 beruht ohnehin auf Android 16, und zwei
 Module mit derselben Ziel-API sind eine Testmatrix weniger.
+
+Gemeint ist ausdrücklich `targetSdk`, nicht `minSdk`. Die Ziel-API sagt, gegen
+welches Verhalten die App geprüft ist, und schließt kein Gerät aus. `minSdk`
+legt fest, ab welcher Fassung sie überhaupt installierbar ist: 36 dort würde
+jede Uhr mit Wear OS 5 und älter aussperren. `minSdk` wird je Modul nach den
+Geräten gewählt, die erreicht werden sollen, und in WP 0.1 beziehungsweise 8.1
+festgehalten.
 
 Die übrigen Stichtage 2026 auf der Qualitätsseite betreffen Zifferblätter
 (Watch Face Format, Icon-Richtlinie WO-G4) und damit diese App nicht.
