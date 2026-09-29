@@ -781,3 +781,15 @@ prüft auf einem Rechner, der nichts von der Sitzung weiß, in der geändert
 wurde. Ein Lauf braucht unter zwei Minuten: die Hälfte davon sind die
 Verhaltenstests, eine halbe Minute das Laden von Chromium. Der Stand steht unter
 [Actions](https://github.com/AgentK42/HantelKladde-pwa/actions/workflows/pruefkette.yml).
+
+Für Änderungen am Verhalten gibt es seit 1.35.0 den Befehl `/sorgfalt` in
+`.claude/commands/sorgfalt.md`, aufgerufen mit der Aufgabe und dem, woran der
+Nutzer merkt, dass sie gelöst ist. Er ergänzt die Kette um das, was sie nicht
+prüfen kann: ob der neue Test vor der Änderung rot war, ob jeder Weg zum selben
+Wert mitgezogen ist, und ob jemand ohne die Begründung der Sitzung über den
+Diff gesehen hat. Anlass waren die Funde vor 1.35.0. Der Deckel von 150 Sekunden
+galt beim Laden eines alten Stands nicht, weil `SETTING_FIELDS` einen zweiten
+Weg zum Wert offen ließ, und ein Tipp auf Plus an der Grenze schaltete nur die
+Vibration ab, weil `vibeStop()` vor der Prüfung stand. Beides fand die
+Durchsicht, keine Suite. Der Befehl verweist auf `CLAUDE.md`, statt es zu
+wiederholen, damit es keine zwei Fassungen derselben Regel gibt.
