@@ -898,7 +898,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.35.5";
+var APP_VERSION = "1.35.6";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -2131,16 +2131,14 @@ function suggestWithinRange(name, base, block, rng, goalSets, goalReps) {
     base.reps = Math.min(rng.hi, Math.max(rng.lo, low));
     return base;
   }
-  var next = Math.min(rng.hi, Math.max(rng.lo, low + 1));
+  var next = Math.min(rng.hi, low + 1);
   base.reps = next;
   if (next > low) {
     /* Die Begründung nennt ausdrücklich den schwächsten Satz, denn er bindet.
        "Letztes Top Set" darüber zeigt den besten, ohne den Zusatz widersprächen
        sich beide Zahlen. */
-    var gain = next - low;
     base.up = true;
-    base.why = "+" + gain + (gain === 1 ? " Rep" : " Reps") +
-      ", schwächster Satz " + low + "x" +
+    base.why = "+1 Rep, schwächster Satz " + low + "x" +
       (block.lowRpe != null ? " @ RPE " + num(block.lowRpe) : "");
   }
   return base;
