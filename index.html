@@ -21,16 +21,19 @@
   --ink:#101314; --muted:#6C736E; --line:#D2D6CE;
   --accent:#1552B8; --accent-ink:#FFFFFF; --record:#C8102E; --done:#1F7A4C;
   --shadow:0 1px 0 rgba(16,19,20,0.06);
-  /* Einzelne Übungen im Entwurf der Planung, neben den Planfarben, und die
-     Volumenbalken im Verlauf. */
-  --extra:#0E7C86;
+  /* Einzelne Übungen im Entwurf der Planung. Keine Farbe aus PALETTE, sonst
+     verschmilzt ihr Abschnitt im Balken mit dem eines Plans. */
+  --extra:#877BC6;
+  /* Volumenbalken im Verlauf, dort steht keine Planfarbe daneben. */
+  --vol:#0E7C86;
 }
 html[data-theme="dark"] {
   --bg:#151816; --surface:#1E2320; --raise:#262C28;
   --ink:#ECEEE9; --muted:#98A099; --line:#333A36;
   --accent:#5B93F5; --accent-ink:#0B1220; --record:#F0637A; --done:#5CC48D;
   --shadow:none;
-  --extra:#3FB7C2;
+  --extra:#BFB4F9;
+  --vol:#3FB7C2;
 }
 * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 /* Kein Pull-to-refresh: die App holt nichts vom Server, die Geste lädt nur
@@ -895,7 +898,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.35.3";
+var APP_VERSION = "1.35.4";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -5441,7 +5444,7 @@ function volChart(days, byDay) {
     return '<path d="M' + x.toFixed(1) + ' ' + base + ' V' + (y + r).toFixed(1) +
       ' a' + r + ' ' + r + ' 0 0 1 ' + r + ' -' + r + ' h' + (bw - 2 * r) +
       ' a' + r + ' ' + r + ' 0 0 1 ' + r + ' ' + r + ' V' + base +
-      ' Z" fill="var(--extra)"/>';
+      ' Z" fill="var(--vol)"/>';
   }).join("");
   /* Beschriftet werden nur der höchste und der letzte Balken. Eine Zahl über jedem
      Balken liest niemand, und bei engen Tagesabständen überlappen sie. */

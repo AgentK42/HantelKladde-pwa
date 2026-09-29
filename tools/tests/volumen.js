@@ -35,7 +35,7 @@ suite(async ({ open, check }) => {
     return c[1].getBoundingClientRect().top > c[0].getBoundingClientRect().top;
   }));
   check("acht Balken, einer je Training",
-    await p.locator('.chart svg path[fill="var(--extra)"]').count()===8);
+    await p.locator('.chart svg path[fill="var(--vol)"]').count()===8);
 
   // Werte
   const vols = await p.evaluate(()=>{
@@ -71,7 +71,7 @@ suite(async ({ open, check }) => {
   }));
   check("kein Balken ragt unter die Grundlinie", await p.evaluate(()=>{
     var svg=document.querySelectorAll(".card .chart")[1].querySelector("svg");
-    return Array.from(svg.querySelectorAll('path[fill="var(--extra)"]')).every(function (b) {
+    return Array.from(svg.querySelectorAll('path[fill="var(--vol)"]')).every(function (b) {
       var bb=b.getBBox(); return bb.y >= 15.9 && bb.y+bb.height <= 128.1;
     });
   }));
@@ -103,9 +103,9 @@ suite(async ({ open, check }) => {
   check("ein einzelner Trainingstag bietet keinen Verlauf an",
     await p.locator('[data-act="openex"]').count()===0);
   check("gezeichnet wird er trotzdem sauber, mit genau einem Balken",
-    await p.locator('.chart svg path[fill="var(--extra)"]').count()===1);
+    await p.locator('.chart svg path[fill="var(--vol)"]').count()===1);
   check("der eine Balken steht im Bild", await p.evaluate(()=>{
-    var b=document.querySelector('.chart svg path[fill="var(--extra)"]').getBBox();
+    var b=document.querySelector('.chart svg path[fill="var(--vol)"]').getBBox();
     return b.x >= 0 && b.x+b.width <= 320 && b.height > 0;
   }));
 

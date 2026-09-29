@@ -50,6 +50,22 @@ suite(async ({ open, check, errs, url }) => {
   check("Uebung im Entwurf", await page.evaluate(() => S.draft.extras.length === 1 && S.draft.extras[0].name === "Lower Back Crunch"));
   check("Hinweis Entwurf", (await page.locator(".notice").first().innerText()).includes("in den Entwurf"));
   check("Unterer Ruecken jetzt 2", await page.evaluate(() => muscleTally(draftSources()).by["Unterer Rücken"].total === 2));
+  // Einzelne Uebungen verschmelzen im Balken mit keinem Plan, in keinem Farbschema
+  const extra = await page.evaluate(() => {
+    const rgb = (c) => { const i = document.createElement("i"); i.style.color = c;
+      document.body.appendChild(i); const v = getComputedStyle(i).color; i.remove(); return v; };
+    const plans = PALETTE.concat(Object.keys(S.plans).map(planColor)).map(rgb);
+    const html = document.documentElement, was = html.getAttribute("data-theme"), out = {};
+    ["light", "dark"].forEach(t => {
+      html.setAttribute("data-theme", t);
+      const dot = Array.from(document.querySelectorAll(".planlegend .pdot"))
+        .find(d => d.parentNode.textContent.startsWith("Einzelne Übungen"));
+      out[t] = dot && getComputedStyle(dot).backgroundColor;
+    });
+    html.setAttribute("data-theme", was);
+    return { out, clash: Object.values(out).filter(c => !c || plans.indexOf(c) >= 0) };
+  });
+  check("Einzelne Uebungen tragen hell und dunkel keine Planfarbe", extra.clash.length === 0, JSON.stringify(extra.out));
   await page.click('.step button[data-act="draftxstep"][data-f="sets"][data-d="1"]');
   check("Saetze 3", await page.evaluate(() => S.draft.extras[0].sets === 3));
   // Zuweisen
