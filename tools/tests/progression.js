@@ -86,6 +86,8 @@ suite(async ({ open, check }) => {
   check("Hinweis ohne Annehmen und Verwerfen", await p.locator(".suggestion.hint button").count() === 0);
   check("Hinweis nennt die Rückkehr", /Zurück in die Range/.test(await p.locator(".suggestion.hint").innerText()));
   check("Felder stehen auf 8 x 65", await p.evaluate(() => S.reps === "8" && S.weight === "65"));
+  await p.fill("#in-weight", "67,5");
+  check("Tippen lässt den Hinweis stehen", await p.locator(".suggestion.hint").count() === 1);
 
   // 10. Darstellung: Senkung mit Entscheidung, Annehmen senkt das Planziel
   await run([{ w:65, r:[8,6] }, { w:65, r:[7,6] }]);
@@ -101,6 +103,12 @@ suite(async ({ open, check }) => {
   await p.evaluate(() => { applySuggestion("Flys"); render(); });
   await p.click('[data-act="suggestreject"]'); await p.waitForTimeout(150);
   check("Verwerfen behält 65 kg", await p.evaluate(() => S.weight === "65" && S.plans.T[0].weight === 65));
+
+  // 12. Wer selbst tippt, hat den Vorschlag überholt
+  await run([{ w:65, r:[8,6] }, { w:65, r:[7,6] }]);
+  await p.evaluate(() => { applySuggestion("Flys"); render(); });
+  await p.fill("#in-weight", "60");
+  check("Tippen nimmt den Vorschlag weg", await p.locator(".suggestion").count() === 0);
 
   // 13. Ohne Range (Squats, 2,5 kg auf 100 kg liegt unter der Schwelle): das Planziel
   // ist der Rand, dieselbe Regel wie mit Range

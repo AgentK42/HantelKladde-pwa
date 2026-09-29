@@ -895,7 +895,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.35.2";
+var APP_VERSION = "1.35.3";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -7464,8 +7464,9 @@ INPUT_ACTIONS.input = function (el) {
   S[field] = el.value;
   if (field === "reps" || field === "weight") {
     S.source = "";
-    /* Ohne render() die nun überholte Begründungszeile von Hand entfernen. */
-    var suggestion = document.querySelector(".suggestion");
+    /* Ohne render() die nun überholte Begründungszeile von Hand entfernen. Der
+       Hinweis bleibt, er gilt der letzten Einheit, nicht den Feldern. */
+    var suggestion = document.querySelector(".suggestion:not(.hint)");
     if (suggestion && suggestion.parentNode) suggestion.parentNode.removeChild(suggestion);
   }
 };
