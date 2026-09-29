@@ -311,7 +311,11 @@ Countdown über `setUsesChronometer(true)` mit `setChronometerCountDown(true)`.
 Abbruch ist `stopSelf()`, Verlängerung setzt die Restzeit neu.
 
 Enthält den Sperrbildschirm: die PWA legt die laufende Pause seit 1.31 dorthin,
-nativ wird daraus ein echter Countdown statt einer stehenden Zahl.
+nativ wird daraus ein echter Countdown statt einer stehenden Zahl. Dazu gehören
+die Knöpfe "+15 s" und "Pause beenden" in der Benachrichtigung und ab Android 16
+die Hervorhebung als Live Update (`setRequestPromotedOngoing(true)`, Berechtigung
+`POST_PROMOTED_NOTIFICATIONS`): oben auf dem Sperrbildschirm und als Chip in der
+Statusleiste. Was darüber hinausgeht, steht in Phase 9.
 
 **Gate:** Instrumentierter Test mit vorgestellter Uhr, dazu
 `adb shell dumpsys deviceidle force-idle`. Dazu der Randfall: eine Pause von
@@ -726,6 +730,85 @@ installieren.
 
 ---
 
+## Phase 9: Sperrbildschirm (optional)
+
+Summe 4,5 Tage. **Optional und außerhalb der Summe**, wie Phase 8. Die Pause auf
+dem Sperrbildschirm mit Countdown, Knöpfen und Live Update gehört schon zu WP
+1.2. Diese Phase baut darauf auf: mehr Inhalt in der Benachrichtigung und
+Eintragen, ohne das Handy zu entsperren.
+
+Das ist neue Funktion, keine Parität. Die PWA kann auf dem Sperrbildschirm
+nichts davon. Deshalb liegt die Phase hinter Phase 5 und nicht darin: sie
+braucht den Vorschlag aus Phase 3, die Persistenz aus Phase 4 und den
+Satz-Bildschirm aus WP 5.3.
+
+Phase 8 und Phase 9 lösen zum Teil dasselbe, nämlich einen Satz eintragen, ohne
+das Handy zu entsperren. Wer die Uhr baut, braucht WP 9.3 und WP 9.4 weniger
+dringend. WP 9.1 und WP 9.2 lohnen sich in jedem Fall.
+
+### WP 9.1 Öffentliche Fassung der Benachrichtigung (0,5 Tage)
+Muss vor WP 9.2 stehen, weil dort Plan, Übung und Gewicht in die Benachrichtigung
+kommen und damit für jeden lesbar auf dem Sperrbildschirm stünden. Die
+Benachrichtigung bekommt über `setPublicVersion` eine Fassung, die nur "Pause"
+und den Countdown zeigt. Welche Fassung erscheint, entscheidet die
+Systemeinstellung für vertrauliche Inhalte, nicht die App.
+**Gate:** Instrumentierter Test: die öffentliche Fassung enthält weder
+Übungsname noch Gewicht noch Planname.
+
+### WP 9.2 Nächster Satz in der Benachrichtigung (0,5 Tage)
+Während der Pause steht in der Benachrichtigung, was danach kommt: Übung,
+Satznummer, Gewicht und Ziel, zum Beispiel "Flys, Satz 3, 65,0 kg, Ziel 10".
+Die Werte kommen aus `suggestFor`, nicht aus einer zweiten Berechnung.
+**Gate:** Unit-Test auf den Baustein, der den Text erzeugt: für jeden Fall des
+Progressionskorpus aus WP 2.2 dieselben Werte wie der Satz-Bildschirm.
+
+### WP 9.3 Satz wie geplant speichern (1,5 Tage)
+Ein Knopf "Wie geplant" in der Benachrichtigung trägt den nächsten Satz mit den
+Werten aus WP 9.2 ein, ohne Entsperren. Die Aktion läuft über einen
+`BroadcastReceiver` und denselben Anwendungsfall wie "Speichern" auf dem
+Satz-Bildschirm, es gibt keinen zweiten Speicherweg. Danach startet die Pause
+wie nach einem Satz in der App.
+
+Ein Tipp in der Tasche darf keinen falschen Satz hinterlassen. Nach dem
+Speichern zeigt die Benachrichtigung deshalb einige Sekunden lang
+"Gespeichert" mit einem Knopf "Rückgängig", und in der App lässt sich der Satz
+wie jeder andere löschen.
+**Gate:** Instrumentierter Test bei gesperrtem Gerät: der gespeicherte Satz ist
+gleich dem, den der Satz-Bildschirm gespeichert hätte, "Rückgängig" entfernt
+genau diesen Satz, und der Verlauf zeigt ihn danach nicht mehr.
+
+### WP 9.4 Trainingsmodus über dem Sperrbildschirm (2 Tage)
+Ein Tipp auf die Benachrichtigung öffnet einen schlanken Bildschirm über dem
+Sperrbildschirm, wie die Kamera ohne Entsperren startet: aktueller Satz mit
+Reps und Gewicht zum Ändern, Speichern, laufende Pause. Umgesetzt mit
+`setShowWhenLocked(true)` nur für diese eine Activity.
+
+Alles andere, also Verlauf, Pläne, Planung, Backup und Einstellungen, verlangt
+das Entsperren über `requestDismissKeyguard`. Wer das Handy findet, soll eine
+laufende Einheit weiterführen können, aber nicht die Trainingsdaten lesen.
+**Gate:** Instrumentierter Test mit gesetzter PIN (`adb shell locksettings
+set-pin`): der Trainingsmodus öffnet ohne Entsperren, jeder Weg aus ihm heraus
+fordert die PIN an, und ein Screenshot-Test hält den Bildschirm fest.
+
+### Bewusst nicht in dieser Phase
+- **Vollbild beim Pausenende** über `USE_FULL_SCREEN_INTENT`. Seit Android 14
+  lässt Play das nur für Anrufe und Wecker zu. Vibration und Ton der
+  Benachrichtigung reichen.
+- **Widget auf dem Sperrbildschirm.** Ob und ab welcher Fassung Android das auf
+  Handys allgemein anbietet, ist nicht geklärt. Erst prüfen, dann planen.
+- **Samsung Now Bar.** Ob sie Live Updates fremder Apps zeigt, ist nicht
+  belegt. Das zeigt ein Blick auf dem Gerät, sobald WP 1.2 läuft, und kostet
+  keinen eigenen Aufwand.
+
+| WP | Inhalt | Tage |
+|---|---|---|
+| 9.1 | Öffentliche Fassung | 0,5 |
+| 9.2 | Nächster Satz in der Benachrichtigung | 0,5 |
+| 9.3 | Satz wie geplant speichern | 1,5 |
+| 9.4 | Trainingsmodus über dem Sperrbildschirm | 2 |
+
+---
+
 ## Aufwand
 
 | Phase | Tage | kumuliert |
@@ -743,7 +826,8 @@ Rund 61,5 Personentage, mit Puffer dreizehn bis vierzehn Wochen für eine Person
 Nicht eingerechnet: 1 bedingter Tag für WP 1.5, falls die Messung ihn verlangt,
 ein halber für WP 0.6, falls die Kette zusätzlich auf GitHub laufen soll, und
 13 Tage für die optionale Phase 8, falls die App auch auf die Uhr soll, dazu die
-Wartezeit auf den Wear-Review.
+Wartezeit auf den Wear-Review, und 4,5 Tage für die optionale Phase 9, falls
+auf dem Sperrbildschirm mehr als die Pause stehen soll.
 
 Die Einrichtung des Rechners steckt in WP 0.1. Wer Android Studio und das SDK
 schon hat, ist dort in einem halben statt einem ganzen Tag durch.
