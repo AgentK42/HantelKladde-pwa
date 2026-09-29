@@ -13,9 +13,10 @@ gelten unverändert weiter. Sie ist eine Variante zur Auswahl: sie gilt für WP
 
 ## Die Idee
 
-Der Rand der Uhr zeigt immer den Fortschritt. Ein Ring aus Segmenten läuft um
-den ganzen Bildschirm, ein Segment je Satz der Einheit. Wer auf die Uhr
-schaut, sieht ohne Lesen, wie weit die Einheit ist.
+Der Rand der Uhr zeigt den Fortschritt. Ein Ring aus Segmenten läuft um den
+ganzen Bildschirm, ein Segment je Satz der Einheit. Wer auf die Uhr schaut,
+sieht ohne Lesen, wie weit die Einheit ist. Einzige Ausnahme ist die
+Übungsliste, dort gehört der Rand der Scroll-Anzeige.
 
 Weil der Rand dem Ring gehört, sitzen alle Knöpfe als Kreise in der Mitte. Sie
 kommen dem Rand nie nahe, die Kreisprüfung fällt deshalb nirgends knapp aus.
@@ -47,7 +48,7 @@ erledigt und aktuell gleich.
 
 | Ring | Mittellinie | Strich | Enden | Aufteilung |
 |---|---|---|---|---|
-| Einheit, auf Heute, Übungen, Satz | 102 dp (204) vom Zentrum | 6 dp (12) | gerade | ein Segment je Satz, Lücke 5,4 dp (10,8) Bogenlänge |
+| Einheit, auf Heute und Satz | 102 dp (204) vom Zentrum | 6 dp (12) | gerade | ein Segment je Satz, Lücke 5,4 dp (10,8) Bogenlänge |
 | Wochenziel, auf Fertig | 102 dp (204) | 6 dp (12) | gerade | ein Segment je geplanter Einheit der Woche, Lücke 7,2 dp (14,4) |
 | Pause, auf Pause | 102 dp (204) | 6 dp (12) | rund | durchgehend, Spur `surfaceDim`, Füllung `primary` als Restzeit |
 
@@ -58,6 +59,12 @@ minus Lücke, sie ist nicht fest.
 
 Die Pause zeigt bewusst keine Segmente: dort zählt die Restzeit, nicht der
 Stand der Einheit.
+
+Die Übungsliste hat keinen Ring. Beim Scrollen verlangt Google eine sichtbare
+Rückmeldung, und `ScreenScaffold` zeichnet dafür die Scroll-Anzeige am rechten
+Rand, genau dort, wo der Ring läge. Die Liste bekommt deshalb die
+Scroll-Anzeige wie in der Hauptdatei, der Stand der Einheit steht dort in den
+Zählern je Übung. Quelle: https://developer.android.com/training/wearables/compose/rotary-input
 
 Die Innenkante des Rings liegt bei 99 dp (198) vom Zentrum. Die Kreisregel aus
 der Hauptdatei gilt hier gegen diese Kante: mindestens 6 dp (12) Abstand.
@@ -84,16 +91,16 @@ Die Hauptaktion eines Bildschirms ist größer und in `primary`, Nebenaktionen
 | Bildschirm | Inhalt von oben nach unten | Ring | Aktion |
 |---|---|---|---|
 | Heute | Uhrzeit, Marke HEUTE, Planname, Umfang ("12 Sätze, 5 Übungen") | alle Segmente offen | Starten |
-| Übungen | Planname als Marke, Liste mit Stand je Übung | erledigte Sätze grün, aktueller Satz im Akzent | Eintrag antippen |
-| Satz | Übung, Satz x von y, Reps und kg als große Zahlen, Vorschlag | wie Übungen | Speichern |
+| Übungen | Planname als Marke, Liste mit Stand je Übung | keiner, Scroll-Anzeige rechts | Eintrag antippen |
+| Satz | Übung, Satz x von y, Reps und kg als große Zahlen, Vorschlag | erledigte Sätze grün, aktueller Satz im Akzent | Speichern |
 | Pause | Marke PAUSE, Countdown, danach | Restzeit | +15, Pause beenden |
 | Fertig | Haken in `success`, Überschrift, Wochenziel als Text, drei Kennzahlen | Wochenziel | Schließen |
 
 Unterschiede zu den Bildschirmen der Hauptdatei:
 
-- **Übungen** zeigt keine Uhrzeit, der Ring belegt den Rand, die
-  Scroll-Anzeige der Hauptdatei entfällt deshalb. Ohne Scroll-Anzeige
-  zeigen nur die gestauchten Randeinträge, dass die Liste weitergeht.
+- **Übungen** zeigt keine Uhrzeit und keinen Ring, sonst gleicht der
+  Bildschirm dem der Hauptdatei, mit Scroll-Anzeige und denselben Maßen der
+  Einträge.
 - **Satz** hat keine Wertfelder als Karten. Reps und kg stehen als große
   Zahlen nebeneinander, je 65 dp (130) breit und 56 dp (112) hoch, 10 dp (20)
   Abstand. Nur die kg-Zahl hat eine Fläche in `surface`, und die Zahl selbst
@@ -113,25 +120,24 @@ Der Wechsel der Bedeutung ist gewollt, weil der Bildschirm nur kurz offen ist.
 ## Kreisregel, gemessen
 
 Abstand des jeweils weitesten Punkts zur Innenkante des Rings, verlangt sind
-6 dp:
+6 dp. Die Übungsliste hat keinen Ring, dort gilt der Abstand zur
+Displaykante:
 
 | Bildschirm | Element | Abstand |
 |---|---|---|
 | Heute | Starten | 28,5 dp |
-| Übungen | oberster Eintrag | 6,48 dp |
-| Übungen | Fokus-Eintrag | 6,33 dp |
-| Übungen | Eintrag darunter | 6,26 dp |
-| Übungen | unterster Eintrag | 6,37 dp |
+| Übungen | oberster Eintrag | 16,2 dp zur Kante |
+| Übungen | Fokus-Eintrag | 16,8 dp zur Kante |
+| Übungen | Eintrag darunter | 14,6 dp zur Kante |
+| Übungen | unterster Eintrag | 6,73 dp zur Kante |
 | Satz | kg-Fläche | 16,3 dp |
 | Satz | Speichern | 14,5 dp |
 | Pause | beide Knöpfe | 21,6 dp |
 | Fertig | Haken | 19,5 dp |
 | Fertig | Schließen | 15,5 dp |
 
-Die Übungsliste ist die knappe Stelle. Ihre Einträge sind gegenüber der
-Hauptdatei schmaler, besonders unten: der unterste ist nur noch 103 dp (206)
-breit statt 139 dp. Beim Scrollen werden sie in der Mitte breiter, dort ist
-Platz.
+Knapp ist nur der unterste Eintrag der Übungsliste, wie in der Hauptdatei.
+Er ist dort gestaucht, beim Scrollen wird er in der Mitte breiter.
 
 ## Schrift
 
