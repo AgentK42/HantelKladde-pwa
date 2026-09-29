@@ -895,7 +895,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.35.1";
+var APP_VERSION = "1.35.2";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -1543,7 +1543,9 @@ function restoreSession() {
     S.warmReps = typeof d.warmReps === "string" ? d.warmReps : "";
     S.warmRpe = typeof d.warmRpe === "string" ? d.warmRpe : "";
   }
-  if (d.focus && !startFromUrl) {
+  /* Ohne Plan ließe sich der Fokus-Modus gar nicht starten, und sein Abschluss
+     fragte nach offenen Übungen eines Plans, den es nicht mehr gibt. */
+  if (d.focus && !startFromUrl && S.plan && S.plans[S.plan].length) {
     S.focus = true;
     /* Ohne History-Eintrag schlösse die Zurück-Geste die App, siehe navOpen().
        Trägt der Eintrag nach dem Neuladen schon ein hk, wird nicht erneut

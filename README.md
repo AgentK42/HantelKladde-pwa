@@ -161,8 +161,10 @@ Werten.
 Startet die App neu, kommt sie damit still dorthin zurück, wo sie war, ohne
 Nachfrage. Der Eintrag verfällt nach vier Stunden, ein Reiter aus einem Shortcut
 oder aus einem geteilten Backup schlägt ihn, und ein Plan oder eine Übung, die
-es nicht mehr gibt, bleibt leer. Anlass war der Fokus-Modus: dort ist der Inhalt
-kürzer als der Bildschirm, ein Wisch nach unten löste deshalb Chromes
+es nicht mehr gibt, bleibt leer. Fehlt der Plan, kommt auch der Fokus-Modus
+nicht zurück: er startet nur mit einem Plan, und ohne ihn böte er den Abschluss
+eines Plans an, der nicht mehr da ist. Anlass war der Fokus-Modus: dort ist der
+Inhalt kürzer als der Bildschirm, ein Wisch nach unten löste deshalb Chromes
 Pull-to-refresh aus und warf einen in den leeren Trainingsreiter. Die Geste
 selbst ist inzwischen abgestellt (`overscroll-behavior-y: contain` auf
 `html, body`); die App holt nichts vom Server, es gab dort also nie etwas
