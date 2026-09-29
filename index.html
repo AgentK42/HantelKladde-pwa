@@ -898,7 +898,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.35.4";
+var APP_VERSION = "1.35.5";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -1498,6 +1498,7 @@ function persist() {
 /* Beim Tippen soll nicht jedes Zeichen den ganzen Datenbestand neu
    serialisieren. */
 function persistKey(key, value) {
+  backupBytes = -1;
   try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
 }
 /* Eigener Schlüssel, nicht im Backup: die Angabe gilt nur für den laufenden
@@ -2593,9 +2594,9 @@ function byteSize(n) {
 }
 /* Gerechnet statt geschätzt: der eingerückte Export ist deutlich größer als
    dieselben Daten im localStorage, und navigator.storage.estimate() zählt die
-   offline abgelegte App mit. Gemerkt und in persist() verworfen, weil der
-   Daten-Reiter bei jedem Tipp neu aufgebaut wird und das Backup über Jahre
-   einige Megabyte groß wird. */
+   offline abgelegte App mit. Gemerkt und bei jedem Schreiben verworfen, in
+   persist() wie in persistKey(), weil der Daten-Reiter bei jedem Tipp neu
+   aufgebaut wird und das Backup über Jahre einige Megabyte groß wird. */
 var backupBytes = -1;
 function backupSize() {
   if (backupBytes >= 0) return backupBytes;
