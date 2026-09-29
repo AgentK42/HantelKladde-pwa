@@ -26,13 +26,19 @@ ihrem Grund; sie ist die Dokumentation, nicht dieser Text.
 - Umbau und Feature sind getrennte Commits. Eine Durchsicht der Struktur, wie
   `/code-review` über den Branch, gehört vor jeden Sprung der mittleren
   Versionsnummer.
+- Nach dem Bauen den eigenen Diff lesen und fragen, ob so viel Code nötig ist.
+  Gibt es eine deutlich bessere Lösung, etwa kürzer, mit einem vorhandenen
+  Helfer oder ohne neuen Zustand, wird sie gebaut, statt die erste Fassung zu
+  behalten.
 
 ## Konventionen im Code
 
 - ES5-Stil: `var`, Funktionsdeklarationen, keine Klassen, keine Module. Ein
   gemeinsamer Zustand `S`, ein `render()`, das `#app` neu aufbaut.
-- Kommentare auf Deutsch und sie erklären das Warum, nicht das Was. Steht eine
-  Entscheidung im Code, steht ihr Grund daneben, oft mit Fassungsnummer.
+- Kommentare nur, wo sie nötig sind: ein Grund, der aus dem Code nicht
+  hervorgeht, oder eine Falle, in die der Nächste sonst tritt. Dann kurz, auf
+  Deutsch, und sie erklären das Warum, nicht das Was. Die Geschichte einer
+  Entscheidung gehört in README und Commit, nicht neben den Code.
 - Datenmodell nur mit Import-Prüfung erweitern (`cleanEntry`, `cleanExmeta`,
   `cleanPlans`, ...) und `mergeBackup` mitziehen. Aufwärmsätze zählen nirgends,
   siehe `isWork()`.
