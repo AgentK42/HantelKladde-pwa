@@ -45,7 +45,8 @@ ihrem Grund; sie ist die Dokumentation, nicht dieser Text.
 - Sitzungszustand (Pause, Sitzung, Entwurf) liegt unter eigenen Schlüsseln, nicht
   in `S.settings`, und gehört nicht ins Backup.
 - Keine Emojis, keine Gedankenstriche, keine Symbolzeichen in Texten der App,
-  in Kommentaren, Commits und Antworten.
+  in Kommentaren, Commits und Antworten. Ausnahme, bewusst gewählt: das Emoji
+  in "Consistency is key" in `viewSummary()` bleibt stehen.
 
 ## Vor jedem Push
 
