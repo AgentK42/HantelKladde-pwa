@@ -6869,55 +6869,63 @@ ACTIONS.del = function (v) {
   S.note = "";
   persist();
 };
+/* Zurücknehmen je Art eines S.undo, Schlüssel ist u.kind. Wer eine neue Art
+   anlegt, trägt sie hier ein. */
+var UNDO = Object.create(null);
+UNDO.set = function (u) {
+  S.entries.splice(Math.min(u.index, S.entries.length), 0, u.item);
+  renumber(u.item.date, u.item.exercise);
+};
+UNDO.newset = function (u) {
+  var idx = -1;
+  S.entries.forEach(function (e, i) { if (e.id === u.item.id) idx = i; });
+  if (idx < 0) return;
+  S.entries.splice(idx, 1);
+  renumber(u.item.date, u.item.exercise);
+};
+UNDO.custom = function (u) {
+  S.custom.splice(Math.min(u.index, S.custom.length), 0, u.item);
+  var name = typeof u.item === "string" ? u.item : (u.item && u.item.name);
+  if (name && u.meta) S.exmeta[name] = u.meta;
+};
+UNDO.planrow = function (u) {
+  if (!S.plans[u.plan]) return;
+  S.plans[u.plan].splice(Math.min(u.index, S.plans[u.plan].length), 0, u.item);
+};
+UNDO.plan = function (u) {
+  S.plans[u.plan] = u.item;
+  if (u.color) S.colors[u.plan] = u.color;
+  if (typeof u.goal === "number") S.settings.weekGoals[u.plan] = u.goal;
+  if (Array.isArray(u.goalLog)) S.settings.weekGoalLog[u.plan] = u.goalLog;
+};
+UNDO.rename = function (u) {
+  var back = {}, days = Object.create(null);
+  u.ids.forEach(function (i) { back[i] = 1; });
+  S.entries.forEach(function (e) {
+    if (back[e.id]) { e.exercise = u.from; days[e.date] = 1; }
+  });
+  /* Beim Zusammenführen wurde unter dem Zielnamen gemeinsam nummeriert,
+     deshalb beide Übungen neu nummerieren. */
+  Object.keys(days).forEach(function (date) {
+    renumber(date, u.from);
+    renumber(date, u.to);
+  });
+  S.plans = u.plans;
+  S.custom = u.custom;
+  S.cats = u.cats;
+  S.exmeta = u.exmeta;
+  S.settings.hiddenEx = u.hiddenEx;
+  S.exercise = u.exercise;
+  if (S.openEx === u.to) S.openEx = u.from;
+  if (S.exNoteFor === u.to) S.exNoteFor = u.from;
+  S.exOpen = "";
+};
 ACTIONS.undo = function () {
   var u = S.undo;
   S.undo = null;
-  S.quickUndo = false;
-  if (quickUndoTimer) { clearTimeout(quickUndoTimer); quickUndoTimer = null; }
+  clearQuickUndo();
   if (!u) return false;
-  if (u.kind === "set") {
-    S.entries.splice(Math.min(u.index, S.entries.length), 0, u.item);
-    renumber(u.item.date, u.item.exercise);
-  } else if (u.kind === "newset") {
-    var idx = -1;
-    S.entries.forEach(function (e, i) { if (e.id === u.item.id) idx = i; });
-    if (idx >= 0) {
-      S.entries.splice(idx, 1);
-      renumber(u.item.date, u.item.exercise);
-    }
-  } else if (u.kind === "custom") {
-    S.custom.splice(Math.min(u.index, S.custom.length), 0, u.item);
-    var name = typeof u.item === "string" ? u.item : (u.item && u.item.name);
-    if (name && u.meta) S.exmeta[name] = u.meta;
-  } else if (u.kind === "planrow" && S.plans[u.plan]) {
-    S.plans[u.plan].splice(Math.min(u.index, S.plans[u.plan].length), 0, u.item);
-  } else if (u.kind === "plan") {
-    S.plans[u.plan] = u.item;
-    if (u.color) S.colors[u.plan] = u.color;
-    if (typeof u.goal === "number") S.settings.weekGoals[u.plan] = u.goal;
-    if (Array.isArray(u.goalLog)) S.settings.weekGoalLog[u.plan] = u.goalLog;
-  } else if (u.kind === "rename") {
-    var back = {}, renameDays = Object.create(null);
-    u.ids.forEach(function (i) { back[i] = 1; });
-    S.entries.forEach(function (e) {
-      if (back[e.id]) { e.exercise = u.from; renameDays[e.date] = 1; }
-    });
-    /* Beim Zusammenführen wurde unter dem Zielnamen gemeinsam nummeriert,
-       deshalb beide Übungen neu nummerieren. */
-    Object.keys(renameDays).forEach(function (date) {
-      renumber(date, u.from);
-      renumber(date, u.to);
-    });
-    S.plans = u.plans;
-    S.custom = u.custom;
-    S.cats = u.cats;
-    S.exmeta = u.exmeta;
-    S.settings.hiddenEx = u.hiddenEx;
-    S.exercise = u.exercise;
-    if (S.openEx === u.to) S.openEx = u.from;
-    if (S.exNoteFor === u.to) S.exNoteFor = u.from;
-    S.exOpen = "";
-  }
+  if (UNDO[u.kind]) UNDO[u.kind](u);
   S.note = u.kind === "newset" ? "Letzten Satz gelöscht." : "Wiederhergestellt.";
   persist();
 };
