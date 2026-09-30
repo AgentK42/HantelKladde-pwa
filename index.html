@@ -6384,73 +6384,67 @@ function prepareBackup(parsed) {
   return out;
 }
 
+/* data kommt geprüft aus prepareBackup(): jedes vorhandene Feld hat seine Form,
+   Satz-IDs sind eindeutig, Namen, Farben und Kategorien gültig. */
 function mergeBackup(raw) {
   var data = prepareBackup(JSON.parse(raw));
-  var list = data.entries;
-  var known = Object.create(null), added = 0;
-  S.entries.forEach(function (e) { known[e.id] = 1; });
-  list.forEach(function (e) {
-    if (e && e.id && e.date && e.exercise && !known[e.id]) {
-      S.entries.push(e); known[e.id] = 1; added += 1;
-    }
-  });
-  if (data && Array.isArray(data.custom)) {
-    data.custom.forEach(function (x) {
-      var nm = typeof x === "string" ? x : (x && x.name);
-      if (!nm || allNames().indexOf(nm) >= 0) return;
-      S.custom.push({ name:nm, cat:safeCat(x && x.cat) });
-    });
-  }
-  if (data && data.plans && typeof data.plans === "object") {
-    Object.keys(data.plans).forEach(function (p) {
-      if (!Array.isArray(data.plans[p])) return;
-      var untouched = S.plans[p] && DEFAULT_PLANS[p] &&
-        JSON.stringify(S.plans[p]) === JSON.stringify(DEFAULT_PLANS[p]);
-      if (!S.plans[p] || untouched) S.plans[p] = data.plans[p];
-    });
-  }
-  if (data && data.cats && typeof data.cats === "object") {
-    Object.keys(data.cats).forEach(function (k) {
-      if (!S.cats[k]) S.cats[k] = safeCat(data.cats[k]);
-    });
-  }
-  if (data && data.exmeta && typeof data.exmeta === "object") {
-    /* Feldweise statt je Übung ergänzen, sonst käme etwa die Geräteeinstellung
-       aus dem Backup nicht an, sobald hier für dieselbe Übung schon eine
-       Schrittweite steht. */
-    Object.keys(data.exmeta).forEach(function (k) {
-      var src = data.exmeta[k];
-      if (!src || typeof src !== "object") return;
-      ["step", "bar", "rest", "note", "sets", "reps", "weight", "musclePrimary",
-        "muscleSecondary"].forEach(function (f) {
-        if (src[f] == null) return;
-        if (S.exmeta[k] && S.exmeta[k][f] != null) return;
-        ownMeta(k)[f] = src[f];
-      });
-    });
-  }
-  if (data && data.notes && typeof data.notes === "object") {
-    Object.keys(data.notes).forEach(function (k) {
-      if (!S.notes[k]) S.notes[k] = data.notes[k];
-    });
-  }
-  if (data && data.colors && typeof data.colors === "object") {
-    Object.keys(data.colors).forEach(function (k) {
-      var color = safeColor(data.colors[k]);
-      if (!S.colors[k] && color) S.colors[k] = color;
-    });
-  }
-  mergeSettings(data && data.settings);
+  var added = mergeEntries(data.entries);
+  if (data.custom) mergeCustom(data.custom);
+  if (data.plans) mergePlans(data.plans);
+  if (data.cats) fillMissing(S.cats, data.cats);
+  if (data.exmeta) mergeExmeta(data.exmeta);
+  if (data.notes) fillMissing(S.notes, data.notes);
+  if (data.colors) fillMissing(S.colors, data.colors);
+  mergeSettings(data.settings);
   /* Ohne eigenen Backup-Zeitpunkt gilt der des eingelesenen Backups, sonst
      meldete der Trainingsreiter direkt nach einem Restore, es gebe noch kein
      Backup. */
-  if (!S.meta.lastBackup && data && typeof data.exported === "string" &&
-      !isNaN(Date.parse(data.exported))) {
+  if (!S.meta.lastBackup && data.exported) {
     S.meta.lastBackup = data.exported;
     S.meta.lastCount = S.entries.length;
   }
   persist();
   return added;
+}
+function mergeEntries(list) {
+  var known = Object.create(null), added = 0;
+  S.entries.forEach(function (e) { known[e.id] = 1; });
+  list.forEach(function (e) {
+    if (known[e.id]) return;
+    S.entries.push(e); known[e.id] = 1; added += 1;
+  });
+  return added;
+}
+function mergeCustom(list) {
+  list.forEach(function (x) {
+    if (allNames().indexOf(x.name) < 0) S.custom.push({ name:x.name, cat:x.cat });
+  });
+}
+/* Ein Plan kommt nur, wenn es ihn hier nicht gibt oder er noch unverändert
+   mitgeliefert ist; eigene Zielwerte bleiben. */
+function mergePlans(plans) {
+  Object.keys(plans).forEach(function (p) {
+    var untouched = S.plans[p] && DEFAULT_PLANS[p] &&
+      JSON.stringify(S.plans[p]) === JSON.stringify(DEFAULT_PLANS[p]);
+    if (!S.plans[p] || untouched) S.plans[p] = plans[p];
+  });
+}
+function fillMissing(dst, src) {
+  Object.keys(src).forEach(function (k) { if (!dst[k]) dst[k] = src[k]; });
+}
+/* Feldweise statt je Übung ergänzen, sonst käme etwa die Geräteeinstellung aus
+   dem Backup nicht an, sobald hier für dieselbe Übung schon eine Schrittweite
+   steht. */
+var EXMETA_FIELDS = ["step", "bar", "rest", "note", "sets", "reps", "weight",
+  "musclePrimary", "muscleSecondary"];
+function mergeExmeta(src) {
+  Object.keys(src).forEach(function (k) {
+    EXMETA_FIELDS.forEach(function (f) {
+      if (src[k][f] == null) return;
+      if (S.exmeta[k] && S.exmeta[k][f] != null) return;
+      ownMeta(k)[f] = src[k][f];
+    });
+  });
 }
 
 /* ---------- Ereignisse ---------- */
