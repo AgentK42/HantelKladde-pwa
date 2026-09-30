@@ -1798,21 +1798,17 @@ function bestSet(sets) {
 /* from und to optional, als ISO-Datum; ohne beide zählt der ganze Bestand
    (Rekord-Toast). to hält einen auf später datierten Satz aus einem Fenster
    "letzte 30 Tage" heraus. */
-function bestOf(name, from, to) {
-  var all = workOf(name);
-  if (from) all = all.filter(function (e) { return e.date >= from; });
-  if (to) all = all.filter(function (e) { return e.date <= to; });
-  if (!all.length) return null;
-  var top = all[0];
-  all.forEach(function (e) {
-    if (e.weight > top.weight || (e.weight === top.weight && e.reps > top.reps)) top = e;
+function workIn(name, from, to) {
+  return workOf(name).filter(function (e) {
+    return (!from || e.date >= from) && (!to || e.date <= to);
   });
-  return top;
+}
+function bestOf(name, from, to) {
+  var all = workIn(name, from, to);
+  return all.length ? bestSet(all) : null;
 }
 function bestE1rm(name, from, to) {
-  var all = workOf(name);
-  if (from) all = all.filter(function (e) { return e.date >= from; });
-  if (to) all = all.filter(function (e) { return e.date <= to; });
+  var all = workIn(name, from, to);
   if (!all.length) return null;
   var top = all[0];
   all.forEach(function (e) { if (e1rm(e.weight,e.reps) > e1rm(top.weight,top.reps)) top = e; });
@@ -1839,16 +1835,11 @@ function trainingSummary(date) {
     var today = current.filter(function (e) { return e.exercise === name; });
     sets += today.length;
     today.forEach(function (e) { volume += e.weight * e.reps; });
-    var todayBest = today.reduce(function (a, b) {
-      if (!a) return b;
-      return (b.weight > a.weight || (b.weight === a.weight && b.reps > a.reps)) ? b : a;
-    }, null);
+    var todayBest = bestSet(today);
     var prior = workOf(name).filter(function (e) {
       return e.date < date || (e.date === date && !currentIds[e.id]);
     });
-    var priorBest = prior.length ? prior.reduce(function (a, b) {
-      return (b.weight > a.weight || (b.weight === a.weight && b.reps > a.reps)) ? b : a;
-    }) : null;
+    var priorBest = prior.length ? bestSet(prior) : null;
     if (todayBest && priorBest && (todayBest.weight > priorBest.weight ||
         (Math.abs(todayBest.weight - priorBest.weight) < 0.001 &&
           todayBest.reps > priorBest.reps))) {
