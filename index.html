@@ -898,7 +898,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.36.2";
+var APP_VERSION = "1.36.3";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -1705,7 +1705,7 @@ function setExNote(name, text) {
 function exStart(name) { return (name && S.exmeta[name]) || {}; }
 /* Zum Schreiben: der eigene Eintrag der Übung, beim ersten Mal angelegt. */
 function ownMeta(name) {
-  if (!S.exmeta[name]) S.exmeta[name] = {};
+  if (!Object.prototype.hasOwnProperty.call(S.exmeta, name)) S.exmeta[name] = {};
   return S.exmeta[name];
 }
 function setExStart(name, setsEl, repsEl, weightEl) {
@@ -6108,9 +6108,13 @@ function mergeSettings(src) {
 function plainObject(v) { return !!v && typeof v === "object" && !Array.isArray(v); }
 function finiteNumber(v) { return typeof v === "number" && isFinite(v); }
 function importError(msg) { throw new Error("Backup ungültig: " + msg); }
+/* Kein Name, den ein gewöhnliches Objekt schon kennt: __proto__ verbiegt den
+   Prototyp, toString und die anderen geerbten Namen täuschen einen Eintrag vor,
+   und Geschriebenes landete auf der eingebauten Funktion statt im Speicher. */
 function safeObjectKey(k) {
-  return k !== "__proto__" && k !== "prototype" && k !== "constructor";
+  return k !== "prototype" && !(k in Object.prototype);
 }
+function badName(n) { return "„" + n + "“ ist als Name nicht möglich."; }
 function cleanName(v, where) {
   if (typeof v !== "string" || !v.trim()) importError(where + " hat keinen Namen.");
   var n = v.trim();
@@ -6655,6 +6659,7 @@ function createExercise(prefix) {
   var inp = field("Name"), selc = field("Cat");
   var name = inp ? inp.value.trim() : "";
   if (!name) return null;
+  if (!safeObjectKey(name)) return { name:name, bad:true };
   /* Eine weggebenannte mitgelieferte Übung ist nur ausgeblendet und kommt über
      ihren Namen zurück. */
   dropFrom(S.settings.hiddenEx, name);
@@ -6669,6 +6674,7 @@ function createExercise(prefix) {
 ACTIONS.addex = function () {
   var made = createExercise("new");
   if (!made) return false;
+  if (made.bad) { S.note = badName(made.name); return; }
   if (S.pickPlanTarget) {
     /* Neue Übung gleich mit auswählen, der Picker bleibt für weitere offen. */
     if (S.pickSel.indexOf(made.name) < 0) S.pickSel.push(made.name);
@@ -6682,6 +6688,7 @@ ACTIONS.addex = function () {
 ACTIONS.addexdata = function () {
   var made = createExercise("dataNew");
   if (!made) return false;
+  if (made.bad) { S.note = badName(made.name); return; }
   S.note = made.name + (made.fresh ? " angelegt." : " gibt es schon.");
   persist();
 };
@@ -6704,6 +6711,7 @@ ACTIONS.rendo = function (v) {
   var inp = document.getElementById("ren-name");
   var to = inp ? inp.value.trim() : "";
   if (!to) { S.note = "Der neue Name darf nicht leer sein."; render(); return false; }
+  if (!safeObjectKey(to)) { S.note = badName(to); render(); return false; }
   if (to === v) { S.exOpen = ""; render(); return false; }
   var merge = allNames().indexOf(to) >= 0;
   if (merge) {
@@ -7058,7 +7066,8 @@ ACTIONS.addplan = function () {
   var inp = document.getElementById("newPlan");
   var name = inp ? inp.value.trim() : "";
   if (!name) return false;
-  if (S.plans[name]) { S.note = "Ein Plan mit diesem Namen existiert bereits."; }
+  if (!safeObjectKey(name)) { S.note = badName(name); }
+  else if (S.plans[name]) { S.note = "Ein Plan mit diesem Namen existiert bereits."; }
   else { S.plans[name] = []; S.note = "Plan " + name + " angelegt."; persist(); }
 };
 ACTIONS.planvis = function (v) {

@@ -52,6 +52,14 @@ neues Einstellungsfeld kommt jetzt in die Tabelle und sonst nirgendwohin. Die
 Sammelfelder (Scheibensatz, aufgeklappte Beschreibungen, Wochenziele, Historie,
 zugewiesene Tage) haben je Leser eigene Regeln und bleiben dort.
 
+Namen, die ein gewöhnliches JavaScript-Objekt schon kennt, nimmt die App seit
+1.36.3 nirgends an, weder für eine Übung noch für einen Plan, weder beim Anlegen
+und Umbenennen noch im Import (`safeObjectKey()`). Vorher galt das nur für
+`__proto__`, `prototype` und `constructor`, und auch das nur im Import: eine
+Übung namens `__proto__` schrieb ihre Startwerte auf den Prototyp aller Objekte
+der App, eine namens `toString` auf die eingebaute Funktion, wo sie beim
+nächsten Start fehlten.
+
 Gelesen werden Backups im Format 6, also aus Fassung 1.14.1 und neuer. Die Nummer
 steht als `version` in der Datei, `BACKUP_VERSION` in `index.html` nennt den
 erwarteten Stand. Ältere Dateien lehnt der Import seit 1.18.0 mit Angabe des

@@ -138,4 +138,39 @@ suite(async ({ open, check }) => {
   await p.click('[data-act="undo"]'); await p.waitForTimeout(150);
   check("ein sichtbarer, offener Plan kommt sichtbar und offen zurück", await p.evaluate(() =>
     !!S.plans["Push Day"] && !planHidden("Push Day") && !planLocked("Push Day")));
+
+  // 8. Namen, die ein gewöhnliches Objekt schon kennt, werden nirgends angenommen
+  await p.evaluate(() => { S.pickOpen = true; S.view = "tag"; render(); });
+  for (const bad of ["__proto__", "toString"]) {
+    await p.fill("#newName", bad);
+    await p.click('[data-act="addex"]'); await p.waitForTimeout(150);
+    check("Übung " + bad + " wird abgelehnt", await p.evaluate((n) =>
+      S.note === "„" + n + "“ ist als Name nicht möglich." && customNames().indexOf(n) < 0 &&
+      ({}).sets === undefined && typeof Object.prototype.toString === "function" &&
+      Object.prototype.toString.step === undefined, bad));
+    await p.evaluate(() => { S.pickOpen = true; render(); });
+  }
+  await tab(p, "plaene");
+  await p.fill("#newPlan", "constructor");
+  await p.click('[data-act="addplan"]'); await p.waitForTimeout(150);
+  check("ein Plan constructor wird abgelehnt", await p.evaluate(() =>
+    S.note === "„constructor“ ist als Name nicht möglich." &&
+    Object.keys(S.plans).indexOf("constructor") < 0));
+  await tab(p, "daten");
+  await p.evaluate(() => { S.secOpen.uebungen = true; S.exOpen = "Dips"; render(); });
+  await p.fill("#ren-name", "valueOf");
+  await p.click('[data-act="rendo"]'); await p.waitForTimeout(150);
+  check("umbenennen in valueOf wird abgelehnt", await p.evaluate(() =>
+    S.note === "„valueOf“ ist als Name nicht möglich." &&
+    S.entries.every(function (e) { return e.exercise !== "valueOf"; })));
+  check("ein Backup mit einem solchen Namen wird abgelehnt", await p.evaluate(() => {
+    var d = JSON.parse(backupText()); d.exmeta = { "toString":{ note:"x" } };
+    try { prepareBackup(d); return false; }
+    catch (e) { return e.message.indexOf("nicht erlaubten Namen") > 0; }
+  }));
+  check("eine alte Übung mit geerbtem Namen bekommt einen eigenen Eintrag", await p.evaluate(() => {
+    ownMeta("hasOwnProperty").note = "Sitz 2";
+    return Object.prototype.hasOwnProperty.call(S.exmeta, "hasOwnProperty") &&
+      noteOf("hasOwnProperty") === "Sitz 2" && typeof Object.prototype.hasOwnProperty === "function";
+  }));
 });
