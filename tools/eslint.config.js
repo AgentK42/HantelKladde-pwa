@@ -60,9 +60,11 @@ var rules = {
 
      Stand 1.30.0 ueber der Schwelle: complexity 40 trifft viewTag (70), load (68),
      viewFocus (50), suggestFor (47) und den input-Verteiler; max-lines 150
-     trifft viewTag (224) und viewData (254). */
-  "complexity": ["warn", 40],
-  "max-lines-per-function": ["warn", { max: 150, skipComments: true, skipBlankLines: true }]
+     trifft viewTag (224) und viewData (254). Mit dem Umbau zu 1.36.0 liegt der
+     Hoechststand bei 27 (cleanEntry) und 55 Zeilen (muscleBars), die Schwellen
+     folgen auf 30 und 60. */
+  "complexity": ["warn", 30],
+  "max-lines-per-function": ["warn", { max: 60, skipComments: true, skipBlankLines: true }]
 };
 
 module.exports = [

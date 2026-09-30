@@ -22,7 +22,7 @@ ihrem Grund; sie ist die Dokumentation, nicht dieser Text.
   ist richtig, stilles Anpassen an eine Struktur, die kippt, nicht. Ein Präfix
   am Variablennamen, damit er in einer zu großen Funktion nicht kollidiert, ist
   das Warnzeichen dafür.
-- `tools/lint.sh` warnt bei Komplexität über 40 und Funktionen über 150 Zeilen.
+- `tools/lint.sh` warnt bei Komplexität über 30 und Funktionen über 60 Zeilen.
   Eine neue Warnung wird nicht durch Hochsetzen der Schwelle beseitigt.
 - Umbau und Feature sind getrennte Commits. Eine Durchsicht der Struktur, wie
   `/code-review` über den Branch, gehört vor jeden Sprung der mittleren

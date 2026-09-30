@@ -737,13 +737,14 @@ Verhalten, nicht Aussehen; erst das Handy zeigte es. Deshalb misst seitdem
 Browser-Standard zurückgefallen ist, gegen einen frischen, ungestylten Knopf
 derselben Seite als Referenz.
 
-Seit 1.30.0 warnt ESLint zusätzlich vor Strukturwuchs: bei einer zyklomatischen
-Komplexität über 40 und bei Funktionen über 150 Zeilen. Beides sind Warnungen,
-die Kette bleibt grün, aber die Funktionen stehen bei jedem Lauf im Terminal.
-Anlass war der Klick-Verteiler, der in rund 40 Sitzungen um je ein `else if` auf
-843 Zeilen und eine Komplexität von 334 gewachsen war, weil nichts den nächsten
-Zweig teurer machte als den vorigen. Die Schwellen liegen knapp über dem heutigen
-Bestand und sollen mit ihm sinken, nicht steigen.
+Seit 1.30.0 warnt ESLint zusätzlich vor Strukturwuchs, seit 1.36.0 bei einer
+zyklomatischen Komplexität über 30 und bei Funktionen über 60 Zeilen, vorher 40
+und 150. Beides sind Warnungen, die Kette bleibt grün, aber die Funktionen
+stehen bei jedem Lauf im Terminal. Anlass war der Klick-Verteiler, der in rund
+40 Sitzungen um je ein `else if` auf 843 Zeilen und eine Komplexität von 334
+gewachsen war, weil nichts den nächsten Zweig teurer machte als den vorigen.
+Die Schwellen liegen knapp über dem heutigen Bestand und sollen mit ihm sinken,
+nicht steigen.
 
 Offline-Betrieb, Update-Weg, Zurück-Geste, Speicherzusage, Kurzbefehle und das
 Entgegennehmen eines geteilten Backups lassen sich nicht durch Hinsehen prüfen.
