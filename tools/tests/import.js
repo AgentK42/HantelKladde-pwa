@@ -91,7 +91,7 @@ suite(async ({ open, check }) => {
   await tab(p, "daten");
   await p.click('[data-act="importtext"]'); await p.waitForTimeout(150);
   const note = await p.locator(".notice").first().innerText();
-  check("Text einlesen meldet die Zahl", note.indexOf("1 Sätze ergänzt, 3 insgesamt") >= 0, note);
+  check("Text einlesen meldet die Zahl", /^1 \S+ ergänzt, 3 insgesamt/.test(note), note);
   await p.fill("#out", "kein Backup");
   await p.click('[data-act="importtext"]'); await p.waitForTimeout(150);
   const bad = await p.locator(".notice").first().innerText();
