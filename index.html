@@ -898,7 +898,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.36.3";
+var APP_VERSION = "1.36.4";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -1415,8 +1415,11 @@ function readSettings(st) {
     var r = checkSetting(SETTING_FIELDS[k], st[k]);
     if (r.value !== undefined) S.settings[k] = r.value;
   });
-  if (Array.isArray(st.plates) && st.plates.length) {
-    S.settings.plates = positiveNumbers(st.plates);
+  /* Ohne eine brauchbare Scheibe bleibt der Ausgangssatz, sonst fiele der
+     Scheibenrechner still weg; die App lässt die letzte Scheibe nie abwählen. */
+  if (Array.isArray(st.plates)) {
+    var pl = positiveNumbers(st.plates);
+    if (pl.length) S.settings.plates = pl;
   }
   if (st.descOpen && typeof st.descOpen === "object") {
     Object.keys(st.descOpen).forEach(function (k) { S.settings.descOpen[k] = !!st.descOpen[k]; });

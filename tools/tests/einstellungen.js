@@ -33,13 +33,15 @@ suite(async ({ open, check }) => {
 
   await p.evaluate(()=>{ localStorage.setItem("kraftlog:settings", JSON.stringify(
     { rest:"90", repSpan:2.5, defSets:0, barWeight:-5, defWeight:-1, autoRest:"ja", hiddenPlans:"Push Day",
-      repFirstThresh:Infinity, notifySignal:1 })); });
+      repFirstThresh:Infinity, notifySignal:1, plates:[0, "x"] })); });
   await p.reload({waitUntil:"load"}); await p.waitForTimeout(300);
   const bad = await p.evaluate(()=>JSON.parse(JSON.stringify(S.settings)));
   check("Laden: ungültige Werte bleiben still auf dem Ausgangswert",
     bad.rest===90 && bad.repSpan===2 && bad.defSets===2 && bad.barWeight===20 &&
     bad.defWeight===20 && bad.autoRest===true && bad.hiddenPlans.length===0 && bad.repFirstThresh===0.05 &&
     bad.notifySignal===true, JSON.stringify(bad).slice(0,200));
+  check("Laden: ein Scheibensatz ohne gültige Scheibe behält den Ausgangssatz",
+    bad.plates.join()==="25,20,15,10,5,2.5,1.25", bad.plates.join());
   check("Laden: die App läuft trotzdem", await p.evaluate(()=>document.querySelectorAll(".seg button").length>=5));
   await p.evaluate(()=>{ localStorage.removeItem("kraftlog:settings"); });
   await p.reload({waitUntil:"load"}); await p.waitForTimeout(300);
