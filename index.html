@@ -898,7 +898,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.36.6";
+var APP_VERSION = "1.36.7";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -2121,7 +2121,7 @@ function suggestUp(name, ls, block, rng, goalSets, goalReps) {
     why: rng
       ? "+" + num(step) + " kg, " + goalSets + "x " + rng.hi +
         " in 2 Einheiten bestätigt" +
-        (confirmAvg != null ? " @ RPE " + num(confirmAvg) : "") + " – zurück auf " + rng.lo
+        (confirmAvg != null ? " @ RPE " + num(confirmAvg) : "") + ", zurück auf " + rng.lo
       : "+" + num(step * mult) + " kg, " + goalSets + "x " + goalReps +
         " in 2 Einheiten bestätigt" +
         (confirmAvg != null ? " @ RPE " + num(confirmAvg) : "")
@@ -5616,16 +5616,16 @@ function dataProgression() {
     descText("progression", '<p style="margin-top:12px">Bei Übungen, deren ' +
       'Schrittweite mehr als ' + num(S.settings.repFirstThresh * 100) + ' Prozent des ' +
       'aktuellen Gewichts ausmacht, ist ein Gewichtssprung zu groß, um ihn in einer ' +
-      'Einheit aufzufangen — an der Shoulderpress mit 3,75 kg Schritt auf 30 kg sind ' +
+      'Einheit aufzufangen. An der Shoulderpress mit 3,75 kg Schritt auf 30 kg sind ' +
       'das 12,5 Prozent. Dort gehen erst die Reps hoch, jede Einheit eine, ' +
       'innerhalb von ' + S.settings.repSpan + ' Reps um dein Planziel. Bei ' +
       'einem Ziel von 10 Reps ist das die Range ' + Math.max(1, 10 - S.settings.repSpan) +
       ' bis ' + (10 + S.settings.repSpan) + '. Oben angekommen muss die Leistung in ' +
       'zwei Einheiten bestätigt werden. Danach steigt das Gewicht um eine Schrittweite, ' +
       'und die Reps fallen auf den unteren Rand zurück.</p>' +
-      '<p style="margin-top:8px">Die Range steht im Training in der Zielzeile und ' +
-      'unter der Rep-Zahl, im Fokus-Modus zusätzlich als Rahmen um die ' +
-      'Rep-Tasten — und zwar bei jeder Übung, solange diese Einstellung an ist. ' +
+      '<p style="margin-top:8px">Die Range steht in der Zielzeile, im Fokus-Modus ' +
+      'zusätzlich als Rahmen um die Rep-Tasten, und zwar bei jeder Übung, solange ' +
+      'diese Einstellung an ist. ' +
       'Die Grenze entscheidet nur darüber, ob der Vorschlag zuerst die Reps oder ' +
       'direkt das Gewicht anhebt. Ab RPE 9 kommt auch keine Rep dazu.</p>') +
     '<button class="open" data-act="repfirst">Erst Reps steigern: ' +

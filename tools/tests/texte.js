@@ -1,6 +1,7 @@
 /* Texte der App: bei einer Übung, einem Satz, einem Plan steht die Einzahl, in
    Summenzeile, Tagesstreifen, Meldungen und Rückfragen. Die Beschreibungen
-   unter Daten versprechen nichts, was es nicht gibt. */
+   unter Daten versprechen nichts, was es nicht gibt, und kein Text trägt einen
+   Gedankenstrich, siehe CLAUDE.md. */
 const { suite, tab } = require("./lib");
 
 suite(async ({ open, check }) => {
@@ -61,4 +62,37 @@ suite(async ({ open, check }) => {
   });
   check("Übungen: kein Wahlfeld für die Gruppe", !ex.catChoice);
   check("Übungen: die Beschreibung verspricht kein Verschieben", ex.desc.indexOf("verschieben") < 0, ex.desc);
+
+  // Kein Gedankenstrich: jeder Reiter mit allen Beschreibungen aufgeklappt
+  const dashes = await p.evaluate(() => {
+    var found = [];
+    ["tag", "plaene", "planung", "verlauf", "daten"].forEach(function (v) {
+      S.view = v; S.pickOpen = false; S.pickPlanTarget = ""; render();
+      [].forEach.call(document.querySelectorAll('[data-act="descToggle"]'), function (b) {
+        S.settings.descOpen[b.getAttribute("data-v")] = true;
+      });
+      render();
+      var t = document.getElementById("app").innerText;
+      var m = t.match(/.{0,30}( \u2013 |\u2014).{0,30}/g);
+      if (m) found = found.concat(v + ": " + m.join(" | "));
+    });
+    return found;
+  });
+  check("kein Gedankenstrich in den Reitern und Beschreibungen", !dashes.length, dashes.join(" || "));
+  const why = await p.evaluate(() => {
+    var td = todayISO();
+    S.plans = { "Solo":[{ name:"Seitheben", reps:10, weight:10, sets:2 }] };
+    S.plan = "Solo"; S.date = td;
+    S.entries = [-4, -2].reduce(function (list, d) {
+      [0, 1].forEach(function (k) {
+        list.push({ id:"w" + d + k, date:shiftISO(td, d), exercise:"Seitheben", set:k + 1,
+          weight:10, reps:12, rpe:8, ts:Date.parse(shiftISO(td, d) + "T18:0" + k + ":00") });
+      });
+      return list;
+    }, []);
+    var s = suggestFor("Seitheben");
+    return s && s.up ? s.why : "";
+  });
+  check("Begründung einer Steigerung mit Range ohne Gedankenstrich",
+    why.indexOf(", zurück auf 8") > 0 && !/ \u2013 |\u2014/.test(why), why);
 });
