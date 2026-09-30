@@ -3474,20 +3474,23 @@ function planProgress() {
 
 /* Die Zahl bleibt ein Eingabefeld, damit sich ein weit entfernter Wert direkt
    tippen lässt statt in Schritten. */
+function dialFrame(st, mid) {
+  return '<div class="wdial">' +
+    '<button data-act="step" data-f="weight" data-d="' + (-st) +
+    '" aria-label="weniger Gewicht">&minus;</button>' +
+    '<div class="wmid">' + mid + '</div>' +
+    '<button class="up" data-act="step" data-f="weight" data-d="' + st +
+    '" aria-label="mehr Gewicht">+</button></div>';
+}
 var wPrev = "";
 function weightDial(name) {
   var st = stepOf(name);
   var pop = S.weight !== wPrev;
   wPrev = S.weight;
-  return '<div class="wdial">' +
-    '<button data-act="step" data-f="weight" data-d="' + (-st) +
-    '" aria-label="weniger Gewicht">&minus;</button>' +
-    '<div class="wmid"><span class="val"><input id="in-weight" inputmode="decimal" ' +
+  return dialFrame(st, '<span class="val"><input id="in-weight" inputmode="decimal" ' +
     'value="' + esc(S.weight) + '" data-act="input" data-f="weight" ' +
     'aria-label="Gewicht in Kilogramm"' + (pop ? ' class="pop"' : '') + '></span>' +
-    '<div class="wunit">kg · ±' + num(st) + '</div></div>' +
-    '<button class="up" data-act="step" data-f="weight" data-d="' + st +
-    '" aria-label="mehr Gewicht">+</button></div>';
+    '<div class="wunit">kg · ±' + num(st) + '</div>');
 }
 
 /* Variante für den Trainingsreiter, kg neben der Zahl. Eigene Funktion, damit
@@ -3497,10 +3500,7 @@ function heroWeightDial(name) {
   var st = stepOf(name);
   var pop = S.weight !== wPrevHero;
   wPrevHero = S.weight;
-  return '<div class="wdial">' +
-    '<button data-act="step" data-f="weight" data-d="' + (-st) +
-    '" aria-label="weniger Gewicht">&minus;</button>' +
-    '<div class="wmid"><div class="wnum"><span class="val"><input id="in-weight" ' +
+  return dialFrame(st, '<div class="wnum"><span class="val"><input id="in-weight" ' +
     'inputmode="decimal" value="' + esc(S.weight) + '" data-act="input" ' +
     'data-f="weight" aria-label="Gewicht in Kilogramm"' +
     /* Die Zeichenzahl im Stil steuert die Breite des Felds, siehe .wdial .wnum
@@ -3509,9 +3509,7 @@ function heroWeightDial(name) {
     ' class="' + (pop ? 'pop ' : '') + (String(S.weight).length >= 6 ? 'long' : '') + '"' +
     ' style="--wlen:' + String(S.weight).length + '"' +
     '></span><em>kg</em></div>' +
-    '<div class="wunit">±' + num(st) + '</div></div>' +
-    '<button class="up" data-act="step" data-f="weight" data-d="' + st +
-    '" aria-label="mehr Gewicht">+</button></div>';
+    '<div class="wunit">±' + num(st) + '</div>');
 }
 
 /* Stepper nur im Trainingsreiter, Fokus-Modus und Bearbeiten behalten die
