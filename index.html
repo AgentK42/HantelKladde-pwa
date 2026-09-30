@@ -6297,56 +6297,67 @@ function cleanSettings(src) {
     }
     out[k] = kind === "names" ? r.value.filter(safeObjectKey) : r.value;
   });
-  if (src.plates != null) {
-    if (!Array.isArray(src.plates) || !src.plates.length || src.plates.some(function (v) {
-      return !finiteNumber(v) || v <= 0;
-    })) importError("Scheibensatz ist ungültig.");
-    out.plates = src.plates.slice();
-  }
-  if (src.descOpen != null) {
-    if (!plainObject(src.descOpen)) importError("Beschreibungszustände sind ungültig.");
-    out.descOpen = {};
-    Object.keys(src.descOpen).forEach(function (k) {
-      if (!safeObjectKey(k) || typeof src.descOpen[k] !== "boolean") {
-        importError("Ein Beschreibungszustand ist ungültig.");
+  if (src.plates != null) out.plates = cleanPlates(src.plates);
+  if (src.descOpen != null) out.descOpen = cleanDescOpen(src.descOpen);
+  if (src.weekGoals != null) out.weekGoals = cleanWeekGoals(src.weekGoals);
+  if (src.weekGoalLog != null) out.weekGoalLog = cleanWeekGoalLog(src.weekGoalLog);
+  if (src.planDays != null) out.planDays = cleanAssignedDays(src.planDays);
+  return out;
+}
+function cleanPlates(v) {
+  if (!Array.isArray(v) || !v.length || v.some(function (x) {
+    return !finiteNumber(x) || x <= 0;
+  })) importError("Scheibensatz ist ungültig.");
+  return v.slice();
+}
+function cleanDescOpen(src) {
+  if (!plainObject(src)) importError("Beschreibungszustände sind ungültig.");
+  var out = {};
+  Object.keys(src).forEach(function (k) {
+    if (!safeObjectKey(k) || typeof src[k] !== "boolean") {
+      importError("Ein Beschreibungszustand ist ungültig.");
+    }
+    out[k] = src[k];
+  });
+  return out;
+}
+function cleanWeekGoals(src) {
+  if (!plainObject(src)) importError("Wochenziele sind ungültig.");
+  var out = {};
+  Object.keys(src).forEach(function (p) {
+    cleanName(p, "Ein Wochenziel");
+    if (!Number.isInteger(src[p]) || src[p] < 0) {
+      importError("Wochenziel für „" + p + "“ ist ungültig.");
+    }
+    out[p] = src[p];
+  });
+  return out;
+}
+function cleanWeekGoalLog(src) {
+  if (!plainObject(src)) importError("Wochenziel-Historie ist ungültig.");
+  var out = {};
+  Object.keys(src).forEach(function (p) {
+    cleanName(p, "Eine Wochenziel-Historie");
+    var log = src[p];
+    if (!Array.isArray(log)) importError("Wochenziel-Historie für „" + p + "“ ist ungültig.");
+    out[p] = log.map(function (x) {
+      if (!plainObject(x) || !validISODate(x.since) || !Number.isInteger(x.value) || x.value < 0) {
+        importError("Ein Wochenziel-Eintrag für „" + p + "“ ist ungültig.");
       }
-      out.descOpen[k] = src.descOpen[k];
-    });
-  }
-  if (src.weekGoals != null) {
-    if (!plainObject(src.weekGoals)) importError("Wochenziele sind ungültig.");
-    out.weekGoals = {};
-    Object.keys(src.weekGoals).forEach(function (p) {
-      cleanName(p, "Ein Wochenziel");
-      if (!Number.isInteger(src.weekGoals[p]) || src.weekGoals[p] < 0) {
-        importError("Wochenziel für „" + p + "“ ist ungültig.");
-      }
-      out.weekGoals[p] = src.weekGoals[p];
-    });
-  }
-  if (src.weekGoalLog != null) {
-    if (!plainObject(src.weekGoalLog)) importError("Wochenziel-Historie ist ungültig.");
-    out.weekGoalLog = {};
-    Object.keys(src.weekGoalLog).forEach(function (p) {
-      cleanName(p, "Eine Wochenziel-Historie");
-      var log = src.weekGoalLog[p];
-      if (!Array.isArray(log)) importError("Wochenziel-Historie für „" + p + "“ ist ungültig.");
-      out.weekGoalLog[p] = log.map(function (x) {
-        if (!plainObject(x) || !validISODate(x.since) || !Number.isInteger(x.value) || x.value < 0) {
-          importError("Ein Wochenziel-Eintrag für „" + p + "“ ist ungültig.");
-        }
-        return { since:x.since, value:x.value };
-      }).sort(function (a, b) { return a.since < b.since ? -1 : (a.since > b.since ? 1 : 0); });
-    });
-  }
-  if (src.planDays != null) {
-    if (!plainObject(src.planDays)) importError("Zugewiesene Tage sind ungültig.");
-    out.planDays = {};
-    Object.keys(src.planDays).forEach(function (d) {
-      if (!validISODate(d)) importError("Ein zugewiesener Tag hat ein ungültiges Datum.");
-      out.planDays[d] = cleanName(src.planDays[d], "Ein zugewiesener Tag");
-    });
-  }
+      return { since:x.since, value:x.value };
+    }).sort(function (a, b) { return a.since < b.since ? -1 : (a.since > b.since ? 1 : 0); });
+  });
+  return out;
+}
+/* Streng für den Import. Alte Tage fallen erst in mergeSettings() über
+   cleanPlanDays() weg. */
+function cleanAssignedDays(src) {
+  if (!plainObject(src)) importError("Zugewiesene Tage sind ungültig.");
+  var out = {};
+  Object.keys(src).forEach(function (d) {
+    if (!validISODate(d)) importError("Ein zugewiesener Tag hat ein ungültiges Datum.");
+    out[d] = cleanName(src[d], "Ein zugewiesener Tag");
+  });
   return out;
 }
 function prepareBackup(parsed) {
