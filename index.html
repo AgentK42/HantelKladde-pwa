@@ -898,7 +898,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.35.13";
+var APP_VERSION = "1.35.14";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -1930,10 +1930,8 @@ function warmupPlan(name, weight) {
    Ziel eines fremden Plans zum Zug. */
 function planTarget(name) {
   var hit = null;
-  if (S.plan && S.plans[S.plan]) {
-    S.plans[S.plan].forEach(function (i) { if (i.name === name && !hit) hit = i; });
-    if (hit) return hit;
-  }
+  planItems().forEach(function (i) { if (i.name === name && !hit) hit = i; });
+  if (hit) return hit;
   Object.keys(S.plans).forEach(function (p) {
     S.plans[p].forEach(function (i) { if (i.name === name && !hit) hit = i; });
   });
@@ -2267,14 +2265,13 @@ function planItems() {
   return (S.plan && S.plans[S.plan]) || [];
 }
 function planIndex() {
-  if (!S.plan || !S.exercise || !S.plans[S.plan]) return -1;
-  var list = S.plans[S.plan];
+  if (!S.exercise) return -1;
+  var list = planItems();
   for (var i = 0; i < list.length; i++) { if (list[i].name === S.exercise) return i; }
   return -1;
 }
 function nextPlanOpen() {
-  if (!S.plan || !S.plans[S.plan]) return null;
-  var list = S.plans[S.plan];
+  var list = planItems();
   for (var i = 0; i < list.length; i++) {
     var need = list[i].sets > 0 ? list[i].sets : defaultSets();
     if (doneSets(list[i].name, S.date) < need) return list[i];
@@ -2285,8 +2282,7 @@ function planAllDone() {
   return planItems().length > 0 && !nextPlanOpen();
 }
 function openPlanCount() {
-  if (!S.plan || !S.plans[S.plan]) return 0;
-  return S.plans[S.plan].filter(function (i) {
+  return planItems().filter(function (i) {
     var need = i.sets > 0 ? i.sets : defaultSets();
     return doneSets(i.name, S.date) < need;
   }).length;
@@ -4093,7 +4089,7 @@ function exHistBlock() {
 function planNav() {
   var i = planIndex();
   if (i < 0) return "";
-  var list = S.plans[S.plan];
+  var list = planItems();
   var prev = i > 0 ? list[i-1] : null;
   var next = i < list.length - 1 ? list[i+1] : null;
   return '<div class="nextnav">' +
@@ -4228,8 +4224,7 @@ function focusFoot() {
 function focusRightButton(doneN, done) {
   var pIdx = planIndex();
   var inPlan = pIdx >= 0;
-  var hasNext = S.plan && S.plans[S.plan] && inPlan &&
-    pIdx < S.plans[S.plan].length - 1;
+  var hasNext = inPlan && pIdx < planItems().length - 1;
   if (planAllDone()) {
     /* Vor hasNext: ist der ganze Plan erledigt, zeigt jede seiner Übungen den
        Abschluss, nicht nur die letzte der Reihenfolge. */
@@ -6541,7 +6536,7 @@ ACTIONS.focuson = function () {
   S.editId = ""; S.pickOpen = false;
   /* Dieselbe Wahl wie in selectPlan(): ohne passende Übung die erste noch
      offene des Plans. */
-  var flist = S.plans[S.plan] || [];
+  var flist = planItems();
   if (!S.exercise || !flist.some(function (i) { return i.name === S.exercise; })) {
     var fday = dayEntries();
     var fopen = flist.filter(function (i) {
