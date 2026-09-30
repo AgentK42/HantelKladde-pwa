@@ -54,15 +54,10 @@ var rules = {
 
      Bewusst Warnungen, keine Fehler: die Pruefkette bleibt gruen, aber die Zahl
      steht bei jedem Lauf im Terminal. Die Schwellen sind eine Ratsche. Sie
-     liegen knapp ueber dem, was heute durchgeht, und wer eine der genannten
-     Funktionen verkleinert, zieht die Schwelle nach unten. Hochsetzen, damit
-     eine Warnung verschwindet, ist der eine Weg, der die Regel entwertet.
-
-     Stand 1.30.0 ueber der Schwelle: complexity 40 trifft viewTag (70), load (68),
-     viewFocus (50), suggestFor (47) und den input-Verteiler; max-lines 150
-     trifft viewTag (224) und viewData (254). Mit dem Umbau zu 1.36.0 liegt der
-     Hoechststand bei 27 (cleanEntry) und 55 Zeilen (muscleBars), die Schwellen
-     folgen auf 30 und 60. */
+     liegen knapp ueber dem, was heute durchgeht, und wer die Funktion am
+     Hoechststand verkleinert, zieht die Schwelle nach unten. Hochsetzen, damit
+     eine Warnung verschwindet, ist der eine Weg, der die Regel entwertet. Welche
+     Werte wann galten, steht in der README unter Pruefen. */
   "complexity": ["warn", 30],
   "max-lines-per-function": ["warn", { max: 60, skipComments: true, skipBlankLines: true }]
 };

@@ -3711,7 +3711,6 @@ function pickerGroups(names, byMuscle) {
   return { list:groups,
     active:S.pickCat && groups.indexOf(S.pickCat) >= 0 ? S.pickCat : (groups[0] || "Push") };
 }
-/* Mit Suchbegriff alle Treffer, sonst die Übungen der gewählten Gruppe. */
 function pickerItems(names, q, byMuscle, active) {
   if (q) return names.filter(function (n) { return n.toLowerCase().indexOf(q) >= 0; });
   return names.filter(function (n) {
@@ -6943,7 +6942,6 @@ ACTIONS.summaryok = function () {
 ACTIONS.sharefile = function () { if (!shareBackup()) saveBackup(); };
 ACTIONS.install = function () { runInstall(); };
 ACTIONS.swupdate = function () { applyUpdate(); return false; };
-/* Die Schalter unter Daten, je eine Einstellung umkehren und sichern. */
 function settingToggle(k) {
   return function () { S.settings[k] = !S.settings[k]; persist(); };
 }
