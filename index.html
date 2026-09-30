@@ -2027,7 +2027,7 @@ function sameBlockWeight(a, b) {
    zusätzlich eine Baseline davor; die RPE-Regel betrachtet beide. In der Range
    kommt nach einer vollständigen Einheit eine Wiederholung dazu. */
 function suggestFor(name) {
-  var t = planTarget(name), step = stepOf(name);
+  var t = planTarget(name);
   /* Stehen heute schon Sätze, wird die Einheit mit demselben Gewicht fortgesetzt.
      Gesteigert wird erst beim nächsten Training. */
   var run = lastSession(name, null);
@@ -2058,17 +2058,19 @@ function suggestFor(name) {
   }
   /* Schwelle für mehr Gewicht: mit Range ihr oberer Rand. */
   var rng = repRange(name, w);
-  var reqReps = rng ? rng.hi : goalReps;
-  var hit = blockHits(block, goalSets, reqReps);
-  var avg = block.avg;
   var base = { reps:lastSet.reps, weight:w, rpe:lastSet.rpe, up:false };
   if (!S.settings.autoProgress) return base;
-  /* Bindend ist die kleinste Rep-Zahl, weil alle Zielsätze den Wert erreichen
-     müssen, nicht nur der letzte. */
-  var low = block.low;
-
-  if (!hit) return suggestWithinRange(name, base, block, rng, goalSets, goalReps);
-
+  if (!blockHits(block, goalSets, rng ? rng.hi : goalReps)) {
+    return suggestWithinRange(name, base, block, rng, goalSets, goalReps);
+  }
+  return suggestUp(name, ls, block, rng, goalSets, goalReps);
+}
+/* Die letzte Einheit hat die Schwelle erreicht. Mehr Gewicht erst, wenn die
+   Einheit davor sie am selben Gewicht auch erreicht hat, ohne Range dazu mit
+   einer Baseline davor, und keine der beiden nah am Muskelversagen lag. */
+function suggestUp(name, ls, block, rng, goalSets, goalReps) {
+  var w = block.weight, step = stepOf(name), avg = block.avg, lastSet = block.last;
+  var reqReps = rng ? rng.hi : goalReps;
   var prev = lastSession(name, ls.day);
   var prevBlock = mainWorkBlock(prev, goalSets, w);
   var prevHit = sameBlockWeight(block, prevBlock) && blockHits(prevBlock, goalSets, reqReps);
@@ -2079,8 +2081,10 @@ function suggestFor(name) {
   var hardRpe = (avg != null && avg >= 9) ||
     (prevBlock && prevBlock.avg != null && prevBlock.avg >= 9);
   if (!confirmed || hardRpe) {
-    base.reps = rng ? Math.min(rng.hi, Math.max(rng.lo, low)) : goalReps;
-    return base;
+    /* Bindend ist die kleinste Rep-Zahl, weil alle Zielsätze den Wert erreichen
+       müssen, nicht nur der letzte. */
+    return { reps:rng ? Math.min(rng.hi, Math.max(rng.lo, block.low)) : goalReps,
+      weight:w, rpe:lastSet.rpe, up:false };
   }
   /* Zwei Schrittweiten nur, wenn ein Schritt im Verhältnis zum Gewicht klein
      ist. Dieselbe Rechnung wie in repFirstOn(), aber ohne dessen Schalter; !rng
