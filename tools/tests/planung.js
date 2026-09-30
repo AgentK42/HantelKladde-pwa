@@ -55,14 +55,14 @@ suite(async ({ open, check, errs, url }) => {
     const rgb = (c) => { const i = document.createElement("i"); i.style.color = c;
       document.body.appendChild(i); const v = getComputedStyle(i).color; i.remove(); return v; };
     const plans = PALETTE.concat(Object.keys(S.plans).map(planColor)).map(rgb);
-    const html = document.documentElement, was = html.getAttribute("data-theme"), out = {};
+    const was = document.documentElement.getAttribute("data-theme"), out = {};
     ["light", "dark"].forEach(t => {
-      html.setAttribute("data-theme", t);
+      applyTheme(t);
       const dot = Array.from(document.querySelectorAll(".planlegend .pdot"))
         .find(d => d.parentNode.textContent.startsWith("Einzelne Übungen"));
       out[t] = dot && getComputedStyle(dot).backgroundColor;
     });
-    html.setAttribute("data-theme", was);
+    applyTheme(was);
     return { out, clash: Object.values(out).filter(c => !c || plans.indexOf(c) >= 0) };
   });
   check("Einzelne Uebungen tragen hell und dunkel keine Planfarbe", extra.clash.length === 0, JSON.stringify(extra.out));

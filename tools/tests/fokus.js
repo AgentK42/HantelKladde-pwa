@@ -16,16 +16,15 @@ suite(async ({ open, check }) => {
     doneSets(S.exercise, S.date) >= targetSets(S.exercise)), ex);
 
   // 1. Mit Plan
-  await p.evaluate(()=>saveSession());
   await p.reload({ waitUntil:"load" }); await p.waitForTimeout(400);
   check("nach dem Neustart steht der Fokus-Modus wieder da",
     await p.evaluate(()=>S.focus && S.plan === "Push Day"));
 
   // 2. Plan inzwischen weg
   await p.evaluate(()=>{
-    var d = JSON.parse(localStorage.getItem("kraftlog:session"));
-    d.plan = "Gelöschter Plan"; d.ts = Date.now();
-    localStorage.setItem("kraftlog:session", JSON.stringify(d));
+    var d = readJson(SESSION_KEY, null);
+    d.plan = "Gelöschter Plan";
+    localStorage.setItem(SESSION_KEY, JSON.stringify(d));
   });
   await p.reload({ waitUntil:"load" }); await p.waitForTimeout(400);
   check("ohne den Plan kommt der Fokus-Modus nicht zurück",
