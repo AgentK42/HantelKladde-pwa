@@ -5240,6 +5240,36 @@ function viewHistory() {
      lässt. */
   var td = todayISO();
   var from = shiftISO(td, -(volRange() - 1));
+  var map = historyMap(from, td);
+  var names = Object.keys(map).sort(function (a,b) {
+    if (map[a].last !== map[b].last) return map[a].last < map[b].last ? 1 : -1;
+    return map[b].ts - map[a].ts;
+  });
+  var h = volumeBlock() + weekGoalBlock() + recordBlock() + plateauBlock();
+  if (!names.length) {
+    return h + '<div class="sect"><h2>Übungen</h2></div>' +
+      (S.entries.some(isWork)
+        ? '<p class="empty">Keine Übung in den letzten ' + volRange() +
+          ' Tagen trainiert.<br>Ein größerer Zeitraum oben zeigt ältere Einträge.</p>'
+        : '<p class="empty">Noch keine Trainings erfasst.<br>' +
+          'Erfasste Sätze erscheinen hier nach Übung zusammengefasst.</p>');
+  }
+  var total = names.length;
+  var hq = S.hsearch.trim().toLowerCase();
+  if (hq) names = names.filter(function (n) { return n.toLowerCase().indexOf(hq) >= 0; });
+  h += '<div class="sect"><h2>Übungen</h2><span>' +
+    (hq ? names.length + " von " + total : total + " in " + volRange() + " Tagen") +
+    '</span></div>';
+  if (total > 6) {
+    h += '<div class="hfind"><input id="histSearch" data-act="hsearch" ' +
+      'placeholder="Übung suchen" value="' + esc(S.hsearch) + '"></div>';
+  }
+  if (!names.length) return h + '<p class="empty">Kein Treffer für ' + esc(S.hsearch) + '.</p>';
+  return h + names.map(function (n) { return historyCard(n, map[n], from, td); }).join("");
+}
+/* Je Übung Satzzahl, letzter Trainingstag und je Tag die Werte für die
+   Diagramme, im Fenster von from bis td. */
+function historyMap(from, td) {
   var map = {};
   S.entries.forEach(function (e) {
     if (!isWork(e) || e.date < from || e.date > td) return;
@@ -5263,60 +5293,30 @@ function viewHistory() {
     if (e1rm(e.weight, e.reps) > d.e1) d.e1 = e1rm(e.weight, e.reps);
     d.vol += e.weight * e.reps;
   });
-  var names = Object.keys(map).sort(function (a,b) {
-    if (map[a].last !== map[b].last) return map[a].last < map[b].last ? 1 : -1;
-    return map[b].ts - map[a].ts;
-  });
-  if (!names.length) {
-    var anyEver = S.entries.some(isWork);
-    return volumeBlock() + weekGoalBlock() + recordBlock() + plateauBlock() +
-      '<div class="sect"><h2>Übungen</h2></div>' +
-      (anyEver
-        ? '<p class="empty">Keine Übung in den letzten ' + volRange() +
-          ' Tagen trainiert.<br>Ein größerer Zeitraum oben zeigt ältere Einträge.</p>'
-        : '<p class="empty">Noch keine Trainings erfasst.<br>' +
-          'Erfasste Sätze erscheinen hier nach Übung zusammengefasst.</p>');
-  }
-  var total = names.length;
-  var hq = S.hsearch.trim().toLowerCase();
-  if (hq) names = names.filter(function (n) { return n.toLowerCase().indexOf(hq) >= 0; });
-  var h = volumeBlock() + weekGoalBlock() + recordBlock() + plateauBlock();
-  h += '<div class="sect"><h2>Übungen</h2><span>' +
-    (hq ? names.length + " von " + total : total + " in " + volRange() + " Tagen") +
-    '</span></div>';
-  if (total > 6) {
-    h += '<div class="hfind"><input id="histSearch" data-act="hsearch" ' +
-      'placeholder="Übung suchen" value="' + esc(S.hsearch) + '"></div>';
-  }
-  if (!names.length) {
-    h += '<p class="empty">Kein Treffer für ' + esc(S.hsearch) + '.</p>';
-    return h;
-  }
-  names.forEach(function (n) {
-    var g = map[n], rec = bestOf(n, from, td), er = bestE1rm(n, from, td);
-    var days = Object.keys(g.days).sort();
-    var open = S.openEx === n;
-    var lastDay = days[days.length - 1];
-    /* plateau() bleibt bewusst unabhängig vom Zeitraum und misst den ganzen
-       Stillstand. */
-    var flat = plateau(n);
-    h += '<div class="card"><h3>' + esc(n) + '</h3>' +
-      '<div class="big">' + num(rec.weight) + ' kg</div>' +
-      '<p>Bestleistung in diesem Zeitraum mit ' + rec.reps + ' Reps am ' +
-      shortDate(rec.date) + '.<br>' +
-      '~1 Rep Max <b>' + num(e1rm(er.weight, er.reps)) + ' kg</b>, ' +
-      'aus ' + num(er.weight) + ' kg mit ' + er.reps + ' Reps.<br>' +
-      plural(g.sets, "Satz", "Sätze") + ' in diesem Zeitraum, zuletzt am ' +
-      shortDate(g.last) + '.</p>' +
-      plateauFlag(flat, lastDay) +
-      (days.length > 1
-        ? '<button class="open" data-act="openex" data-v="' + esc(n) + '">' +
-          (open ? "Diagramm ausblenden" : "Verlauf anzeigen") + '</button>'
-        : "") +
-      (open ? chart(days, g.days) + volChart(days, g.days) : "") +
-      '</div>';
-  });
-  return h;
+  return map;
+}
+function historyCard(n, g, from, td) {
+  var rec = bestOf(n, from, td), er = bestE1rm(n, from, td);
+  var days = Object.keys(g.days).sort();
+  var open = S.openEx === n;
+  /* plateau() bleibt bewusst unabhängig vom Zeitraum und misst den ganzen
+     Stillstand. */
+  var flat = plateau(n);
+  return '<div class="card"><h3>' + esc(n) + '</h3>' +
+    '<div class="big">' + num(rec.weight) + ' kg</div>' +
+    '<p>Bestleistung in diesem Zeitraum mit ' + rec.reps + ' Reps am ' +
+    shortDate(rec.date) + '.<br>' +
+    '~1 Rep Max <b>' + num(e1rm(er.weight, er.reps)) + ' kg</b>, ' +
+    'aus ' + num(er.weight) + ' kg mit ' + er.reps + ' Reps.<br>' +
+    plural(g.sets, "Satz", "Sätze") + ' in diesem Zeitraum, zuletzt am ' +
+    shortDate(g.last) + '.</p>' +
+    plateauFlag(flat, days[days.length - 1]) +
+    (days.length > 1
+      ? '<button class="open" data-act="openex" data-v="' + esc(n) + '">' +
+        (open ? "Diagramm ausblenden" : "Verlauf anzeigen") + '</button>'
+      : "") +
+    (open ? chart(days, g.days) + volChart(days, g.days) : "") +
+    '</div>';
 }
 
 /* Mittag als Anker gegen Sprünge bei Sommerzeit und Zeitzone. */
