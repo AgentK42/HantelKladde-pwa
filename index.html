@@ -898,7 +898,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.35.8";
+var APP_VERSION = "1.35.9";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -7468,11 +7468,11 @@ var INPUT_ACTIONS = Object.create(null);
 INPUT_ACTIONS.input = function (el) {
   var field = el.getAttribute("data-f");
   S[field] = el.value;
-  if (field === "reps" || field === "weight") {
+  if ((field === "reps" || field === "weight") && S.source) {
     S.source = "";
-    /* Ohne render() die nun überholte Begründungszeile von Hand entfernen. Der
-       Hinweis bleibt, er gilt der letzten Einheit, nicht den Feldern. */
-    var suggestion = document.querySelector(".suggestion:not(.hint)");
+    /* Ohne render() den nun überholten Vorschlag von Hand entfernen. Nur mit
+       S.source steht er da, sonst trägt .suggestion den Hinweis. */
+    var suggestion = document.querySelector(".suggestion");
     if (suggestion && suggestion.parentNode) suggestion.parentNode.removeChild(suggestion);
   }
 };
