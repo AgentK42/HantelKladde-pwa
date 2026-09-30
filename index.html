@@ -6739,18 +6739,36 @@ ACTIONS.step = function (v, el) {
   else S.rpe = comma(Math.min(10, Math.max(1, Math.round((cur + d)*2)/2)));
   if (f === "reps" || f === "weight") S.source = "";
 };
+/* Warum sich der Satz nicht speichern lässt, sonst leer. */
+function saveProblem(w, r) {
+  if (!S.exercise) return "Wähle zuerst eine Übung.";
+  if (isNaN(r) || r < 1) return "Reps fehlen oder sind keine Zahl.";
+  if (!isFinite(w) || w < 0) return "Das Gewicht muss eine Zahl ab 0 kg sein.";
+  if (Date.now() - lastSave < 900) return "Der Satz wurde eben schon gespeichert.";
+  return "";
+}
+/* Zusatzzeile im Toast nach einem Arbeitssatz. prevBest und prevE1 sind die
+   Bestwerte vor diesem Satz, das Satzziel zählt ihn schon mit. */
+function setNews(w, r, prevBest, prevE1) {
+  var extra = "";
+  /* Der erste Satz einer Übung ist kein Rekord, dieselbe Regel wie in
+     trainingSummary(). */
+  if (prevBest && (w > prevBest.weight ||
+      (Math.abs(w - prevBest.weight) < 0.001 && r > prevBest.reps))) {
+    extra = '<b class="hit">Neuer Rekord</b>';
+  } else if (prevE1 && e1rm(w, r) > e1rm(prevE1.weight, prevE1.reps)) {
+    extra = '<b class="hit">Bestes ~1RM ' + num(e1rm(w, r)) + ' kg</b>';
+  }
+  var doneNow = doneSets(S.exercise, S.date), needNow = targetSets(S.exercise);
+  if (doneNow === needNow) {
+    extra = (extra ? extra + " · " : "") + "alle " + needNow + " Zielsätze erledigt";
+  }
+  return extra ? "<br>" + extra : "";
+}
 ACTIONS.save = function () {
   var w = deci(S.weight), r = parseInt(S.reps,10), p = deci(S.rpe);
-  if (!S.exercise) { S.note = "Wähle zuerst eine Übung."; render(); return false; }
-  if (isNaN(r) || r < 1) {
-    S.note = "Reps fehlen oder sind keine Zahl."; render(); return false;
-  }
-  if (!isFinite(w) || w < 0) {
-    S.note = "Das Gewicht muss eine Zahl ab 0 kg sein."; render(); return false;
-  }
-  if (Date.now() - lastSave < 900) {
-    S.note = "Der Satz wurde eben schon gespeichert."; render(); return false;
-  }
+  var problem = saveProblem(w, r);
+  if (problem) { S.note = problem; render(); return false; }
   lastSave = Date.now();
   var wasWarm = S.warm;
   var prevBest = wasWarm ? null : bestOf(S.exercise);
@@ -6775,21 +6793,8 @@ ACTIONS.save = function () {
     backToWork();
     showToast("Aufwärmsatz gesichert: " + num(w) + " kg × " + r);
   } else {
-    var extra = "";
-    /* Der erste Satz einer Übung ist kein Rekord, dieselbe Regel wie in
-       trainingSummary(). */
-    if (prevBest && (w > prevBest.weight ||
-        (Math.abs(w - prevBest.weight) < 0.001 && r > prevBest.reps))) {
-      extra = '<b class="hit">Neuer Rekord</b>';
-    } else if (prevE1 && e1rm(w, r) > e1rm(prevE1.weight, prevE1.reps)) {
-      extra = '<b class="hit">Bestes ~1RM ' + num(e1rm(w, r)) + ' kg</b>';
-    }
-    var doneNow = doneSets(S.exercise, S.date), needNow = targetSets(S.exercise);
-    if (doneNow === needNow) {
-      extra = (extra ? extra + " · " : "") + "alle " + needNow + " Zielsätze erledigt";
-    }
     showToast("Satz " + rec.set + " gesichert: " + num(w) + " kg × " + r +
-      (extra ? "<br>" + extra : ""));
+      setNews(w, r, prevBest, prevE1));
     S.note = "";
     /* Die Wiederholungszahl bleibt, nur der sichtbare Ausschnitt der Reps-Reihe
        springt zurück zum Planziel, damit es für den nächsten Satz direkt
