@@ -6977,22 +6977,20 @@ ACTIONS.summaryok = function () {
 ACTIONS.sharefile = function () { if (!shareBackup()) saveBackup(); };
 ACTIONS.install = function () { runInstall(); };
 ACTIONS.swupdate = function () { applyUpdate(); return false; };
-ACTIONS.autoprog = function () { S.settings.autoProgress = !S.settings.autoProgress; persist(); };
-ACTIONS.repfirst = function () { S.settings.repFirst = !S.settings.repFirst; persist(); };
+/* Die Schalter unter Daten, je eine Einstellung umkehren und sichern. */
+function settingToggle(k) {
+  return function () { S.settings[k] = !S.settings[k]; persist(); };
+}
+ACTIONS.autoprog = settingToggle("autoProgress");
+ACTIONS.repfirst = settingToggle("repFirst");
 ACTIONS.repspan = function (v, el) {
   S.settings.repSpan = Math.max(1, Math.min(5,
     S.settings.repSpan + parseInt(el.getAttribute("data-d"), 10)));
   persist();
 };
-ACTIONS.exhisttoggle = function () {
-  S.settings.exHist = !S.settings.exHist; persist();
-};
-ACTIONS.focusplates = function () {
-  S.settings.focusPlates = !S.settings.focusPlates; persist();
-};
-ACTIONS.focushisttoggle = function () {
-  S.settings.focusHist = !S.settings.focusHist; persist();
-};
+ACTIONS.exhisttoggle = settingToggle("exHist");
+ACTIONS.focusplates = settingToggle("focusPlates");
+ACTIONS.focushisttoggle = settingToggle("focusHist");
 ACTIONS.volrange = function (v) { S.volRange = parseInt(v, 10); };
 ACTIONS.datacat = function (v) { S.dataClosed[v] = !S.dataClosed[v]; };
 ACTIONS.secfold = function (v) { S.secOpen[v] = !S.secOpen[v]; };
@@ -7055,7 +7053,7 @@ ACTIONS.restlen = function (v, el) {
     restSetting() + parseInt(el.getAttribute("data-d"),10)));
   persist();
 };
-ACTIONS.autorest = function () { S.settings.autoRest = !S.settings.autoRest; persist(); };
+ACTIONS.autorest = settingToggle("autoRest");
 ACTIONS.notifyask = function () { askNotify(); };
 ACTIONS.notifytoggle = function () {
   S.settings.notifySignal = !S.settings.notifySignal;
