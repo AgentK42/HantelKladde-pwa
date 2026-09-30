@@ -898,7 +898,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.35.9";
+var APP_VERSION = "1.35.10";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -1554,7 +1554,7 @@ function restoreSession() {
   }
   /* Ohne Plan ließe sich der Fokus-Modus gar nicht starten, und sein Abschluss
      fragte nach offenen Übungen eines Plans, den es nicht mehr gibt. */
-  if (d.focus && !startFromUrl && S.plan && S.plans[S.plan].length) {
+  if (d.focus && !startFromUrl && planItems().length) {
     S.focus = true;
     /* Ohne History-Eintrag schlösse die Zurück-Geste die App, siehe navOpen().
        Trägt der Eintrag nach dem Neuladen schon ein hk, wird nicht erneut
@@ -2263,6 +2263,10 @@ function hintBlock() {
     '<div class="suggestion-copy"><b>Zurück in die Range</b>' +
     '<span>' + esc(s.hint) + '</span></div></div>';
 }
+/* Übungen des gewählten Plans, leer ohne Plan oder wenn er nicht mehr da ist. */
+function planItems() {
+  return (S.plan && S.plans[S.plan]) || [];
+}
 function planIndex() {
   if (!S.plan || !S.exercise || !S.plans[S.plan]) return -1;
   var list = S.plans[S.plan];
@@ -2279,7 +2283,7 @@ function nextPlanOpen() {
   return null;
 }
 function planAllDone() {
-  return !!(S.plan && S.plans[S.plan] && S.plans[S.plan].length) && !nextPlanOpen();
+  return planItems().length > 0 && !nextPlanOpen();
 }
 function openPlanCount() {
   if (!S.plan || !S.plans[S.plan]) return 0;
@@ -3436,8 +3440,9 @@ function viewWeekOverview() {
 
 /* Ohne Planname, der steht schon im Wähler direkt darüber. */
 function logHead() {
-  if (!S.plan || !S.plans[S.plan] || !S.plans[S.plan].length) return "";
-  var list = S.plans[S.plan], i = planIndex(), mins = currentSessionMinutes(S.date);
+  var list = planItems();
+  if (!list.length) return "";
+  var i = planIndex(), mins = currentSessionMinutes(S.date);
   return '<div class="loghead"><span>' +
     (i >= 0 ? "Übung " + (i + 1) + " von " + list.length
             : list.length + (list.length === 1 ? " Übung" : " Übungen")) +
@@ -3445,9 +3450,9 @@ function logHead() {
 }
 
 function planProgress() {
-  if (!S.plan || !S.plans[S.plan] || !S.plans[S.plan].length) return "";
+  if (!planItems().length) return "";
   var h = '<div class="prog">';
-  S.plans[S.plan].forEach(function (i) {
+  planItems().forEach(function (i) {
     var need = i.sets > 0 ? i.sets : defaultSets();
     var c = doneSets(i.name, S.date);
     var cls = [];
@@ -3827,7 +3832,7 @@ function planChooser() {
     h += '</div>';
   }
 
-  if (S.plan && S.plans[S.plan] && S.plans[S.plan].length) {
+  if (planItems().length) {
     h += '<button class="focusgo" data-act="focuson">' + svg("hantelh", 16) +
       '<span>Fokus Mode starten</span></button>';
   }
@@ -4102,8 +4107,9 @@ function planNav() {
    steht. */
 function focusWho() {
   var mins = currentSessionMinutes(S.date);
-  if (S.plan && S.plans[S.plan] && S.plans[S.plan].length) {
-    var list = S.plans[S.plan], i = planIndex();
+  var list = planItems();
+  if (list.length) {
+    var i = planIndex();
     var next = (i >= 0 && i < list.length - 1) ? list[i + 1].name : "";
     return '<div class="who"><b>' + esc(S.plan) + '</b><span class="wholine"><em>' +
       (i >= 0 ? "Übung " + (i + 1) + " von " + list.length
@@ -4229,7 +4235,7 @@ function focusRightButton(doneN, done) {
   } else if (hasNext) {
     return '<button class="' + (done ? "go" : "") + '" data-act="planstep" data-d="1">' +
       (doneN > 0 ? "Nächste Übung" : "Übung überspringen") + '</button>';
-  } else if (S.plan && S.plans[S.plan] && S.plans[S.plan].length && !inPlan) {
+  } else if (planItems().length && !inPlan) {
     /* Übung außerhalb des Plans, etwa über "Andere Übung": ihr Satzziel sagt
        nichts über den Plan, der läuft weiter, solange er offene Übungen hat. */
     var openItem = nextPlanOpen();
