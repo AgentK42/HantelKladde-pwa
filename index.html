@@ -1213,6 +1213,12 @@ function deci(s) { return parseFloat(String(s).replace(",", ".")); }
 function comma(v) { return String(v).replace(".", ","); }
 function e1rm(w, r) { return w * (1 + r / 30); }
 function plural(n, one, many) { return n + " " + (n === 1 ? one : many); }
+/* Nimmt v aus der Liste, falls es darin steht, und sagt, ob es darin stand. */
+function dropFrom(list, v) {
+  var i = list.indexOf(v);
+  if (i >= 0) list.splice(i, 1);
+  return i >= 0;
+}
 function mmss(sec) {
   var m = Math.floor(Math.abs(sec) / 60), s = Math.abs(sec) % 60;
   return (sec < 0 ? "+" : "") + m + ":" + (s < 10 ? "0" : "") + s;
@@ -5925,8 +5931,7 @@ function renameExercise(from, to) {
      ausgeblendeter Zielname kommt dagegen zurück. */
   var hid = S.settings.hiddenEx;
   if (PRESETS.indexOf(from) >= 0 && hid.indexOf(from) < 0) hid.push(from);
-  var hix = hid.indexOf(to);
-  if (hix >= 0) hid.splice(hix, 1);
+  dropFrom(hid, to);
   if (!toExisted) {
     S.cats[to] = fromCat;
     if (S.exmeta[from]) S.exmeta[to] = S.exmeta[from];
@@ -6540,10 +6545,7 @@ ACTIONS.pickmulti = function (v) {
   S.pickCat = ""; S.pickMuscle = ""; S.editId = "";
   window.scrollTo({ top:0 });
 };
-ACTIONS.picktoggle = function (v) {
-  var pix = S.pickSel.indexOf(v);
-  if (pix >= 0) S.pickSel.splice(pix, 1); else S.pickSel.push(v);
-};
+ACTIONS.picktoggle = function (v) { if (!dropFrom(S.pickSel, v)) S.pickSel.push(v); };
 ACTIONS.pickmulticlose = function () {
   S.pickOpen = false; S.pickPlanTarget = ""; S.pickSel = []; S.search = "";
 };
@@ -6646,8 +6648,7 @@ function createExercise(prefix) {
   if (!name) return null;
   /* Eine weggebenannte mitgelieferte Übung ist nur ausgeblendet und kommt über
      ihren Namen zurück. */
-  var hix = S.settings.hiddenEx.indexOf(name);
-  if (hix >= 0) S.settings.hiddenEx.splice(hix, 1);
+  dropFrom(S.settings.hiddenEx, name);
   var fresh = allNames().indexOf(name) < 0;
   if (fresh) {
     S.custom.push({ name:name, cat:(selc && selc.value) ? selc.value : "Sonstige" });
@@ -7037,10 +7038,8 @@ ACTIONS.addplan = function () {
   else { S.plans[pn] = []; S.note = "Plan " + pn + " angelegt."; persist(); }
 };
 ACTIONS.planvis = function (v) {
-  var hp = S.settings.hiddenPlans, hix = hp.indexOf(v);
-  if (hix >= 0) { hp.splice(hix, 1); }
-  else {
-    hp.push(v);
+  if (!dropFrom(S.settings.hiddenPlans, v)) {
+    S.settings.hiddenPlans.push(v);
     if (S.plan === v) { S.plan = ""; S.plansFold = false; }
   }
   persist();
@@ -7068,8 +7067,7 @@ ACTIONS.dupplan = function (v) {
   persist();
 };
 ACTIONS.planlock = function (v) {
-  var lp = S.settings.lockedPlans, lix = lp.indexOf(v);
-  if (lix >= 0) lp.splice(lix, 1); else lp.push(v);
+  if (!dropFrom(S.settings.lockedPlans, v)) S.settings.lockedPlans.push(v);
   persist();
 };
 ACTIONS.weekgoalrestart = function () {
@@ -7185,10 +7183,8 @@ ACTIONS.delplan = function (v) {
   delete S.colors[v];
   delete S.settings.weekGoals[v];
   delete S.settings.weekGoalLog[v];
-  var dhx = S.settings.hiddenPlans.indexOf(v);
-  if (dhx >= 0) S.settings.hiddenPlans.splice(dhx, 1);
-  var dlx = S.settings.lockedPlans.indexOf(v);
-  if (dlx >= 0) S.settings.lockedPlans.splice(dlx, 1);
+  dropFrom(S.settings.hiddenPlans, v);
+  dropFrom(S.settings.lockedPlans, v);
   if (S.plan === v) { S.plan = ""; S.plansFold = false; }
   S.note = "";
   persist();
