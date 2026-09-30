@@ -3667,6 +3667,35 @@ function exCard(n, opts) {
   return h;
 }
 
+/* Anlegebox im Wähler und unter Daten. Die Felder beginnen mit prefix, darüber
+   findet createExercise() sie; cat ist die vorgewählte Kategorie. */
+function newExerciseBox(prefix, placeholder, act, cat) {
+  function field(f, label, mode, value) {
+    return '<div class="deffield"><label for="' + prefix + f + '">' + label + '</label>' +
+      '<input id="' + prefix + f + '" inputmode="' + mode + '" value="' + value + '"></div>';
+  }
+  return '<div class="newbox"><div class="tab">Neue Übung</div><div class="body">' +
+    '<div class="newrow"><input id="' + prefix + 'Name" placeholder="' + placeholder + '"></div>' +
+    '<div class="newrow"><select id="' + prefix + 'Cat">' +
+    CATLIST.map(function (c) {
+      return '<option value="' + esc(c) + '"' + (c === cat ? " selected" : "") +
+        '>' + esc(c) + '</option>';
+    }).join("") + '</select></div>' +
+    '<div class="newrow">' +
+    field("Sets", "Sätze", "numeric", defaultSets()) +
+    field("Reps", "Reps", "numeric", defaultReps()) +
+    field("Weight", "kg", "decimal", comma(defaultWeight())) +
+    '</div>' +
+    '<div class="newrow"><div style="flex:1"><label class="mlabel">Muskelgruppe</label>' +
+    '<div class="msel">' +
+    '<select id="' + prefix + 'MusclePrimary" data-act="newmuscleprimary" ' +
+    'data-target="' + prefix + 'MuscleSecondary" aria-label="Primäre Muskelgruppe">' +
+    muscleOptionList("Primär") + '</select>' +
+    '<select id="' + prefix + 'MuscleSecondary" aria-label="Sekundäre Muskelgruppe" disabled>' +
+    muscleOptionList("Sekundär") + '</select></div></div></div>' +
+    '<div class="newrow"><button data-act="' + act + '">Anlegen</button></div>' +
+    '</div></div>';
+}
 /* Ersetzt den Trainingsbildschirm, statt darunter aufzuklappen, damit die
    Karten die ganze Breite bekommen. */
 function viewPicker() {
@@ -3745,31 +3774,7 @@ function viewPicker() {
     h += '</div>';
   }
 
-  var newCatActive = byMuscle ? "" : active;
-  h += '<div class="newbox"><div class="tab">Neue Übung</div><div class="body">' +
-    '<div class="newrow"><input id="newName" placeholder="Name der Übung"></div>' +
-    '<div class="newrow"><select id="newCat">' +
-    CATLIST.map(function (c) {
-      return '<option value="' + esc(c) + '"' + (c === newCatActive ? " selected" : "") +
-        '>' + esc(c) + '</option>';
-    }).join("") + '</select></div>' +
-    '<div class="newrow">' +
-    '<div class="deffield"><label for="newSets">Sätze</label><input id="newSets" ' +
-    'inputmode="numeric" value="' + defaultSets() + '"></div>' +
-    '<div class="deffield"><label for="newReps">Reps</label><input id="newReps" ' +
-    'inputmode="numeric" value="' + defaultReps() + '"></div>' +
-    '<div class="deffield"><label for="newWeight">kg</label><input id="newWeight" ' +
-    'inputmode="decimal" value="' + comma(defaultWeight()) + '"></div>' +
-    '</div>' +
-    '<div class="newrow"><div style="flex:1"><label class="mlabel">Muskelgruppe</label>' +
-    '<div class="msel">' +
-    '<select id="newMusclePrimary" data-act="newmuscleprimary" ' +
-    'data-target="newMuscleSecondary" aria-label="Primäre Muskelgruppe">' +
-    muscleOptionList("Primär") + '</select>' +
-    '<select id="newMuscleSecondary" aria-label="Sekundäre Muskelgruppe" disabled>' +
-    muscleOptionList("Sekundär") + '</select></div></div></div>' +
-    '<div class="newrow"><button data-act="addex">Anlegen</button></div>' +
-    '</div></div>';
+  h += newExerciseBox("new", "Name der Übung", "addex", byMuscle ? "" : active);
   return h;
 }
 
@@ -5599,28 +5604,7 @@ function dataExercises() {
        aufgeklappt hat, will sie lesen. */
     (secOpen("uebungen") ?
     '<div class="card" style="padding:0">' + catRows() + '</div>' +
-    '<div class="newbox"><div class="tab">Neue Übung</div><div class="body">' +
-    '<div class="newrow"><input id="dataNewName" placeholder="Name der neuen Übung"></div>' +
-    '<div class="newrow"><select id="dataNewCat">' +
-    CATLIST.map(function (c) { return '<option value="' + esc(c) + '">' + esc(c) + '</option>'; })
-      .join("") + '</select></div>' +
-    '<div class="newrow">' +
-    '<div class="deffield"><label for="dataNewSets">Sätze</label><input id="dataNewSets" ' +
-    'inputmode="numeric" value="' + defaultSets() + '"></div>' +
-    '<div class="deffield"><label for="dataNewReps">Reps</label><input id="dataNewReps" ' +
-    'inputmode="numeric" value="' + defaultReps() + '"></div>' +
-    '<div class="deffield"><label for="dataNewWeight">kg</label><input id="dataNewWeight" ' +
-    'inputmode="decimal" value="' + comma(defaultWeight()) + '"></div>' +
-    '</div>' +
-    '<div class="newrow"><div style="flex:1"><label class="mlabel">Muskelgruppe</label>' +
-    '<div class="msel">' +
-    '<select id="dataNewMusclePrimary" data-act="newmuscleprimary" ' +
-    'data-target="dataNewMuscleSecondary" aria-label="Primäre Muskelgruppe">' +
-    muscleOptionList("Primär") + '</select>' +
-    '<select id="dataNewMuscleSecondary" aria-label="Sekundäre Muskelgruppe" disabled>' +
-    muscleOptionList("Sekundär") + '</select></div></div></div>' +
-    '<div class="newrow"><button data-act="addexdata">Anlegen</button></div>' +
-    '</div></div>' : "");
+    newExerciseBox("dataNew", "Name der neuen Übung", "addexdata", "") : "");
 }
 function dataProgression() {
   return '<div class="sect"><h2>Progression' + infoBtn("progression") + '</h2></div>' +
@@ -6683,51 +6667,42 @@ ACTIONS.warmon = function () {
     if (half > 0) S.weight = comma(half);
   }
 };
-ACTIONS.addex = function () {
-  var inp = document.getElementById("newName");
-  var selc = document.getElementById("newCat");
+/* Legt die Übung aus der Anlegebox mit den Feldern prefix an, siehe
+   newExerciseBox(). Ohne Namen null, sonst der Name und ob sie neu ist. */
+function createExercise(prefix) {
+  function field(f) { return document.getElementById(prefix + f); }
+  var inp = field("Name"), selc = field("Cat");
   var name = inp ? inp.value.trim() : "";
-  if (!name) return false;
+  if (!name) return null;
   /* Eine weggebenannte mitgelieferte Übung ist nur ausgeblendet und kommt über
      ihren Namen zurück. */
-  var ahx = S.settings.hiddenEx.indexOf(name);
-  if (ahx >= 0) S.settings.hiddenEx.splice(ahx, 1);
-  if (allNames().indexOf(name) < 0) {
+  var hix = S.settings.hiddenEx.indexOf(name);
+  if (hix >= 0) S.settings.hiddenEx.splice(hix, 1);
+  var fresh = allNames().indexOf(name) < 0;
+  if (fresh) {
     S.custom.push({ name:name, cat:(selc && selc.value) ? selc.value : "Sonstige" });
-    setExStart(name, document.getElementById("newSets"),
-      document.getElementById("newReps"), document.getElementById("newWeight"));
-    setExMuscle(name, document.getElementById("newMusclePrimary"),
-      document.getElementById("newMuscleSecondary"));
+    setExStart(name, field("Sets"), field("Reps"), field("Weight"));
+    setExMuscle(name, field("MusclePrimary"), field("MuscleSecondary"));
   }
+  return { name:name, fresh:fresh };
+}
+ACTIONS.addex = function () {
+  var made = createExercise("new");
+  if (!made) return false;
   if (S.pickPlanTarget) {
     /* Neue Übung gleich mit auswählen, der Picker bleibt für weitere offen. */
-    if (S.pickSel.indexOf(name) < 0) S.pickSel.push(name);
+    if (S.pickSel.indexOf(made.name) < 0) S.pickSel.push(made.name);
   } else {
-    S.exercise = name; S.pickOpen = false; S.editId = ""; S.search = "";
-    applySuggestion(name);
+    S.exercise = made.name; S.pickOpen = false; S.editId = ""; S.search = "";
+    applySuggestion(made.name);
   }
   persist();
 };
-
-/* Dieselbe Übungsanlage wie addex(), aber ohne Übungswahl und Picker, die im
-   Daten-Reiter keinen Sinn ergeben. */
+/* Ohne Übungswahl und Picker, die im Daten-Reiter keinen Sinn ergeben. */
 ACTIONS.addexdata = function () {
-  var dinp = document.getElementById("dataNewName");
-  var dselc = document.getElementById("dataNewCat");
-  var dname = dinp ? dinp.value.trim() : "";
-  if (!dname) return false;
-  var dahx = S.settings.hiddenEx.indexOf(dname);
-  if (dahx >= 0) S.settings.hiddenEx.splice(dahx, 1);
-  if (allNames().indexOf(dname) < 0) {
-    S.custom.push({ name:dname, cat:(dselc && dselc.value) ? dselc.value : "Sonstige" });
-    setExStart(dname, document.getElementById("dataNewSets"),
-      document.getElementById("dataNewReps"), document.getElementById("dataNewWeight"));
-    setExMuscle(dname, document.getElementById("dataNewMusclePrimary"),
-      document.getElementById("dataNewMuscleSecondary"));
-    S.note = dname + " angelegt.";
-  } else {
-    S.note = dname + " gibt es schon.";
-  }
+  var made = createExercise("dataNew");
+  if (!made) return false;
+  S.note = made.name + (made.fresh ? " angelegt." : " gibt es schon.");
   persist();
 };
 ACTIONS.descToggle = function (v) {
