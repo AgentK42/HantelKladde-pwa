@@ -3628,39 +3628,34 @@ function exCard(n, opts) {
     weekDraft(selWeek()).extras.some(function (x) { return x.name === n; }));
   var inPlan = inDraft || !!(planCheck && S.plans[planCheck] &&
     S.plans[planCheck].some(function (i) { return i.name === n; }));
-  var ls = lastSession(n, null), flat = plateau(n);
-  var bars = exBars(n);
+  var flat = plateau(n);
   var tag = inDraft ? "IM ENTWURF" : (inPlan ? "IM PLAN" : catOf(n).toUpperCase());
   var showTag = inPlan || !opts.hideTag || catOf(n) !== opts.hideTag;
-  var selectedCount = dayEntries().filter(function (e) { return e.exercise === n; }).length;
-  /* Höchstens drei Angaben. Die Satzzahl bezieht sich auf das ausgewählte Datum
-     und heißt deshalb nur am tatsächlichen heutigen Tag auch „heute“. */
-  var meta = "noch nie erfasst";
-  if (ls) {
-    var bits = [num(ls.top) + " kg"];
-    if (flat) bits.push(flat + " Wo. gleich");
-    if (selectedCount) bits.push(selectedCount + "× " +
-      (S.date === todayISO() ? "heute" : "am " + tinyDate(S.date)));
-    else if (!flat) bits.push(agoText(ls.day));
-    meta = bits.join(" · ");
-  }
   var selected = !!(opts.multi && opts.selected);
-  var h = '<button class="excard' + (inPlan ? " inplan" : "") +
+  return '<button class="excard' + (inPlan ? " inplan" : "") +
     (selected ? " sel" : (!opts.multi && n === S.exercise ? " on" : "")) + '" data-act="' +
     (opts.multi ? "picktoggle" : "opt") + '" data-v="' + esc(n) + '">' +
     (showTag ? '<span class="tag">' + (inPlan ? '<i class="pdot"></i>' : "") + esc(tag) + '</span>' : "") +
     (selected ? '<span class="chk">' + svg("haken", 14) + '</span>' : "") +
     '<span class="nm">' + esc(n) + '</span>' +
-    '<span class="bars">';
-  if (bars.length) {
-    bars.forEach(function (b) {
-      h += '<i class="' + (b.empty ? "pad" : (b.last ? "last" : "")) +
+    '<span class="bars">' + exBars(n).map(function (b) {
+      return '<i class="' + (b.empty ? "pad" : (b.last ? "last" : "")) +
         '" style="height:' + b.h + 'px"></i>';
-    });
-  }
-  h += '</span><span class="meta' + (flat ? " flat" : "") + '">' + meta +
-    '</span></button>';
-  return h;
+    }).join("") + '</span><span class="meta' + (flat ? " flat" : "") + '">' +
+    exCardMeta(n, flat) + '</span></button>';
+}
+/* Höchstens drei Angaben. Die Satzzahl bezieht sich auf das ausgewählte Datum
+   und heißt deshalb nur am tatsächlichen heutigen Tag auch „heute“. */
+function exCardMeta(n, flat) {
+  var ls = lastSession(n, null);
+  if (!ls) return "noch nie erfasst";
+  var selectedCount = dayEntries().filter(function (e) { return e.exercise === n; }).length;
+  var bits = [num(ls.top) + " kg"];
+  if (flat) bits.push(flat + " Wo. gleich");
+  if (selectedCount) bits.push(selectedCount + "× " +
+    (S.date === todayISO() ? "heute" : "am " + tinyDate(S.date)));
+  else if (!flat) bits.push(agoText(ls.day));
+  return bits.join(" · ");
 }
 
 /* Anlegebox im Wähler und unter Daten. Die Felder beginnen mit prefix, darüber
