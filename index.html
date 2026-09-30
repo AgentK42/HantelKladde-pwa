@@ -1683,8 +1683,7 @@ function setExNote(name, text) {
   if (!name) return;
   var t = String(text).trim();
   if (t) {
-    if (!S.exmeta[name]) S.exmeta[name] = {};
-    S.exmeta[name].note = t;
+    ownMeta(name).note = t;
   } else if (S.exmeta[name]) {
     delete S.exmeta[name].note;
   }
@@ -1692,15 +1691,20 @@ function setExNote(name, text) {
 /* Startwerte aus der Übungsanlage. Sie gelten nur, solange lastSession() nichts
    liefert; danach übernimmt die Historie. */
 function exStart(name) { return (name && S.exmeta[name]) || {}; }
+/* Zum Schreiben: der eigene Eintrag der Übung, beim ersten Mal angelegt. */
+function ownMeta(name) {
+  if (!S.exmeta[name]) S.exmeta[name] = {};
+  return S.exmeta[name];
+}
 function setExStart(name, setsEl, repsEl, weightEl) {
   var sets = setsEl ? parseInt(setsEl.value, 10) : NaN;
   var reps = repsEl ? parseInt(repsEl.value, 10) : NaN;
   var weight = weightEl ? deci(weightEl.value) : NaN;
   if (!(sets > 0) && !(reps > 0) && !(weight >= 0)) return;
-  if (!S.exmeta[name]) S.exmeta[name] = {};
-  if (sets > 0) S.exmeta[name].sets = sets;
-  if (reps > 0) S.exmeta[name].reps = reps;
-  if (weight >= 0) S.exmeta[name].weight = weight;
+  var own = ownMeta(name);
+  if (sets > 0) own.sets = sets;
+  if (reps > 0) own.reps = reps;
+  if (weight >= 0) own.weight = weight;
 }
 /* Eine leere Sekundärwahl schreibt bewusst einen Leerstring: der Name kann aus
    einer früheren Anlage noch einen Wert in exmeta tragen. Sekundär gleich
@@ -1709,10 +1713,9 @@ function setExMuscle(name, primaryEl, secondaryEl) {
   var primary = primaryEl ? primaryEl.value : "";
   var secondary = secondaryEl ? secondaryEl.value : "";
   if (!primary) return;
-  if (!S.exmeta[name]) S.exmeta[name] = {};
-  S.exmeta[name].musclePrimary = primary;
-  if (secondary && secondary !== primary) S.exmeta[name].muscleSecondary = secondary;
-  else S.exmeta[name].muscleSecondary = "";
+  var own = ownMeta(name);
+  own.musclePrimary = primary;
+  own.muscleSecondary = (secondary && secondary !== primary) ? secondary : "";
 }
 /* skip nimmt die Primärgruppe aus der Sekundärwahl. */
 function muscleOptionList(blankLabel, chosen, skip) {
@@ -6442,8 +6445,7 @@ function mergeBackup(raw) {
         "muscleSecondary"].forEach(function (f) {
         if (src[f] == null) return;
         if (S.exmeta[k] && S.exmeta[k][f] != null) return;
-        if (!S.exmeta[k]) S.exmeta[k] = {};
-        S.exmeta[k][f] = src[f];
+        ownMeta(k)[f] = src[f];
       });
     });
   }
@@ -7009,8 +7011,7 @@ ACTIONS.plate = function (v) {
   persist();
 };
 ACTIONS.barset = function (v) {
-  if (!S.exmeta[v]) S.exmeta[v] = {};
-  S.exmeta[v].bar = !exMeta(v).bar;
+  ownMeta(v).bar = !exMeta(v).bar;
   persist();
 };
 ACTIONS.savefile = function () { saveBackup(); };
@@ -7537,8 +7538,7 @@ document.addEventListener("change", function (ev) {
   else if (act === "stepset") {
     var sn = el.getAttribute("data-v"), sv = parseFloat(el.value);
     if (sn && sv > 0) {
-      if (!S.exmeta[sn]) S.exmeta[sn] = {};
-      S.exmeta[sn].step = sv;
+      ownMeta(sn).step = sv;
       persist();
       render();
     }
@@ -7546,11 +7546,9 @@ document.addEventListener("change", function (ev) {
   else if (act === "exrestset") {
     var rn = el.getAttribute("data-v"), rv = parseInt(el.value, 10) || 0;
     if (rn) {
-      if (!S.exmeta[rn]) S.exmeta[rn] = {};
       /* 0 heißt "wie eingestellt". Sie wird gespeichert statt gelöscht, damit
          sie auch eine mitgelieferte Pause überdeckt, siehe exMeta(). */
-      if (rv > 0) S.exmeta[rn].rest = rv;
-      else S.exmeta[rn].rest = 0;
+      ownMeta(rn).rest = rv > 0 ? rv : 0;
       persist();
       render();
     }
@@ -7558,13 +7556,13 @@ document.addEventListener("change", function (ev) {
   else if (act === "muscleset") {
     var mn = el.getAttribute("data-v"), mf = el.getAttribute("data-f");
     if (!mn) return;
-    if (!S.exmeta[mn]) S.exmeta[mn] = {};
-    S.exmeta[mn][mf === "primary" ? "musclePrimary" : "muscleSecondary"] = el.value;
+    var own = ownMeta(mn);
+    own[mf === "primary" ? "musclePrimary" : "muscleSecondary"] = el.value;
     /* Sekundär leeren: ohne Primär ist es bedeutungslos, siehe muscleOf(), und
        gleich Primär zählte ein Satz mit 1,5 in diese eine Gruppe. */
     if (mf === "primary" &&
-        (!el.value || el.value === S.exmeta[mn].muscleSecondary)) {
-      S.exmeta[mn].muscleSecondary = "";
+        (!el.value || el.value === own.muscleSecondary)) {
+      own.muscleSecondary = "";
     }
     persist();
     render();
