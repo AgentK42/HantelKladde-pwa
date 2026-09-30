@@ -898,7 +898,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.35.11";
+var APP_VERSION = "1.35.12";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -1561,7 +1561,7 @@ function restoreSession() {
        gepusht, sonst bräuchte es zwei Gesten für eine Ebene; der Stapel wird
        nur auf diese Tiefe gebracht. Die Ebenen darunter sind unbekannt und
        bleiben namenlos, navCloseTop() nimmt sie kommentarlos ab. */
-    var hk = (history.state && typeof history.state.hk === "number") ? history.state.hk : 0;
+    var hk = navDepth();
     if (hk > 0) {
       navStack.length = 0;
       while (navStack.length < hk - 1) navStack.push("");
@@ -2624,6 +2624,9 @@ function protectLine() {
    die App sie selbst, räumt history.go() ihn ab, damit Stapel und Verlauf nicht
    auseinanderlaufen. */
 var navStack = [];
+function navDepth() {
+  return (history.state && typeof history.state.hk === "number") ? history.state.hk : 0;
+}
 function navOpen(name) {
   if (navStack[navStack.length - 1] === name) return;
   try { history.pushState({ hk:navStack.length + 1 }, ""); } catch (e) { return; }
@@ -2668,8 +2671,8 @@ function closeWeekOverview() {
   navBack("weekovr");
   S.weekOverview = false;
 }
-window.addEventListener("popstate", function (ev) {
-  var d = (ev.state && typeof ev.state.hk === "number") ? ev.state.hk : 0;
+window.addEventListener("popstate", function () {
+  var d = navDepth();
   if (navStack.length <= d) return;
   while (navStack.length > d) navCloseTop();
   render();
