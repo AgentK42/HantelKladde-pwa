@@ -96,9 +96,12 @@ vorkamen. Eingaben beim Tippen laufen seit 1.30.5 nach demselben Muster über
 `INPUT_ACTIONS`, mit einem Unterschied: dort baut der Verteiler nie von sich
 aus neu auf, weil ein `render()` mitten im Tippen dem Feld den Fokus nähme. Die
 beiden Suchfelder, die trotzdem neu aufbauen müssen, holen Fokus und
-Schreibmarke danach selbst zurück (`searchInput()`). Auswahllisten und
-Farbfelder laufen über den kleinen `change`-Verteiler darunter. Alle drei
-Gruppen stehen in der Ausschlussliste am Anfang des Klick-Verteilers.
+Schreibmarke danach selbst zurück (`searchInput()`). Auswahllisten, Farbfelder
+und das Verlassen eines Felds laufen seit 1.36.0 ebenso über eine Tabelle,
+`CHANGE_ACTIONS`, auch dort ohne Neuaufbau durch den Verteiler. Vorher waren sie
+eine else-if-Kette im `change`-Verteiler. Der Klick-Verteiler übergeht jede
+Aktion aus beiden Tabellen von selbst; bis 1.35.15 stand dafür am Anfang eine
+Ausschlussliste, die von Hand zu beiden passen musste.
 
 ## Hosting
 

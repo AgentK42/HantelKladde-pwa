@@ -7231,13 +7231,9 @@ document.addEventListener("click", function (ev) {
   var el = ev.target.closest ? ev.target.closest("[data-act]") : null;
   if (!el) return;
   var act = el.getAttribute("data-act"), v = el.getAttribute("data-v");
-  if (act === "input" || act === "pedit" ||
-      act === "search" || act === "hsearch" ||
-      act === "colorset" || act === "noteinput" || act === "stepset" ||
-      act === "exnoteinput" || act === "exnoteset" || act === "defedit" ||
-      act === "exrestset" ||
-      act === "muscleset" || act === "newmuscleprimary" ||
-      act === "weekgoaledit") return;
+  /* Ein Tipp in ein Feld oder eine Auswahlliste ist keine Aktion, diese laufen
+     über input und change. */
+  if (INPUT_ACTIONS[act] || CHANGE_ACTIONS[act]) return;
 
   /* Die Nachfrage vor dem Abschluss (endWarnBlock) gilt nur für diesen Moment,
      jede andere Aktion räumt sie ab. */
@@ -7387,8 +7383,8 @@ document.addEventListener("touchend", function (ev) {
 /* Das Gegenstück zu ACTIONS für input-Ereignisse, Schlüssel ist wieder das
    data-act. Hier baut der Verteiler nie neu auf, ein render() beim Tippen nähme
    dem Feld den Fokus; die Suchfelder holen ihn sich selbst zurück, siehe
-   searchInput(). Jede Aktion hier steht auch in der Ausschlussliste des
-   Klick-Verteilers. */
+   searchInput(). Der Klick-Verteiler übergeht jede Aktion aus dieser Tabelle und
+   aus CHANGE_ACTIONS. */
 var INPUT_ACTIONS = Object.create(null);
 INPUT_ACTIONS.input = function (el) {
   var field = el.getAttribute("data-f");
@@ -7474,56 +7470,62 @@ document.addEventListener("input", function (ev) {
   else if (el.id === "out") S.out = el.value;
 });
 
+/* Auswahllisten, Farbfelder und das Verlassen eines Felds, nach demselben Muster
+   wie INPUT_ACTIONS: der Verteiler baut nie neu auf, wer es braucht, ruft
+   render() selbst. */
+var CHANGE_ACTIONS = Object.create(null);
+CHANGE_ACTIONS.newmuscleprimary = function (el) {
+  var secondary = document.getElementById(el.getAttribute("data-target"));
+  if (!secondary) return;
+  secondary.disabled = !el.value;
+  if (!el.value || secondary.value === el.value) secondary.value = "";
+};
+CHANGE_ACTIONS.colorset = function (el) {
+  S.colors[el.getAttribute("data-v")] = el.value;
+  persist();
+  render();
+};
+/* Beim Verlassen eines Felds nur sichern. Ein render() baute die Seite noch vor
+   dem Klick neu auf, der den Fokus genommen hat, und dieser Klick ginge
+   verloren. */
+CHANGE_ACTIONS.pedit = function () { persist(); };
+CHANGE_ACTIONS.weekgoaledit = CHANGE_ACTIONS.pedit;
+CHANGE_ACTIONS.exnoteinput = CHANGE_ACTIONS.pedit;
+CHANGE_ACTIONS.exnoteset = CHANGE_ACTIONS.pedit;
+CHANGE_ACTIONS.stepset = function (el) {
+  var name = el.getAttribute("data-v"), step = parseFloat(el.value);
+  if (!name || !(step > 0)) return;
+  ownMeta(name).step = step;
+  persist();
+  render();
+};
+CHANGE_ACTIONS.exrestset = function (el) {
+  var name = el.getAttribute("data-v"), rest = parseInt(el.value, 10) || 0;
+  if (!name) return;
+  /* 0 heißt "wie eingestellt". Sie wird gespeichert statt gelöscht, damit sie
+     auch eine mitgelieferte Pause überdeckt, siehe exMeta(). */
+  ownMeta(name).rest = rest > 0 ? rest : 0;
+  persist();
+  render();
+};
+CHANGE_ACTIONS.muscleset = function (el) {
+  var name = el.getAttribute("data-v"), f = el.getAttribute("data-f");
+  if (!name) return;
+  var own = ownMeta(name);
+  own[f === "primary" ? "musclePrimary" : "muscleSecondary"] = el.value;
+  /* Sekundär leeren: ohne Primär ist es bedeutungslos, siehe muscleOf(), und
+     gleich Primär zählte ein Satz mit 1,5 in diese eine Gruppe. */
+  if (f === "primary" && (!el.value || el.value === own.muscleSecondary)) {
+    own.muscleSecondary = "";
+  }
+  persist();
+  render();
+};
 document.addEventListener("change", function (ev) {
   var el = ev.target;
   var act = el.getAttribute ? el.getAttribute("data-act") : null;
-  if (act === "newmuscleprimary") {
-    var secondary = document.getElementById(el.getAttribute("data-target"));
-    if (!secondary) return;
-    secondary.disabled = !el.value;
-    if (!el.value || secondary.value === el.value) secondary.value = "";
-  }
-  else if (act === "colorset") {
-    S.colors[el.getAttribute("data-v")] = el.value;
-    persist();
-    render();
-  }
-  else if (act === "pedit" || act === "weekgoaledit") { persist(); }
-  /* Kein render() beim Verlassen des Feldes. Es würde die Seite noch vor dem Klick
-     neu aufbauen, der den Fokus genommen hat, und dieser Klick ginge verloren. */
-  else if (act === "exnoteinput" || act === "exnoteset") { persist(); }
-  else if (act === "stepset") {
-    var sn = el.getAttribute("data-v"), sv = parseFloat(el.value);
-    if (sn && sv > 0) {
-      ownMeta(sn).step = sv;
-      persist();
-      render();
-    }
-  }
-  else if (act === "exrestset") {
-    var rn = el.getAttribute("data-v"), rv = parseInt(el.value, 10) || 0;
-    if (rn) {
-      /* 0 heißt "wie eingestellt". Sie wird gespeichert statt gelöscht, damit
-         sie auch eine mitgelieferte Pause überdeckt, siehe exMeta(). */
-      ownMeta(rn).rest = rv > 0 ? rv : 0;
-      persist();
-      render();
-    }
-  }
-  else if (act === "muscleset") {
-    var mn = el.getAttribute("data-v"), mf = el.getAttribute("data-f");
-    if (!mn) return;
-    var own = ownMeta(mn);
-    own[mf === "primary" ? "musclePrimary" : "muscleSecondary"] = el.value;
-    /* Sekundär leeren: ohne Primär ist es bedeutungslos, siehe muscleOf(), und
-       gleich Primär zählte ein Satz mit 1,5 in diese eine Gruppe. */
-    if (mf === "primary" &&
-        (!el.value || el.value === own.muscleSecondary)) {
-      own.muscleSecondary = "";
-    }
-    persist();
-    render();
-  }
+  var fn = act ? CHANGE_ACTIONS[act] : null;
+  if (fn) fn(el);
 });
 
 /* Eingabetaste bestätigt das jeweilige Feld */

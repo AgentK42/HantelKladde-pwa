@@ -10,8 +10,9 @@ ihrem Grund; sie ist die Dokumentation, nicht dieser Text.
 - Eine Aktion der Oberfläche ist ein Eintrag `ACTIONS.name = function (v, el)`,
   nie ein Zweig anderswo. `return false` heißt: kein Neuaufbau durch den
   Verteiler. Eine Eingabe beim Tippen ist ein Eintrag
-  `INPUT_ACTIONS.name = function (el, act)`, dort baut nie der Verteiler neu auf.
-  Beide Arten stehen in der Ausschlussliste am Anfang des Klick-Verteilers.
+  `INPUT_ACTIONS.name = function (el, act)`, eine Auswahlliste oder das Verlassen
+  eines Felds ein Eintrag `CHANGE_ACTIONS.name = function (el)`; in beiden baut
+  nie der Verteiler neu auf, und der Klick-Verteiler übergeht sie von selbst.
 - Wer ein Muster zum dritten Mal kopiert, baut erst den Helfer. Gemeinsame
   Bausteine gibt es bereits für Tageszellen (`dayCell`), Planauswahl
   (`assignPanel`), Muskelgruppen (`muscleTally`, `muscleBars`), Pause (`exRest`),
