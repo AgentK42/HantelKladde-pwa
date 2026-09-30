@@ -4857,6 +4857,8 @@ function viewPlanung() {
     draftToolsBlock();
 }
 
+/* Zeitraum des Verlauf-Reiters in Tagen, gilt für alle Blöcke dort. */
+function volRange() { return S.volRange || 7; }
 /* Sätze je Muskelgruppe landen durch den halben Sekundärmuskel auf x,5, siehe
    volByMuscle(). */
 function fmtCount(x) { return x % 1 === 0 ? String(x) : num(Math.round(x * 10) / 10); }
@@ -4934,7 +4936,7 @@ function imbalanceFlags(a, range) {
    großen nicht verschwindet. Bei 90 Tagen entfällt der Vergleich mit dem
    Zeitraum davor, über so lange Spannen sagt er wenig. */
 function volumeBlock() {
-  var range = S.volRange || 7;
+  var range = volRange();
   var compare = range < 90;
   var td = todayISO();
   var aFrom = shiftISO(td, -(range - 1));
@@ -5056,7 +5058,7 @@ function volumeBlock() {
    höchstens eine Zeile, das Höchstgewicht hat Vorrang vor der Schätzung, weil
    es die klarere Aussage ist. */
 function recordBlock() {
-  var range = S.volRange || 7;
+  var range = volRange();
   var td = todayISO(), from = shiftISO(td, -(range - 1));
   var byEx = {};
   S.entries.forEach(function (e) {
@@ -5128,7 +5130,7 @@ function recordBlock() {
    ist nicht mehr im Programm. Der längste Stillstand steht oben, dort lohnt
    sich das Eingreifen am ehesten. */
 function plateauBlock() {
-  var range = S.volRange || 7;
+  var range = volRange();
   var td = todayISO(), from = shiftISO(td, -(range - 1));
   var seen = {}, out = [];
   S.entries.forEach(function (e) {
@@ -5168,7 +5170,7 @@ function plateauBlock() {
    Erst ab 30 Tagen, weil die laufende Woche nicht mitzählt und in 7 Tage keine
    volle Vorwoche passt. */
 function weekGoalBlock() {
-  var range = S.volRange || 7;
+  var range = volRange();
   if (range < 30) return "";
   var plans = Object.keys(S.plans).filter(function (p) {
     var log = S.settings.weekGoalLog[p];
@@ -5227,7 +5229,7 @@ function viewHistory() {
      oben begrenzt, weil sich über die Datumswahl ein Satz auf morgen legen
      lässt. */
   var td = todayISO();
-  var from = shiftISO(td, -((S.volRange || 7) - 1));
+  var from = shiftISO(td, -(volRange() - 1));
   var map = {};
   S.entries.forEach(function (e) {
     if (!isWork(e) || e.date < from || e.date > td) return;
@@ -5260,7 +5262,7 @@ function viewHistory() {
     return volumeBlock() + weekGoalBlock() + recordBlock() + plateauBlock() +
       '<div class="sect"><h2>Übungen</h2></div>' +
       (anyEver
-        ? '<p class="empty">Keine Übung in den letzten ' + (S.volRange || 7) +
+        ? '<p class="empty">Keine Übung in den letzten ' + volRange() +
           ' Tagen trainiert.<br>Ein größerer Zeitraum oben zeigt ältere Einträge.</p>'
         : '<p class="empty">Noch keine Trainings erfasst.<br>' +
           'Erfasste Sätze erscheinen hier nach Übung zusammengefasst.</p>');
@@ -5270,7 +5272,7 @@ function viewHistory() {
   if (hq) names = names.filter(function (n) { return n.toLowerCase().indexOf(hq) >= 0; });
   var h = volumeBlock() + weekGoalBlock() + recordBlock() + plateauBlock();
   h += '<div class="sect"><h2>Übungen</h2><span>' +
-    (hq ? names.length + " von " + total : total + " in " + (S.volRange || 7) + " Tagen") +
+    (hq ? names.length + " von " + total : total + " in " + volRange() + " Tagen") +
     '</span></div>';
   if (total > 6) {
     h += '<div class="hfind"><input id="histSearch" data-act="hsearch" ' +
