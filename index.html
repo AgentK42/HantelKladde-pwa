@@ -1917,14 +1917,19 @@ function plateSplit(total) {
   if (!out.length) return null;
   return { bar:bar, side:out, rest:rest };
 }
+/* Anteil des Arbeitsgewichts, gerundet auf die Schrittweite der Übung und nach
+   unten durch die Stange begrenzt. */
+function warmWeight(name, weight, pct) {
+  var st = stepOf(name), min = isBar(name) ? (S.settings.barWeight || 20) : st;
+  var w = Math.round(weight * pct / st) * st;
+  if (w < min) w = min;
+  return Math.round(w * 100) / 100;
+}
 function warmupPlan(name, weight) {
   if (!(weight > 0)) return [];
-  var st = stepOf(name), min = isBar(name) ? (S.settings.barWeight || 20) : st;
   var out = [], pct = [0.5, 0.7, 0.85], reps = [8, 5, 3];
   pct.forEach(function (p, i) {
-    var w = Math.round(weight * p / st) * st;
-    if (w < min) w = min;
-    w = Math.round(w * 100) / 100;
+    var w = warmWeight(name, weight, p);
     if (w >= weight) return;
     if (out.some(function (o) { return Math.abs(o.weight - w) < 0.001; })) return;
     out.push({ weight:w, reps:reps[i] });
@@ -6674,12 +6679,7 @@ ACTIONS.pillrpe = function (v) { S.rpe = v; };
 ACTIONS.warmon = function () {
   if (!S.warm) {
     enterWarm(deci(S.weight) || 0);
-    /* Gleiche Rundung wie warmupPlan(): auf die Schrittweite der Übung, nach
-       unten durch die Stangenlast begrenzt. */
-    var st = stepOf(S.exercise), min = isBar(S.exercise) ? (S.settings.barWeight || 20) : st;
-    var half = Math.round(S.warmBase * 0.5 / st) * st;
-    if (half < min) half = min;
-    half = Math.round(half * 100) / 100;
+    var half = warmWeight(S.exercise, S.warmBase, 0.5);
     if (half > 0) S.weight = comma(half);
   }
 };
