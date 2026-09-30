@@ -1,5 +1,6 @@
 /* Texte der App: bei einer Übung, einem Satz, einem Plan steht die Einzahl, in
-   Summenzeile, Tagesstreifen, Meldungen und Rückfragen. */
+   Summenzeile, Tagesstreifen, Meldungen und Rückfragen. Die Beschreibungen
+   unter Daten versprechen nichts, was es nicht gibt. */
 const { suite, tab } = require("./lib");
 
 suite(async ({ open, check }) => {
@@ -47,4 +48,17 @@ suite(async ({ open, check }) => {
   const merge = await p.evaluate(() => asked[asked.length - 1]);
   check("Rückfrage beim Zusammenführen: ergibt 1 Satz", merge.indexOf("ergibt 1 Satz unter „Dips“") > 0,
     merge.replace(/\n/g, " "));
+
+  // Übungen unter Daten: die Gruppe hängt am Namen, verschieben lässt sie sich nicht
+  const ex = await p.evaluate(() => {
+    S.settings.descOpen.uebungen = true; S.exOpen = "Flys"; render();
+    var desc = document.querySelector(".sect + .notice").textContent;
+    var box = document.querySelector(".exbox");
+    var catChoice = [].some.call(box.querySelectorAll("option"), function (o) {
+      return CATLIST.indexOf(o.value) >= 0;
+    });
+    return { desc:desc, catChoice:catChoice };
+  });
+  check("Übungen: kein Wahlfeld für die Gruppe", !ex.catChoice);
+  check("Übungen: die Beschreibung verspricht kein Verschieben", ex.desc.indexOf("verschieben") < 0, ex.desc);
 });
