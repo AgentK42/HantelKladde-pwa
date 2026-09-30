@@ -5810,78 +5810,79 @@ function catRows() {
   }).join("");
 }
 function catRow(n) {
-    var m = exMeta(n);
-    /* Ein alter Speicherstand kann 180 s tragen, exRest() deckelt auf REST_MAX.
-       Angezeigt wird der wirksame Wert, sonst nennte die Zeile eine Pause, die
-       nie läuft. */
-    var mrest = m.rest ? Math.min(REST_MAX, m.rest) : 0;
-    var open = S.exOpen === n;
-    var use = open ? exUsage(n) : null;
-    return '<div class="crow">' +
-      '<button class="nm ren" data-act="exopen" data-v="' + esc(n) +
-      '" aria-expanded="' + (open ? "true" : "false") + '" title="' + esc(n) +
-      ' umbenennen oder Geräteeinstellung notieren">' +
-      '<i class="chv' + (open ? " up" : "") + '">' + svg("chev", 12) + '</i>' +
-      '<span>' + esc(n) + '</span></button>' +
-      '<select data-act="stepset" aria-label="Schrittweite für ' + esc(n) + '" data-v="' +
-      esc(n) + '">' +
-      STEP_CHOICES.map(function (o) {
-        return '<option value="' + o + '"' +
-          (Math.abs(o - m.step) < 0.001 ? " selected" : "") + '>' + num(o) + '</option>';
-      }).join("") + '</select>' +
-      '<button class="barb' + (m.bar ? " on" : "") + '" role="switch" aria-checked="' +
-      (m.bar ? "true" : "false") + '" aria-label="' + esc(n) +
-      ' an der Langhantel" data-act="barset" data-v="' + esc(n) + '">' +
-      svg("hantelh", 15) + '</button>' +
-      (removable(n)
-        ? '<button class="xdel" data-act="exdel" data-v="' + esc(n) +
-          '" aria-label="' + esc(n) + ' löschen">\u2715</button>'
-        : '<span></span>') +
-      '</div>' +
-      (!open && m.note
+  var m = exMeta(n);
+  /* Ein alter Speicherstand kann 180 s tragen, exRest() deckelt auf REST_MAX.
+     Angezeigt wird der wirksame Wert, sonst nennte die Zeile eine Pause, die
+     nie läuft. */
+  var mrest = m.rest ? Math.min(REST_MAX, m.rest) : 0;
+  var open = S.exOpen === n;
+  return '<div class="crow">' +
+    '<button class="nm ren" data-act="exopen" data-v="' + esc(n) +
+    '" aria-expanded="' + (open ? "true" : "false") + '" title="' + esc(n) +
+    ' umbenennen oder Geräteeinstellung notieren">' +
+    '<i class="chv' + (open ? " up" : "") + '">' + svg("chev", 12) + '</i>' +
+    '<span>' + esc(n) + '</span></button>' +
+    '<select data-act="stepset" aria-label="Schrittweite für ' + esc(n) + '" data-v="' +
+    esc(n) + '">' +
+    STEP_CHOICES.map(function (o) {
+      return '<option value="' + o + '"' +
+        (Math.abs(o - m.step) < 0.001 ? " selected" : "") + '>' + num(o) + '</option>';
+    }).join("") + '</select>' +
+    '<button class="barb' + (m.bar ? " on" : "") + '" role="switch" aria-checked="' +
+    (m.bar ? "true" : "false") + '" aria-label="' + esc(n) +
+    ' an der Langhantel" data-act="barset" data-v="' + esc(n) + '">' +
+    svg("hantelh", 15) + '</button>' +
+    (removable(n)
+      ? '<button class="xdel" data-act="exdel" data-v="' + esc(n) +
+        '" aria-label="' + esc(n) + ' löschen">\u2715</button>'
+      : '<span></span>') +
+    '</div>' +
+    (open ? catRowBox(n, m, mrest) :
+      (m.note
         ? '<div class="cnote">' + svg("regler", 13) + '<span>' + esc(m.note) +
           '</span></div>'
         : "") +
       /* Eigene Zeile statt neben der Geräteeinstellung: die kann lang werden und
          würde die Pause sonst aus der Zeile drängen. */
-      (!open && mrest
+      (mrest
         ? '<div class="cnote">' + svg("uhr", 13) + '<span>Pause ' + mmss(mrest) +
           '</span></div>'
-        : "") +
-      (open
-        ? '<div class="exbox">' +
-          '<label for="ren-name">Name</label>' +
-          '<input class="name" id="ren-name" value="' + esc(n) + '" ' +
-          'autocomplete="off" autocapitalize="words" spellcheck="false">' +
-          '<p>' + (use.sets
-            ? plural(use.sets, "Satz", "Sätze")
-            : "Noch keine Sätze") +
-          (use.plans
-            ? " und " + plural(use.plans, "Plan", "Pläne") + " werden"
-            : ", kein Plan wird") +
-          ' mit umbenannt. Gibt es den neuen Namen schon, kommt vorher die Frage, ob ' +
-          'beide Übungen zusammengeführt werden sollen.</p>' +
-          '<div class="row"><button data-act="exopen" data-v="' + esc(n) +
-          '">Abbrechen</button>' +
-          '<button class="go" data-act="rendo" data-v="' + esc(n) +
-          '">Umbenennen</button></div>' +
-          '<label for="cnote-in">Geräteeinstellung</label>' +
-          '<input id="cnote-in" data-act="exnoteset" data-v="' + esc(n) + '" value="' +
-          esc(m.note) + '" placeholder="Sitz 4, Griff eng, Polster Loch 3">' +
-          '<label for="crest-in">Pause nach einem Arbeitssatz</label>' +
-          '<select id="crest-in" data-act="exrestset" aria-label="Pause für ' +
-          esc(n) + '" data-v="' + esc(n) + '">' +
-          '<option value="0"' + (mrest ? "" : " selected") +
-          '>Wie eingestellt, ' + mmss(restSetting()) + '</option>' +
-          /* Einen fremden Wert, etwa 100 s aus einem Backup, sortiert
-             restChoices() ein. Sonst zeigte das Feld "Wie eingestellt", während
-             die Übung mit ihrer eigenen Pause läuft. */
-          restChoices(mrest).map(function (o) {
-            return '<option value="' + o + '"' +
-              (mrest === o ? " selected" : "") + '>' + mmss(o) + '</option>';
-          }).join("") + '</select>' +
-          '</div>'
-        : "");
+        : ""));
+}
+function catRowBox(n, m, mrest) {
+  var use = exUsage(n);
+  return '<div class="exbox">' +
+    '<label for="ren-name">Name</label>' +
+    '<input class="name" id="ren-name" value="' + esc(n) + '" ' +
+    'autocomplete="off" autocapitalize="words" spellcheck="false">' +
+    '<p>' + (use.sets
+      ? plural(use.sets, "Satz", "Sätze")
+      : "Noch keine Sätze") +
+    (use.plans
+      ? " und " + plural(use.plans, "Plan", "Pläne") + " werden"
+      : ", kein Plan wird") +
+    ' mit umbenannt. Gibt es den neuen Namen schon, kommt vorher die Frage, ob ' +
+    'beide Übungen zusammengeführt werden sollen.</p>' +
+    '<div class="row"><button data-act="exopen" data-v="' + esc(n) +
+    '">Abbrechen</button>' +
+    '<button class="go" data-act="rendo" data-v="' + esc(n) +
+    '">Umbenennen</button></div>' +
+    '<label for="cnote-in">Geräteeinstellung</label>' +
+    '<input id="cnote-in" data-act="exnoteset" data-v="' + esc(n) + '" value="' +
+    esc(m.note) + '" placeholder="Sitz 4, Griff eng, Polster Loch 3">' +
+    '<label for="crest-in">Pause nach einem Arbeitssatz</label>' +
+    '<select id="crest-in" data-act="exrestset" aria-label="Pause für ' +
+    esc(n) + '" data-v="' + esc(n) + '">' +
+    '<option value="0"' + (mrest ? "" : " selected") +
+    '>Wie eingestellt, ' + mmss(restSetting()) + '</option>' +
+    /* Einen fremden Wert, etwa 100 s aus einem Backup, sortiert restChoices()
+       ein. Sonst zeigte das Feld "Wie eingestellt", während die Übung mit ihrer
+       eigenen Pause läuft. */
+    restChoices(mrest).map(function (o) {
+      return '<option value="' + o + '"' +
+        (mrest === o ? " selected" : "") + '>' + mmss(o) + '</option>';
+    }).join("") + '</select>' +
+    '</div>';
 }
 function removable(n) {
   if (customNames().indexOf(n) < 0) return false;
