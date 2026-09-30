@@ -5754,24 +5754,21 @@ function notifyBlock() {
       : "");
 }
 
-function muscleRows() {
-  var order = CATLIST.concat(["Sonstige"]);
+/* Alle Übungen nach Kategorie in der Reihenfolge des Wählers, je Gruppe nach
+   dem Alphabet, leere Gruppen fehlen. */
+function namesByCat() {
   var byCat = {};
+  var order = CATLIST.concat(["Sonstige"]);
   order.forEach(function (c) { byCat[c] = []; });
-  allNames().forEach(function (n) {
-    var c = catOf(n);
-    if (!byCat[c]) byCat[c] = [];
-    byCat[c].push(n);
+  allNames().forEach(function (n) { byCat[catOf(n)].push(n); });
+  return order.filter(function (c) { return byCat[c].length; }).map(function (c) {
+    return { cat:c, names:byCat[c].sort(function (a, b) { return a.localeCompare(b, "de"); }) };
   });
-  var h = "";
-  order.forEach(function (c) {
-    var items = byCat[c] || [];
-    if (!items.length) return;
-    items.sort(function (a, b) { return a.localeCompare(b, "de"); });
-    h += '<div class="mgroup">' + esc(c) + '</div>';
-    items.forEach(function (n) { h += muscleRow(n); });
-  });
-  return h;
+}
+function muscleRows() {
+  return namesByCat().map(function (g) {
+    return '<div class="mgroup">' + esc(g.cat) + '</div>' + g.names.map(muscleRow).join("");
+  }).join("");
 }
 /* Die feste Zuordnung hängt am Namen. Eigene und umbenannte Übungen haben keine
    und bekommen deshalb Auswahlfelder, siehe muscleOf(). */
@@ -5808,29 +5805,14 @@ function secFold(key, label) {
     '</span></button>';
 }
 function catRows() {
-  var order = CATLIST.concat(["Sonstige"]);
-  var byCat = {};
-  order.forEach(function (c) { byCat[c] = []; });
-  allNames().forEach(function (n) {
-    var c = catOf(n);
-    if (!byCat[c]) byCat[c] = [];
-    byCat[c].push(n);
-  });
-  var h = "";
-  order.forEach(function (c, ci) {
-    var items = byCat[c] || [];
-    if (!items.length) return;
-    items.sort(function (a, b) { return a.localeCompare(b, "de"); });
-    var closed = !!S.dataClosed[c];
-    h += '<button class="chead" data-act="datacat" data-v="' + esc(c) +
-      '" aria-expanded="' + (closed ? "false" : "true") + '"><span>' + esc(c) +
-      '</span><span class="cc">' + items.length + '</span>' +
+  return namesByCat().map(function (g) {
+    var closed = !!S.dataClosed[g.cat];
+    return '<button class="chead" data-act="datacat" data-v="' + esc(g.cat) +
+      '" aria-expanded="' + (closed ? "false" : "true") + '"><span>' + esc(g.cat) +
+      '</span><span class="cc">' + g.names.length + '</span>' +
       '<span class="chv' + (closed ? "" : " up") + '">' + svg("chev", 13) +
-      '</span></button>';
-    if (closed) return;
-    items.forEach(function (n) { h += catRow(n); });
-  });
-  return h;
+      '</span></button>' + (closed ? "" : g.names.map(catRow).join(""));
+  }).join("");
 }
 function catRow(n) {
     var m = exMeta(n);
