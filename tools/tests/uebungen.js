@@ -130,4 +130,10 @@ suite(async ({ open, check }) => {
   check("Rückgängig bringt Plan, Farbe, Ziel und Historie", await p.evaluate(() =>
     S.plans["Pull Day"].length === 8 && S.colors["Pull Day"] === "#123456" &&
     S.settings.weekGoals["Pull Day"] === 2 && S.settings.weekGoalLog["Pull Day"].length === 1));
+  check("Rückgängig bringt auch Ausblendung und Sperre", await p.evaluate(() =>
+    planHidden("Pull Day") && planLocked("Pull Day")));
+  await p.click('[data-act="delplan"][data-v="Push Day"]'); await p.waitForTimeout(150);
+  await p.click('[data-act="undo"]'); await p.waitForTimeout(150);
+  check("ein sichtbarer, offener Plan kommt sichtbar und offen zurück", await p.evaluate(() =>
+    !!S.plans["Push Day"] && !planHidden("Push Day") && !planLocked("Push Day")));
 });

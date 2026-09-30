@@ -898,7 +898,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.36.0";
+var APP_VERSION = "1.36.1";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -6887,6 +6887,8 @@ UNDO.plan = function (u) {
   if (u.color) S.colors[u.plan] = u.color;
   if (typeof u.goal === "number") S.settings.weekGoals[u.plan] = u.goal;
   if (Array.isArray(u.goalLog)) S.settings.weekGoalLog[u.plan] = u.goalLog;
+  if (u.hidden && !planHidden(u.plan)) S.settings.hiddenPlans.push(u.plan);
+  if (u.locked && !planLocked(u.plan)) S.settings.lockedPlans.push(u.plan);
 };
 UNDO.rename = function (u) {
   var back = {}, days = Object.create(null);
@@ -7199,6 +7201,7 @@ ACTIONS.delplan = function (v) {
       " Übungen wirklich löschen?")) return false;
   S.undo = { kind:"plan", plan:v, item:S.plans[v], color:S.colors[v],
     goal:S.settings.weekGoals[v], goalLog:S.settings.weekGoalLog[v],
+    hidden:planHidden(v), locked:planLocked(v),
     label:"Plan " + v + " gelöscht." };
   delete S.plans[v];
   delete S.colors[v];
