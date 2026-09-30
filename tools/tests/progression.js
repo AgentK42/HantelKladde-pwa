@@ -107,6 +107,7 @@ suite(async ({ open, check }) => {
   // 12. Wer selbst tippt, hat den Vorschlag überholt
   await run([{ w:65, r:[8,6] }, { w:65, r:[7,6] }]);
   await p.evaluate(() => { applySuggestion("Flys"); render(); });
+  check("vor dem Tippen steht der Vorschlag", await p.locator(".suggestion:not(.hint)").count() === 1);
   await p.fill("#in-weight", "60");
   check("Tippen nimmt den Vorschlag weg", await p.locator(".suggestion").count() === 0);
 
