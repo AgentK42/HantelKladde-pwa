@@ -3148,6 +3148,8 @@ function selectPlan(p) {
     applySuggestion(firstOpen.name);
   }
 }
+/* Ohne Plan steht die Planauswahl wieder aufgeklappt da. */
+function clearPlan() { S.plan = ""; S.plansFold = false; }
 /* Nur beim Start ohne gemerkte Sitzung, beim Datumswechsel und beim Zuweisen
    für den angezeigten Tag, nicht bei jedem Neuaufbau: wer den Plan abwählt,
    soll ihn nicht sofort wieder vorfinden. Ein ausgeblendeter Plan ist im
@@ -6509,7 +6511,7 @@ ACTIONS.focusfinish = function () {
 };
 ACTIONS.repwin = function (v, el) { shiftRepWin(parseInt(el.getAttribute("data-d"), 10)); };
 ACTIONS.plan = function (v) {
-  if (S.plan === v) { S.plan = ""; S.plansFold = false; }
+  if (S.plan === v) clearPlan();
   else selectPlan(v);
 };
 ACTIONS.planpick = function (v) {
@@ -7040,7 +7042,7 @@ ACTIONS.addplan = function () {
 ACTIONS.planvis = function (v) {
   if (!dropFrom(S.settings.hiddenPlans, v)) {
     S.settings.hiddenPlans.push(v);
-    if (S.plan === v) { S.plan = ""; S.plansFold = false; }
+    if (S.plan === v) clearPlan();
   }
   persist();
 };
@@ -7185,7 +7187,7 @@ ACTIONS.delplan = function (v) {
   delete S.settings.weekGoalLog[v];
   dropFrom(S.settings.hiddenPlans, v);
   dropFrom(S.settings.lockedPlans, v);
-  if (S.plan === v) { S.plan = ""; S.plansFold = false; }
+  if (S.plan === v) clearPlan();
   S.note = "";
   persist();
 };
@@ -7197,7 +7199,7 @@ ACTIONS.resetplans = function () {
   S.settings.lockedPlans = [];
   S.settings.weekGoals = {};
   S.settings.weekGoalLog = {};
-  S.plan = ""; S.plansFold = false;
+  clearPlan();
   S.undo = null;
   S.note = "Pläne auf den Ausgangsstand zurückgesetzt.";
   persist();
