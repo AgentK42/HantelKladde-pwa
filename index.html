@@ -1504,6 +1504,9 @@ function persistKey(key, value) {
 function storeKey(key, value) {
   try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
 }
+function dropKey(key) {
+  try { localStorage.removeItem(key); } catch (e) {}
+}
 /* Eigener Schlüssel, nicht im Backup: die Angabe gilt nur für den laufenden
    Tag, loadSuggestions() behält nur heute. */
 function saveSuggestions() { storeKey(SUGGEST_KEY, S.suggestionHandled); }
@@ -1530,7 +1533,7 @@ function restoreSession() {
   var d = readJson(SESSION_KEY, null);
   if (!d || typeof d !== "object" || Array.isArray(d)) return;
   if (typeof d.ts !== "number" || Date.now() - d.ts > SESSION_MAX_AGE) {
-    try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
+    dropKey(SESSION_KEY);
     return;
   }
   if (typeof d.day === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d.day)) S.date = d.day;
@@ -2325,11 +2328,9 @@ function wakeOff() {
   wakeLock = null;
   if (w) { try { w.release(); } catch (e) {} }
 }
-function saveRest() {
-  try {
-    localStorage.setItem(REST_KEY,
-      JSON.stringify({ end:S.restEnd, total:S.restTotal }));
-  } catch (e) {}
+function saveRest() { storeKey(REST_KEY, { end:S.restEnd, total:S.restTotal }); }
+function restTick() {
+  if (!restInterval) restInterval = setInterval(tickRest, 300);
 }
 function startRest(sec) {
   /* Hier läuft noch ein Tipp nach, deshalb ist das die Stelle, an der sich der
@@ -2340,7 +2341,7 @@ function startRest(sec) {
   restSignals = 0;
   restSignalAt = 0;
   saveRest();
-  if (!restInterval) restInterval = setInterval(tickRest, 300);
+  restTick();
   wakeOn();
   renderRest();
 }
@@ -2360,7 +2361,7 @@ function addRest(sec) {
   restSignals = over ? REST_SIGNAL_MAX : 0;
   restSignalAt = 0;
   saveRest();
-  if (!restInterval) restInterval = setInterval(tickRest, 300);
+  restTick();
   if (!over) wakeOn();
   renderRest();
 }
@@ -2368,7 +2369,7 @@ function stopRest() {
   S.restEnd = 0;
   vibeStop();
   clearRestNotification();
-  try { localStorage.removeItem(REST_KEY); } catch (e) {}
+  dropKey(REST_KEY);
   if (restInterval) { clearInterval(restInterval); restInterval = null; }
   wakeOff();
   renderRest();
@@ -2376,13 +2377,13 @@ function stopRest() {
 function restoreRest() {
   var r = readJson(REST_KEY, null);
   if (!r || !r.end) return;
-  if (r.end <= Date.now() - 120000) { try { localStorage.removeItem(REST_KEY); } catch (e) {} return; }
+  if (r.end <= Date.now() - 120000) { dropKey(REST_KEY); return; }
   S.restEnd = r.end;
   S.restTotal = r.total || S.settings.rest;
   /* War die Pause während der Abwesenheit schon vorbei, wird nicht nachträglich gepiepst */
   restSignals = r.end <= Date.now() ? REST_SIGNAL_MAX : 0;
   restSignalAt = 0;
-  if (!restInterval) restInterval = setInterval(tickRest, 300);
+  restTick();
   if (restSignals < REST_SIGNAL_MAX) wakeOn();
 }
 document.addEventListener("visibilitychange", function () {
