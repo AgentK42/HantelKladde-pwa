@@ -5074,48 +5074,8 @@ function recordBlock() {
     if (!byEx[e.exercise]) byEx[e.exercise] = [];
     byEx[e.exercise].push(e);
   });
-  var out = [];
-  Object.keys(byEx).forEach(function (n) {
-    var all = byEx[n].filter(function (e) { return e.date <= td; });
-    var before = all.filter(function (e) { return e.date < from; });
-    var inRange = all.filter(function (e) { return e.date >= from; });
-    if (!inRange.length) return;
-    var baseline = before, later = inRange;
-    if (!before.length) {
-      /* Ohne Vorgeschichte ist der erste Tag im Zeitraum der Ausgangswert:
-         gemeint ist eine Verbesserung, kein Rekord ohne Vorher-Wert. */
-      var firstDay = inRange.reduce(function (a, e) {
-        return (!a || e.date < a) ? e.date : a;
-      }, "");
-      baseline = inRange.filter(function (e) { return e.date === firstDay; });
-      later = inRange.filter(function (e) { return e.date > firstDay; });
-      if (!later.length) return;
-    }
-    var oldW = 0, oldE = 0, topW = null, topE = null;
-    baseline.forEach(function (e) {
-      if (e.weight > oldW) oldW = e.weight;
-      if (e1rm(e.weight, e.reps) > oldE) oldE = e1rm(e.weight, e.reps);
-    });
-    later.forEach(function (e) {
-      if (!topW || e.weight > topW.weight ||
-          (Math.abs(e.weight - topW.weight) < 0.001 && e.reps > topW.reps)) topW = e;
-      if (!topE || e1rm(e.weight, e.reps) > e1rm(topE.weight, topE.reps)) topE = e;
-    });
-    if (!topW) return;
-    if (topW.weight > oldW + 0.001) {
-      out.push({ name:n, date:topW.date,
-        fig: num(topW.weight) + " kg × " + topW.reps + " Reps",
-        gain: "+" + num(topW.weight - oldW) + " kg" });
-      return;
-    }
-    var e1 = e1rm(topE.weight, topE.reps);
-    if (e1 > oldE + 0.05) {
-      out.push({ name:n, date:topE.date,
-        fig: "~1RM " + num(e1) + " kg, aus " + num(topE.weight) + " kg × " +
-          topE.reps + " Reps",
-        gain: "+" + num(e1 - oldE) + " kg" });
-    }
-  });
+  var out = Object.keys(byEx).map(function (n) { return recordOf(n, byEx[n], from, td); })
+    .filter(function (r) { return r; });
   out.sort(function (a, b) { return a.date < b.date ? 1 : (a.date > b.date ? -1 : 0); });
   var h = '<div class="sect"><h2>Neue Rekorde</h2><span>' +
     (out.length ? out.length + " in " + range + " Tagen" : "keine") + '</span></div>';
@@ -5131,6 +5091,48 @@ function recordBlock() {
       '<span class="dt">' + tinyDate(r.date) + '</span></div>';
   });
   return h + '</div>';
+}
+
+/* Rekordzeile einer Übung im Zeitraum ab from, oder null. list sind ihre
+   Arbeitssätze. */
+function recordOf(n, list, from, td) {
+  var all = list.filter(function (e) { return e.date <= td; });
+  var before = all.filter(function (e) { return e.date < from; });
+  var inRange = all.filter(function (e) { return e.date >= from; });
+  if (!inRange.length) return null;
+  var baseline = before, later = inRange;
+  if (!before.length) {
+    /* Ohne Vorgeschichte ist der erste Tag im Zeitraum der Ausgangswert:
+       gemeint ist eine Verbesserung, kein Rekord ohne Vorher-Wert. */
+    var firstDay = inRange.reduce(function (a, e) {
+      return (!a || e.date < a) ? e.date : a;
+    }, "");
+    baseline = inRange.filter(function (e) { return e.date === firstDay; });
+    later = inRange.filter(function (e) { return e.date > firstDay; });
+    if (!later.length) return null;
+  }
+  var oldW = 0, oldE = 0, topW = null, topE = null;
+  baseline.forEach(function (e) {
+    if (e.weight > oldW) oldW = e.weight;
+    if (e1rm(e.weight, e.reps) > oldE) oldE = e1rm(e.weight, e.reps);
+  });
+  later.forEach(function (e) {
+    if (!topW || e.weight > topW.weight ||
+        (Math.abs(e.weight - topW.weight) < 0.001 && e.reps > topW.reps)) topW = e;
+    if (!topE || e1rm(e.weight, e.reps) > e1rm(topE.weight, topE.reps)) topE = e;
+  });
+  if (!topW) return null;
+  if (topW.weight > oldW + 0.001) {
+    return { name:n, date:topW.date,
+      fig: num(topW.weight) + " kg × " + topW.reps + " Reps",
+      gain: "+" + num(topW.weight - oldW) + " kg" };
+  }
+  var e1 = e1rm(topE.weight, topE.reps);
+  if (!(e1 > oldE + 0.05)) return null;
+  return { name:n, date:topE.date,
+    fig: "~1RM " + num(e1) + " kg, aus " + num(topE.weight) + " kg × " +
+      topE.reps + " Reps",
+    gain: "+" + num(e1 - oldE) + " kg" };
 }
 
 /* Gegenstück zu den Rekorden, nur für Übungen, die im gewählten Zeitraum
