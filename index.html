@@ -6225,52 +6225,59 @@ function cleanExmeta(src) {
   var out = {};
   Object.keys(src).forEach(function (rawName) {
     var name = cleanName(rawName, "Eine Übungseinstellung");
-    var x = src[rawName];
-    if (!plainObject(x)) importError("Übungsdaten für „" + name + "“ sind ungültig.");
-    var c = {};
-    if (x.step != null) {
-      if (!finiteNumber(x.step) || x.step <= 0) importError("Schrittweite für „" + name + "“ ist ungültig.");
-      c.step = x.step;
-    }
-    if (x.bar != null) {
-      if (typeof x.bar !== "boolean") importError("Langhantelwert für „" + name + "“ ist ungültig.");
-      c.bar = x.bar;
-    }
-    if (x.note != null) {
-      if (typeof x.note !== "string") importError("Geräteeinstellung für „" + name + "“ ist ungültig.");
-      c.note = x.note;
-    }
-    if (x.rest != null) {
-      /* Die Null ist erlaubt: sie ist der Weg zurück auf die Pause aus den
-         Einstellungen, siehe exMeta(). */
-      if (!finiteNumber(x.rest) || !Number.isInteger(x.rest) ||
-          x.rest < 0 || x.rest > 600 || (x.rest > 0 && x.rest < 15)) {
-        importError("Pause für „" + name + "“ ist ungültig.");
-      }
-      c.rest = x.rest;
-    }
-    [["sets", true], ["reps", true], ["weight", false]].forEach(function (f) {
-      var k = f[0], v = x[k];
-      if (v == null) return;
-      if (!finiteNumber(v) || v < (f[1] ? 1 : 0) || (f[1] && !Number.isInteger(v))) {
-        importError("Startwert „" + k + "“ für „" + name + "“ ist ungültig.");
-      }
-      c[k] = v;
-    });
-    var primary = x.musclePrimary == null ? "" : muscleAlias(x.musclePrimary);
-    var secondary = x.muscleSecondary == null ? "" : muscleAlias(x.muscleSecondary);
-    if (typeof primary !== "string" || (primary && MUSCLE_LIST.indexOf(primary) < 0)) {
-      importError("Primärmuskel für „" + name + "“ ist ungültig.");
-    }
-    if (typeof secondary !== "string" || (secondary && MUSCLE_LIST.indexOf(secondary) < 0)) {
-      importError("Sekundärmuskel für „" + name + "“ ist ungültig.");
-    }
-    if (primary) c.musclePrimary = primary;
-    if (secondary && primary && secondary !== primary) c.muscleSecondary = secondary;
-    else if (x.muscleSecondary != null) c.muscleSecondary = "";
-    out[name] = c;
+    out[name] = cleanExEntry(name, src[rawName]);
   });
   return out;
+}
+function cleanExEntry(name, x) {
+  if (!plainObject(x)) importError("Übungsdaten für „" + name + "“ sind ungültig.");
+  var c = {};
+  if (x.step != null) {
+    if (!finiteNumber(x.step) || x.step <= 0) importError("Schrittweite für „" + name + "“ ist ungültig.");
+    c.step = x.step;
+  }
+  if (x.bar != null) {
+    if (typeof x.bar !== "boolean") importError("Langhantelwert für „" + name + "“ ist ungültig.");
+    c.bar = x.bar;
+  }
+  if (x.note != null) {
+    if (typeof x.note !== "string") importError("Geräteeinstellung für „" + name + "“ ist ungültig.");
+    c.note = x.note;
+  }
+  if (x.rest != null) {
+    /* Die Null ist erlaubt: sie ist der Weg zurück auf die Pause aus den
+       Einstellungen, siehe exMeta(). */
+    if (!finiteNumber(x.rest) || !Number.isInteger(x.rest) ||
+        x.rest < 0 || x.rest > 600 || (x.rest > 0 && x.rest < 15)) {
+      importError("Pause für „" + name + "“ ist ungültig.");
+    }
+    c.rest = x.rest;
+  }
+  [["sets", true], ["reps", true], ["weight", false]].forEach(function (f) {
+    var k = f[0], v = x[k];
+    if (v == null) return;
+    if (!finiteNumber(v) || v < (f[1] ? 1 : 0) || (f[1] && !Number.isInteger(v))) {
+      importError("Startwert „" + k + "“ für „" + name + "“ ist ungültig.");
+    }
+    c[k] = v;
+  });
+  cleanExMuscles(name, x, c);
+  return c;
+}
+/* Ältere Gruppennamen gehen über muscleAlias() auf ihren Nachfolger. Sekundär
+   gleich Primär oder ohne Primär wird leer, siehe muscleOf(). */
+function cleanExMuscles(name, x, c) {
+  var primary = x.musclePrimary == null ? "" : muscleAlias(x.musclePrimary);
+  var secondary = x.muscleSecondary == null ? "" : muscleAlias(x.muscleSecondary);
+  if (typeof primary !== "string" || (primary && MUSCLE_LIST.indexOf(primary) < 0)) {
+    importError("Primärmuskel für „" + name + "“ ist ungültig.");
+  }
+  if (typeof secondary !== "string" || (secondary && MUSCLE_LIST.indexOf(secondary) < 0)) {
+    importError("Sekundärmuskel für „" + name + "“ ist ungültig.");
+  }
+  if (primary) c.musclePrimary = primary;
+  if (secondary && primary && secondary !== primary) c.muscleSecondary = secondary;
+  else if (x.muscleSecondary != null) c.muscleSecondary = "";
 }
 function cleanNotes(src) {
   if (!plainObject(src)) importError("Notizen sind kein gültiges Objekt.");
