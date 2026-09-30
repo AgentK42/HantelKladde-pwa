@@ -3854,80 +3854,103 @@ function editHero(ed) {
     '<button class="save" data-act="update">Änderung speichern</button>' +
     '<button class="ghost" data-act="canceledit">Abbrechen</button></div></div>';
 }
-function exerciseHero() {
-  var n = nextSet(), last = lastSession(S.exercise, S.date);
-  var tg = planTarget(S.exercise);
-  /* Bester Arbeitssatz der letzten früheren Einheit, nicht ihr letzter: ein
-     leichter Auslaufsatz soll die Zeile nicht verfälschen. */
-  var lastSet = last ? bestSet(last.sets) : null;
-  var doneN = doneSets(S.exercise, S.date), needN = targetSets(S.exercise);
-  /* Vorschlag und Plateau-Warnung nur beim heutigen Training, beim Nachtragen
-     oder Korrigieren älterer Tage lenken sie nur ab */
+/* Gemeinsam für exerciseHero() und focusHero(): beide zeigen dieselbe Übung aus
+   demselben Zustand, nur anders angeordnet. */
+function heroFacts() {
+  var last = lastSession(S.exercise, S.date);
   var isToday = S.date === todayISO();
-  var flat = isToday ? plateau(S.exercise) : 0;
   var curW = deci(S.weight) || 0;
   var wBase = S.warm && S.warmBase > 0 ? S.warmBase : curW;
-  var ramp = doneSets(S.exercise, S.date) ? [] : warmupPlan(S.exercise, wBase);
-  var split = isBar(S.exercise) ? plateSplit(curW) : null;
-  var heroRng = repRangeShown(S.exercise);
+  var doneN = doneSets(S.exercise, S.date);
+  return {
+    last:last,
+    /* Bester Arbeitssatz der letzten früheren Einheit, nicht ihr letzter: ein
+       leichter Auslaufsatz soll die Zeile nicht verfälschen. */
+    lastSet:last ? bestSet(last.sets) : null,
+    tg:planTarget(S.exercise),
+    doneN:doneN,
+    needN:targetSets(S.exercise),
+    /* Vorschlag und Plateau-Warnung nur beim heutigen Training, beim Nachtragen
+       oder Korrigieren älterer Tage lenken sie nur ab */
+    isToday:isToday,
+    flat:isToday ? plateau(S.exercise) : 0,
+    ramp:doneN ? [] : warmupPlan(S.exercise, wBase),
+    split:isBar(S.exercise) ? plateSplit(curW) : null,
+    rng:repRangeShown(S.exercise)
+  };
+}
+function heroHead(f) {
+  /* Immer needN Pillen, auch wenn mehr Sätze erfasst sind: einen Satz über dem
+     Ziel zeigt allein der Speichern-Knopf mit seiner Nummer. */
   var setBars = "";
-  for (var si = 0; si < needN; si++) {
-    setBars += '<i class="' + (si < doneN ? "done" : (si === doneN ? "cur" : "")) + '"></i>';
+  for (var si = 0; si < f.needN; si++) {
+    setBars += '<i class="' + (si < f.doneN ? "done" : (si === f.doneN ? "cur" : "")) + '"></i>';
   }
-
-  return logHead() + planProgress() +
-    '<div class="hero' + (S.warm ? " warm" : "") + '">' +
-    '<div class="hero-top">' +
+  var ls = f.lastSet;
+  return '<div class="hero-top">' +
     '<button class="hero-ex tap" data-act="pickopen" title="Andere Übung wählen">' +
-    '<span>' + esc(S.exercise) + '</span><i class="chev">' + svg("chev", 16) +
-    '</i></button>' +
+    '<span>' + esc(S.exercise) + '</span><i class="chev">' + svg("chev", 16) + '</i></button>' +
     '<div class="setprog"><div class="bars">' + setBars + '</div></div>' +
     '</div>' +
     '<div class="hero-meta">' +
     /* Bei doppelter Progression die Range statt der Zielzahl, sonst wäre der
        Vorschlag "+1 Rep" nicht nachvollziehbar. */
-    (tg ? "Ziel <b>" + needN + "x " +
-      (heroRng ? rangeText(heroRng) : tg.reps) + " Reps</b> mit <b>" +
-      num(tg.weight) + " kg</b><br>" : "") +
-    (lastSet ? "Letztes Top Set <b>" + lastSet.reps + "x " + num(lastSet.weight) + " kg</b> am " +
-      tinyDate(last.day) + (lastSet.rpe != null ? " bei RPE " + num(lastSet.rpe) : "") +
-      "" : "Erste Aufzeichnung für diese Übung") +
+    (f.tg ? "Ziel <b>" + f.needN + "x " +
+      (f.rng ? rangeText(f.rng) : f.tg.reps) + " Reps</b> mit <b>" +
+      num(f.tg.weight) + " kg</b><br>" : "") +
+    (ls ? "Letztes Top Set <b>" + ls.reps + "x " + num(ls.weight) + " kg</b> am " +
+      tinyDate(f.last.day) + (ls.rpe != null ? " bei RPE " + num(ls.rpe) : "")
+      : "Erste Aufzeichnung für diese Übung") +
     '</div>' +
-    (isToday ? suggestionBlock() : "") +
-    (isToday && flat ? '<div class="flag">Seit ' + flat + ' Wochen unverändert bei ' +
-      num(lastSet ? lastSet.weight : 0) + ' kg. Zeit für mehr Gewicht, mehr ' +
-      'Reps oder eine andere Übung.</div>' : "") +
+    (f.isToday ? suggestionBlock() : "") +
+    (f.isToday && f.flat ? '<div class="flag">Seit ' + f.flat + ' Wochen unverändert bei ' +
+      num(ls ? ls.weight : 0) + ' kg. Zeit für mehr Gewicht, mehr ' +
+      'Reps oder eine andere Übung.</div>' : "");
+}
+function platesLine(split) {
+  if (!split) return "";
+  return '<div class="plates">Stange ' + num(split.bar) + ' kg, pro Seite ' +
+    split.side.map(num).join(' + ') +
+    (split.rest > 0.001 ? '<b> und ' + num(split.rest) + ' kg fehlen</b>' : '') + '</div>';
+}
+function warmRow(ramp) {
+  if (!ramp.length) return "";
+  return '<div class="warmrow"><span>Warmup</span>' +
+    ramp.map(function (r, ri) {
+      /* Mit kg, sonst liest sich die Zahl neben der Wiederholungszahl wie ein
+         zweiter Faktor. */
+      return '<button data-act="warmpick" data-i="' + ri + '">' + num(r.weight) +
+        ' kg <s>&times;' + r.reps + '</s></button>';
+    }).join("") + '</div>';
+}
+function toastLine() { return S.toast ? '<div class="toast">' + S.toast + '</div>' : ""; }
+function saveSetButton() {
+  return '<button class="save' + (S.warm ? " warm" : "") + '" data-act="save">' +
+    (S.warm ? "Aufwärmsatz speichern" : "Satz " + nextSet() + " speichern") + ': ' +
+    esc(S.weight) + ' kg × ' + esc(S.reps) + '</button>';
+}
+function exerciseHero() {
+  var f = heroFacts();
+  var hasNext = planIndex() >= 0 && planIndex() < planItems().length - 1;
+  return logHead() + planProgress() +
+    '<div class="hero' + (S.warm ? " warm" : "") + '">' +
+    heroHead(f) +
     heroWeightDial(S.exercise) +
-    (split ? '<div class="plates">Stange ' + num(split.bar) + ' kg, pro Seite ' +
-      split.side.map(num).join(' + ') +
-      (split.rest > 0.001 ? '<b> und ' + num(split.rest) + ' kg fehlen</b>' : '') +
-      '</div>' : "") +
+    platesLine(f.split) +
     heroSteppers() +
-    (ramp.length
-      ? '<div class="warmrow"><span>Warmup</span>' +
-        ramp.map(function (r, ri) {
-          /* Mit kg, sonst liest sich die Zahl neben der Wiederholungszahl wie
-             ein zweiter Faktor. */
-          return '<button data-act="warmpick" data-i="' + ri + '">' + num(r.weight) +
-            ' kg <s>&times;' + r.reps + '</s></button>';
-        }).join("") + '</div>'
-      : "") +
+    warmRow(f.ramp) +
     exNoteBlock() +
     exHistBlock() +
     '</div>' +
     '<div class="savearea main">' +
-    (S.toast ? '<div class="toast">' + S.toast + '</div>' : "") +
-    '<button class="save' + (S.warm ? " warm" : "") + '" data-act="save">' +
-    (S.warm ? "Aufwärmsatz speichern" : "Satz " + n + " speichern") + ': ' +
-    esc(S.weight) + ' kg × ' + esc(S.reps) + '</button>' +
+    toastLine() + saveSetButton() +
     /* Hier nur der Rückweg aus einem Zustand, in den man geraten ist
        (Aufwärmen, letzte Planübung). Aufwärmen von Hand und Überspringen bietet
        nur der Fokus-Modus. */
-    (S.warm || !(planIndex() >= 0 && planIndex() < S.plans[S.plan].length - 1)
+    (S.warm || !hasNext
       ? '<div class="subacts">' +
         (S.warm ? '<button data-act="warmoff">Doch ein Arbeitssatz</button>' : "") +
-        (!(planIndex() >= 0 && planIndex() < S.plans[S.plan].length - 1)
-          ? '<button data-act="pickopen">Andere Übung</button>' : "") +
+        (!hasNext ? '<button data-act="pickopen">Andere Übung</button>' : "") +
         '</div>'
       : "") + '</div>' +
     planNav();
@@ -4135,65 +4158,20 @@ function viewFocus() {
   return h + focusHero() + '</div>' + focusFoot() + '</div>';
 }
 function focusHero() {
-  var last = lastSession(S.exercise, S.date);
-  var tg = planTarget(S.exercise);
-  /* Bester Arbeitssatz der letzten Einheit, nicht ihr letzter: ein leichter
-     Auslaufsatz soll die Zeile nicht verfälschen. */
-  var lastSet = last ? bestSet(last.sets) : null;
-  var doneN = doneSets(S.exercise, S.date), needN = targetSets(S.exercise);
-  var isToday = S.date === todayISO();
-  var flat = isToday ? plateau(S.exercise) : 0;
-  var curW = deci(S.weight) || 0;
-  var wBase = S.warm && S.warmBase > 0 ? S.warmBase : curW;
-  var ramp = doneSets(S.exercise, S.date) ? [] : warmupPlan(S.exercise, wBase);
-  var split = isBar(S.exercise) ? plateSplit(curW) : null;
+  var f = heroFacts();
   var showPlates = S.settings.focusPlates;
-  var fxRng = repRangeShown(S.exercise);
-
-  /* Immer needN Pillen, auch wenn mehr Sätze erfasst sind: einen Satz über dem
-     Ziel zeigt allein der Speichern-Knopf mit seiner Nummer. */
-  var setBars = "";
-  for (var si = 0; si < needN; si++) {
-    setBars += '<i class="' + (si < doneN ? "done" : (si === doneN ? "cur" : "")) + '"></i>';
-  }
-
-  return '<div class="hero-top">' +
-    '<button class="hero-ex tap" data-act="pickopen" title="Andere Übung wählen">' +
-    '<span>' + esc(S.exercise) + '</span><i class="chev">' + svg("chev", 16) + '</i></button>' +
-    '<div class="setprog"><div class="bars">' + setBars + '</div></div>' +
-    '</div>' +
-    '<div class="hero-meta">' +
-    (tg ? "Ziel <b>" + needN + "x " +
-      (fxRng ? rangeText(fxRng) : tg.reps) + " Reps</b> mit <b>" +
-      num(tg.weight) + " kg</b><br>" : "") +
-    (lastSet ? "Letztes Top Set <b>" + lastSet.reps + "x " + num(lastSet.weight) + " kg</b> am " +
-      tinyDate(last.day) + (lastSet.rpe != null ? " bei RPE " + num(lastSet.rpe) : "") +
-      "" : "Erste Aufzeichnung für diese Übung") +
-    '</div>' +
-    (isToday ? suggestionBlock() : "") +
-    (isToday && flat ? '<div class="flag">Seit ' + flat + ' Wochen unverändert bei ' +
-      num(lastSet ? lastSet.weight : 0) + ' kg. Zeit für mehr Gewicht, mehr ' +
-      'Reps oder eine andere Übung.</div>' : "") +
+  return heroHead(f) +
     exNoteBlock() +
     weightDial(S.exercise) +
-    (showPlates && split ? '<div class="plates">Stange ' + num(split.bar) + ' kg, pro Seite ' +
-      split.side.map(num).join(' + ') +
-      (split.rest > 0.001 ? '<b> und ' + num(split.rest) + ' kg fehlen</b>' : '') +
-      '</div>' : "") +
+    (showPlates ? platesLine(f.split) : "") +
     '<div class="fieldlab">REPS</div>' + focusRepPills() +
     (S.warm ? "" : '<div class="fieldlab">RPE</div>' + rpePills()) +
-    (showPlates && ramp.length
-      ? '<div class="warmrow"><span>Warmup</span>' +
-        ramp.map(function (r, ri) {
-          return '<button data-act="warmpick" data-i="' + ri + '">' + num(r.weight) +
-            ' kg <s>&times;' + r.reps + '</s></button>';
-        }).join("") + '</div>'
-      : "") +
+    (showPlates ? warmRow(f.ramp) : "") +
     /* Ganz unten, damit Gewicht und Reps oben stehen bleiben. */
     exHistBlock();
 }
 function focusFoot() {
-  var n = nextSet(), doneN = doneSets(S.exercise, S.date);
+  var doneN = doneSets(S.exercise, S.date);
   var done = doneN >= targetSets(S.exercise);
   /* Aufwärmen nur vor dem ersten Arbeitssatz, danach ergibt ein Aufwärmgewicht
      keinen Sinn mehr. */
@@ -4204,14 +4182,12 @@ function focusFoot() {
       : '<button data-act="pickopen">Andere Übung</button>';
   return '<div class="fx-foot">' +
     (S.focusEndConfirm ? endWarnBlock() :
-    (S.toast ? '<div class="toast">' + S.toast + '</div>' : "") +
+    toastLine() +
     (S.quickUndo && S.undo && S.undo.kind === "newset"
       ? '<button class="undoquick" data-act="undo">' + svg("zurueck", 15) +
         '<span>Letzten Satz löschen</span></button>'
       : "") +
-    '<button class="save' + (S.warm ? " warm" : "") + '" data-act="save">' +
-    (S.warm ? "Aufwärmsatz speichern" : "Satz " + n + " speichern") + ': ' +
-    esc(S.weight) + ' kg × ' + esc(S.reps) + '</button>' +
+    saveSetButton() +
     '<div class="subacts">' + leftBtn + focusRightButton(doneN, done) + '</div>') + '</div>';
 }
 function focusRightButton(doneN, done) {
