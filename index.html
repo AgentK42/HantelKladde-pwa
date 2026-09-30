@@ -3048,6 +3048,17 @@ function planStatusOnDay(name, iso) {
     completed:need > 0 && full >= need
   };
 }
+/* Rangfolge der Pläne eines Tages: eine gültige Planangabe vor der Ableitung,
+   dann abgeschlossen, dann mehr volle, mehr angefangene Übungen, dann mehr
+   markierte Sätze. Erst ein Unterschied im vorderen Schlüssel entscheidet. */
+var DAY_RANK = ["explicit", "completed", "full", "touched", "explicitSets"];
+function betterDayStatus(a, b) {
+  for (var i = 0; i < DAY_RANK.length; i++) {
+    var x = +a[DAY_RANK[i]], y = +b[DAY_RANK[i]];
+    if (x !== y) return x > y;
+  }
+  return false;
+}
 function dayPlan(iso) {
   var ex = {}, count = 0;
   entriesOn(iso).forEach(function (e) {
@@ -3060,16 +3071,7 @@ function dayPlan(iso) {
   Object.keys(S.plans).forEach(function (p) {
     var status = planStatusOnDay(p, iso);
     if (!status.explicit && !status.touched) return;
-    if (!best ||
-        (status.explicit && !best.explicit) ||
-        (status.explicit === best.explicit && status.completed && !best.completed) ||
-        (status.explicit === best.explicit && status.completed === best.completed &&
-          status.full > best.full) ||
-        (status.explicit === best.explicit && status.completed === best.completed &&
-          status.full === best.full && status.touched > best.touched) ||
-        (status.explicit === best.explicit && status.completed === best.completed &&
-          status.full === best.full && status.touched === best.touched &&
-          status.explicitSets > best.explicitSets)) best = status;
+    if (!best || betterDayStatus(status, best)) best = status;
   });
   /* done zählt nur Übungen des erkannten Plans (best.touched), fünf beliebige
      Bonus-Übungen machen noch keinen Plantag. need ist wie bei completed auf
@@ -3355,26 +3357,23 @@ function dayCell(d, td, act, sel, st) {
   } else if (d > td) {
     cls += " future";
   }
-  var dot = "";
-  if (dp && dp.planDone) {
-    cls += " has";
-    dot = ' style="background:' + planColor(dp.plan) + '"';
-  } else if (dp && dp.done) {
-    cls += " has";
-  } else if (planned) {
-    cls += " plan";
-    dot = ' style="border-color:' + planColor(planned) + '"';
-  } else if (dp) {
-    cls += " part";
-  }
+  var dot = dayDot(dp, planned);
+  cls += dot.cls;
   var tip = dp ? esc(dp.plan ? dp.plan : "Training") + ', ' + dp.total + ' Übungen' : "";
   if (planned && !(dp && dp.planDone)) tip += (tip ? ", " : "") + "geplant: " + esc(planned);
   var inner = '<span class="wd">' + wd + '</span><span class="dd">' + dt.getDate() +
-    '</span><span class="dot"' + dot + '></span>';
+    '</span><span class="dot"' + dot.style + '></span>';
   var title = tip ? ' title="' + tip + '"' : "";
   if (act === "ovrday" && d < td) return '<span class="' + cls + '"' + title + '>' + inner + '</span>';
   return '<button class="' + cls + '" data-act="' + act + '" data-v="' + d + '"' + title + '>' +
     inner + '</button>';
+}
+function dayDot(dp, planned) {
+  if (dp && dp.planDone) return { cls:" has", style:' style="background:' + planColor(dp.plan) + '"' };
+  if (dp && dp.done) return { cls:" has", style:"" };
+  if (planned) return { cls:" plan", style:' style="border-color:' + planColor(planned) + '"' };
+  if (dp) return { cls:" part", style:"" };
+  return { cls:"", style:"" };
 }
 function weekStrip() {
   var td = todayISO();
