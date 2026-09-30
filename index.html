@@ -6586,50 +6586,47 @@ ACTIONS.pickmultidone = function () {
 ACTIONS.pickcat = function (v) { S.pickCat = v; S.search = ""; };
 ACTIONS.pickmuscle = function (v) { S.pickMuscle = v; S.search = ""; };
 ACTIONS.pickgroupby = function (v) { S.pickGroupBy = v; S.search = ""; };
+/* Die jetzt eingestellten Werte gelten als Antwort auf den Vorschlag des Tages,
+   siehe applySuggestion(). */
+function markSuggestion() {
+  var rpe = deci(S.rpe);
+  S.suggestionHandled[S.date + "\n" + S.exercise] = {
+    reps:parseInt(S.reps, 10), weight:deci(S.weight), rpe:isNaN(rpe) ? null : rpe
+  };
+  saveSuggestions();
+  S.source = "";
+  repWinCenter = null;
+}
 ACTIONS.suggestaccept = function () {
-  var acceptTarget = planTarget(S.exercise);
-  var acceptWeight = deci(S.weight), acceptReps = parseInt(S.reps, 10);
-  if (acceptTarget) {
+  var target = planTarget(S.exercise);
+  var w = deci(S.weight), r = parseInt(S.reps, 10);
+  if (target) {
     /* Die Rep-Spanne bleibt um das bewusst gesetzte Planziel zentriert. Bei
        doppelter Progression wird deshalb nur das neue Gewicht übernommen, eine
        einzelne vorgeschlagene Wiederholung verschiebt die Spanne nicht. */
-    var hadRange = !!repRange(S.exercise, acceptTarget.weight);
-    if (isFinite(acceptWeight) && acceptWeight >= 0) acceptTarget.weight = acceptWeight;
-    if (!hadRange && acceptReps > 0) acceptTarget.reps = acceptReps;
+    var hadRange = !!repRange(S.exercise, target.weight);
+    if (isFinite(w) && w >= 0) target.weight = w;
+    if (!hadRange && r > 0) target.reps = r;
     persist();
   }
-  var acceptRpe = deci(S.rpe);
-  S.suggestionHandled[S.date + "\n" + S.exercise] = {
-    reps:acceptReps, weight:acceptWeight, rpe:isNaN(acceptRpe) ? null : acceptRpe
-  };
-  saveSuggestions();
-  S.source = "";
-  repWinCenter = null;
+  markSuggestion();
 };
 ACTIONS.suggestreject = function () {
-  var rejectTarget = planTarget(S.exercise);
+  var target = planTarget(S.exercise);
   var previous = lastSession(S.exercise, S.date);
-  var rejectGoalSets = rejectTarget && rejectTarget.sets > 0
-    ? rejectTarget.sets : (previous ? previous.sets.length : 1);
-  var previousBlock = mainWorkBlock(previous, rejectGoalSets,
-    rejectTarget ? rejectTarget.weight : NaN);
-  var previousSet = previousBlock ? previousBlock.last : null;
-  if (previousSet) {
-    S.reps = String(previousSet.reps);
-    S.weight = comma(previousSet.weight);
-    if (previousSet.rpe != null) S.rpe = comma(previousSet.rpe);
-  } else if (rejectTarget) {
-    S.reps = String(rejectTarget.reps);
-    S.weight = comma(rejectTarget.weight);
+  var goalSets = target && target.sets > 0
+    ? target.sets : (previous ? previous.sets.length : 1);
+  var block = mainWorkBlock(previous, goalSets, target ? target.weight : NaN);
+  var last = block ? block.last : null;
+  if (last) {
+    S.reps = String(last.reps);
+    S.weight = comma(last.weight);
+    if (last.rpe != null) S.rpe = comma(last.rpe);
+  } else if (target) {
+    S.reps = String(target.reps);
+    S.weight = comma(target.weight);
   }
-  var rejectWeight = deci(S.weight), rejectReps = parseInt(S.reps, 10);
-  var rejectRpe = deci(S.rpe);
-  S.suggestionHandled[S.date + "\n" + S.exercise] = {
-    reps:rejectReps, weight:rejectWeight, rpe:isNaN(rejectRpe) ? null : rejectRpe
-  };
-  saveSuggestions();
-  S.source = "";
-  repWinCenter = null;
+  markSuggestion();
 };
 ACTIONS.pillrep = function (v) { S.reps = v; S.source = ""; repWinCenter = null; };
 ACTIONS.pillrpe = function (v) { S.rpe = v; };
