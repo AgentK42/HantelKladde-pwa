@@ -898,7 +898,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.35.6";
+var APP_VERSION = "1.35.7";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -1478,8 +1478,8 @@ function repairNote() {
     ". Prüfe deine Daten und lege unter Daten ein frisches Backup an.";
 }
 function persist() {
-  /* Jede Änderung an den Sätzen läuft hier vorbei, deshalb verfallen hier
-     Tagesindex (entriesOn()) und gemerkte Backupgröße (backupSize()). */
+  /* Jede Änderung an den Sätzen läuft hier vorbei, deshalb verfällt hier der
+     Tagesindex (entriesOn()). */
   clearDayIndex();
   backupBytes = -1;
   try {
@@ -1496,14 +1496,19 @@ function persist() {
   } catch (e) { S.storeOk = false; }
 }
 /* Beim Tippen soll nicht jedes Zeichen den ganzen Datenbestand neu
-   serialisieren. */
+   serialisieren. Nur für Schlüssel, die ins Backup gehören. */
 function persistKey(key, value) {
   backupBytes = -1;
+  storeKey(key, value);
+}
+/* Sitzung, Entwurf, Vorschläge: nicht im Backup, deshalb bleibt die gemerkte
+   Größe. saveSession() schreibt bei jedem Reiterwechsel. */
+function storeKey(key, value) {
   try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
 }
 /* Eigener Schlüssel, nicht im Backup: die Angabe gilt nur für den laufenden
    Tag, loadSuggestions() behält nur heute. */
-function saveSuggestions() { persistKey(SUGGEST_KEY, S.suggestionHandled); }
+function saveSuggestions() { storeKey(SUGGEST_KEY, S.suggestionHandled); }
 
 /* Wo im Training man gerade steht, übersteht einen Neustart, denn auch das
    System räumt die App im Hintergrund weg oder ein Update lädt neu.
@@ -1521,7 +1526,7 @@ function saveSession() {
   if (json === lastSessionJson) return;
   lastSessionJson = json;
   d.ts = Date.now();
-  persistKey(SESSION_KEY, d);
+  storeKey(SESSION_KEY, d);
 }
 function restoreSession() {
   var d = readJson(SESSION_KEY, null);
@@ -2592,8 +2597,7 @@ function byteSize(n) {
 }
 /* Gerechnet statt geschätzt: der eingerückte Export ist deutlich größer als
    dieselben Daten im localStorage, und navigator.storage.estimate() zählt die
-   offline abgelegte App mit. Gemerkt und bei jedem Schreiben verworfen, in
-   persist() wie in persistKey(), weil der Daten-Reiter bei jedem Tipp neu
+   offline abgelegte App mit. Gemerkt, weil der Daten-Reiter bei jedem Tipp neu
    aufgebaut wird und das Backup über Jahre einige Megabyte groß wird. */
 var backupBytes = -1;
 function backupSize() {
@@ -4587,7 +4591,7 @@ function draftChanged(mon) {
     return (e.on ? e.times : 0) !== weekGoal(p);
   });
 }
-function saveDraft() { persistKey(DRAFT_KEY, S.draft); }
+function saveDraft() { storeKey(DRAFT_KEY, S.draft); }
 /* Was nicht passt, fällt still weg: der Entwurf ist kein Datenbestand, ohne
    Eintrag gelten die Wochenziele. */
 function readDraftInto(dst, src) {
