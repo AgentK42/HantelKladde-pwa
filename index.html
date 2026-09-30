@@ -1553,30 +1553,19 @@ function restoreSession() {
   ["reps", "weight", "rpe"].forEach(function (k) {
     if (typeof d[k] === "string" && d[k].length <= 8) S[k] = d[k];
   });
-  if (d.warm && S.exercise) {
-    S.warm = true;
-    S.warmBase = typeof d.warmBase === "number" ? d.warmBase : 0;
-    S.warmReps = typeof d.warmReps === "string" ? d.warmReps : "";
-    S.warmRpe = typeof d.warmRpe === "string" ? d.warmRpe : "";
-  }
+  if (d.warm && S.exercise) restoreWarm(d);
   /* Ohne Plan ließe sich der Fokus-Modus gar nicht starten, und sein Abschluss
      fragte nach offenen Übungen eines Plans, den es nicht mehr gibt. */
   if (d.focus && !startFromUrl && planItems().length) {
     S.focus = true;
-    /* Ohne History-Eintrag schlösse die Zurück-Geste die App, siehe navOpen().
-       Trägt der Eintrag nach dem Neuladen schon ein hk, wird nicht erneut
-       gepusht, sonst bräuchte es zwei Gesten für eine Ebene; der Stapel wird
-       nur auf diese Tiefe gebracht. Die Ebenen darunter sind unbekannt und
-       bleiben namenlos, navCloseTop() nimmt sie kommentarlos ab. */
-    var hk = navDepth();
-    if (hk > 0) {
-      navStack.length = 0;
-      while (navStack.length < hk - 1) navStack.push("");
-      navStack.push("focus");
-    } else {
-      navOpen("focus");
-    }
+    navResume("focus");
   }
+}
+function restoreWarm(d) {
+  S.warm = true;
+  S.warmBase = typeof d.warmBase === "number" ? d.warmBase : 0;
+  S.warmReps = typeof d.warmReps === "string" ? d.warmReps : "";
+  S.warmRpe = typeof d.warmRpe === "string" ? d.warmRpe : "";
 }
 function loadSuggestions() {
   var raw = readJson(SUGGEST_KEY, null);
@@ -2200,7 +2189,7 @@ function backToWork() {
 }
 /* Merkt sich den Arbeitssatz, zu dem backToWork() zurückkehrt. Die vier Felder
    gehören zusammen und werden nur hier, in clearWarm() und beim Neustart in
-   restoreSession() geschrieben. */
+   restoreWarm() geschrieben. */
 function enterWarm(base) {
   if (S.warm) return;
   S.warmBase = base;
@@ -2629,6 +2618,18 @@ function navDepth() {
 function navOpen(name) {
   if (navStack[navStack.length - 1] === name) return;
   try { history.pushState({ hk:navStack.length + 1 }, ""); } catch (e) { return; }
+  navStack.push(name);
+}
+/* Eine Ebene nach dem Neuladen wieder anlegen. Ohne History-Eintrag schlösse die
+   Zurück-Geste die App. Trägt der Eintrag nach dem Neuladen schon ein hk, wird
+   nicht erneut gepusht, sonst bräuchte es zwei Gesten für eine Ebene; der
+   Stapel wird nur auf diese Tiefe gebracht. Die Ebenen darunter sind unbekannt
+   und bleiben namenlos, navCloseTop() nimmt sie kommentarlos ab. */
+function navResume(name) {
+  var hk = navDepth();
+  if (!(hk > 0)) { navOpen(name); return; }
+  navStack.length = 0;
+  while (navStack.length < hk - 1) navStack.push("");
   navStack.push(name);
 }
 /* Ebene ersetzen, ohne die Tiefe zu ändern: aus der Zusammenfassung soll zurück
