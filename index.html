@@ -1675,6 +1675,7 @@ function warmRest(name) { return Math.min(WARM_REST, exRest(name)); }
 /* Standards für eine Übung ohne früheres Training und für einen Planeintrag
    ohne eigene Satzzahl, einstellbar unter Pläne. */
 function defaultSets() { return S.settings.defSets > 0 ? S.settings.defSets : DEFAULT_SETS; }
+function itemSets(i) { return i.sets > 0 ? i.sets : defaultSets(); }
 function defaultReps() { return S.settings.defReps > 0 ? S.settings.defReps : 10; }
 function defaultWeight() { return S.settings.defWeight >= 0 ? S.settings.defWeight : 20; }
 /* note ist die Einstellung am Gerät, etwa Sitzhöhe oder Griffweite. Sie hängt
@@ -2273,8 +2274,7 @@ function planIndex() {
 function nextPlanOpen() {
   var list = planItems();
   for (var i = 0; i < list.length; i++) {
-    var need = list[i].sets > 0 ? list[i].sets : defaultSets();
-    if (doneSets(list[i].name, S.date) < need) return list[i];
+    if (doneSets(list[i].name, S.date) < itemSets(list[i])) return list[i];
   }
   return null;
 }
@@ -2283,8 +2283,7 @@ function planAllDone() {
 }
 function openPlanCount() {
   return planItems().filter(function (i) {
-    var need = i.sets > 0 ? i.sets : defaultSets();
-    return doneSets(i.name, S.date) < need;
+    return doneSets(i.name, S.date) < itemSets(i);
   }).length;
 }
 function backupDue() {
@@ -3037,7 +3036,7 @@ function planStatusOnDay(name, iso) {
   });
   var touched = list.filter(function (i) { return counts[i.name] > 0; }).length;
   var full = list.filter(function (i) {
-    return counts[i.name] >= (i.sets > 0 ? i.sets : defaultSets());
+    return counts[i.name] >= itemSets(i);
   }).length;
   var need = Math.min(MIN_DONE, list.length);
   return {
@@ -3451,7 +3450,7 @@ function planProgress() {
   if (!planItems().length) return "";
   var h = '<div class="prog">';
   planItems().forEach(function (i) {
-    var need = i.sets > 0 ? i.sets : defaultSets();
+    var need = itemSets(i);
     var c = doneSets(i.name, S.date);
     var cls = [];
     if (c >= need) cls.push("done");
@@ -3946,10 +3945,7 @@ function blankHero() {
 function planListBlock() {
   var h = "";
   if (S.plan && S.plans[S.plan]) {
-    var items = S.plans[S.plan];
-    var offen = items.filter(function (i) {
-      return doneSets(i.name, S.date) < (i.sets > 0 ? i.sets : defaultSets());
-    }).length;
+    var items = S.plans[S.plan], offen = openPlanCount();
     h += '<button class="planhead" data-act="planlist"><b>' + esc(S.plan) + '</b><span>' +
       (offen ? offen + " von " + items.length + " offen" : "alle Zielsätze erledigt") +
       '</span><i class="chev' + (S.planOpen ? " up" : "") + '">' + svg("chev", 15) +
@@ -3957,7 +3953,7 @@ function planListBlock() {
     if (S.planOpen) {
       h += '<div class="plan">';
       items.forEach(function (i) {
-        var need = i.sets > 0 ? i.sets : defaultSets();
+        var need = itemSets(i);
         var c = doneSets(i.name, S.date);
         var full = c >= need;
         h += '<button class="' + (full ? "done " : c ? "part " : "") +
@@ -4295,7 +4291,7 @@ function muscleTally(sources) {
     sc.items.forEach(function (i) {
       var mo = muscleOf(i.name);
       if (!mo) { if (unassigned.indexOf(i.name) < 0) unassigned.push(i.name); return; }
-      var n = (i.sets > 0 ? i.sets : defaultSets()) * sc.times;
+      var n = itemSets(i) * sc.times;
       by[mo.primary].total += n;
       by[mo.primary].src[sc.key] = (by[mo.primary].src[sc.key] || 0) + n;
       mo.secondary.forEach(function (sm) {
@@ -4497,7 +4493,7 @@ function viewPlans() {
           : '<button class="handle" data-act="phandle" data-p="' + esc(p) + '" data-i="' + idx +
             '" aria-label="Position ändern">\u2261</button>') +
         '<span class="nm" title="' + esc(i.name) + '">' + esc(i.name) + '</span>' +
-        '<input inputmode="numeric" value="' + (i.sets > 0 ? i.sets : defaultSets()) +
+        '<input inputmode="numeric" value="' + itemSets(i) +
         '" data-act="pedit" data-p="' + esc(p) + '" data-i="' + idx + '" data-f="sets">' +
         '<input inputmode="numeric" value="' + i.reps + '" data-act="pedit" data-p="' +
         esc(p) + '" data-i="' + idx + '" data-f="reps">' +
