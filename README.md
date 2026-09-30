@@ -780,13 +780,13 @@ README benannt: `pause`, `aufwaermen`, `rekorde`, `planung`, `wochen-trennen`,
 `wochenstreifen`, `vorwahl`, `plan-kopie`, `volumen`, `einstellungen`,
 `eingaben`, `farbschema`, `uebungsverlauf`, dazu seit 1.36.0 `import` (Backup
 laden ergänzt, überschreibt nicht), `reparatur` (beschädigter Speicher beim
-Start) und `uebungen` (anlegen, umbenennen, löschen, Rückgängig). Jede Suite
-fährt in Chromium einen Ablauf gegen die echte `index.html` und prüft Zustand,
-Speicher und Oberfläche: dass ein Aufwärmsatz ohne RPE gespeichert wird, dass
-ein Import eine Pause von 100 s im Auswahlfeld zeigt, dass die Suche nach dem
-Neuaufbau den Fokus behält. Die Prüfungen beschreiben das Verhalten, nicht den
-Aufbau des Codes, damit ein Umbau sie nicht bricht, solange die App sich gleich
-verhält.
+Start), `uebungen` (anlegen, umbenennen, löschen, Rückgängig) und seit 1.36.5
+`texte` (Einzahl und Mehrzahl, keine Gedankenstriche). Jede Suite fährt in
+Chromium einen Ablauf gegen die echte `index.html` und prüft Zustand, Speicher
+und Oberfläche: dass ein Aufwärmsatz ohne RPE gespeichert wird, dass ein Import
+eine Pause von 100 s im Auswahlfeld zeigt, dass die Suche nach dem Neuaufbau den
+Fokus behält. Die Prüfungen beschreiben das Verhalten, nicht den Aufbau des
+Codes, damit ein Umbau sie nicht bricht, solange die App sich gleich verhält.
 
 ```
 tools/test-app.sh                    # alle Suiten
