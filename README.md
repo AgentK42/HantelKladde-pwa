@@ -502,7 +502,8 @@ Gegenspieler-Paar wird rot, sobald eine Seite mindestens anderthalb mal so viele
 Sätze hat wie die andere oder ganz leer ausgeht (`DRAFT_PAIR_RATIO`).
 
 Die einzelnen Übungen tragen im Balken ein Lavendel (`--extra`), das in keinem
-Farbschema einer Planfarbe gleicht. Bis 1.35.3 war es im hellen Schema das Türkis
+Farbschema einer Farbe der Palette gleicht; eine selbst gewählte Planfarbe kann
+ihm nahekommen. Bis 1.35.3 war es im hellen Schema das Türkis
 der sechsten Palettenfarbe, und ein Plan in dieser Farbe verschmolz mit ihnen zu
 einem Abschnitt. Die Volumenbalken im Verlauf behalten das Türkis (`--vol`),
 dort steht keine Planfarbe daneben. Gewählt ist der Ton nach dem Farbabstand zu
