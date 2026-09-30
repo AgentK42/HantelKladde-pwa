@@ -4955,12 +4955,9 @@ function volumeBlock() {
   var td = todayISO();
   var aFrom = shiftISO(td, -(range - 1));
   var a = volByMuscle(aFrom, td);
-  var bFrom, bTo, b;
-  if (compare) {
-    bTo = shiftISO(aFrom, -1);
-    bFrom = shiftISO(bTo, -(range - 1));
-    b = volByMuscle(bFrom, bTo);
-  }
+  var bTo = compare ? shiftISO(aFrom, -1) : "";
+  var bFrom = compare ? shiftISO(bTo, -(range - 1)) : "";
+  var b = compare ? volByMuscle(bFrom, bTo) : null;
   var cats = MUSCLE_LIST.filter(function (c) {
     return a[c].sets || (compare && b[c].sets);
   });
@@ -4974,98 +4971,95 @@ function volumeBlock() {
     return h + '<p class="notice">Noch keine Übung in diesem Zeitraum lässt sich einer ' +
       'Muskelgruppe zuordnen.</p>';
   }
-  var totA = volTotals(aFrom, td);
-  var totB = compare ? volTotals(bFrom, bTo) : null;
+  return h + '<div class="card">' +
+    volSummary(volTotals(aFrom, td), compare ? volTotals(bFrom, bTo) : null) +
+    imbalanceFlags(a, range) +
+    (range === 30 ? volWeekCols(cats, td) : volBars(cats, a, b, range)) +
+    volUnmappedNote(aFrom, td) + '</div>';
+}
+/* totB fehlt bei 90 Tagen, dort gibt es keinen Vergleich. */
+function volSummary(totA, totB) {
   var dl = totA.days;
   var mins = dl.reduce(function (acc, d) { return acc + dayMinutes(d); }, 0);
-  h += '<div class="card"><p>' + plural(dl.length, "Training", "Trainings") + ", " +
+  return '<p>' + plural(dl.length, "Training", "Trainings") + ", " +
     num(Math.round(totA.vol)) + ' kg Gesamtlast aus ' +
     plural(totA.sets, "Arbeitssatz", "Arbeitssätzen") +
     (mins ? ', ' + mins + ' Minuten' : '') + '.' +
-    (compare
+    (totB
       ? '<br>Vorheriger Zeitraum ' + num(Math.round(totB.vol)) + ' kg' +
         (totB.vol > 0 ? ', das sind ' + (totA.vol >= totB.vol ? "+" : "") +
           Math.round((totA.vol - totB.vol) / totB.vol * 100) + ' Prozent' : '') + '.'
-      : '') + '</p>' +
-    imbalanceFlags(a, range);
-  if (range === 30) {
-    var weeks = [];
-    for (var w = 0; w < 4; w++) {
-      var wTo = shiftISO(td, -(3 - w) * 7);
-      weeks.push(volByMuscle(shiftISO(wTo, -6), wTo));
-    }
-    h += '<div class="wk">';
-    cats.forEach(function (c) {
-      var vals = weeks.map(function (wd) { return wd[c].sets; });
-      var maxW = Math.max.apply(null, vals) || 1;
-      h += '<div class="wkrow"><span class="vn">' + esc(c) + '</span><div class="wkcols">' +
-        vals.map(function (v, i) {
-          var isCur = i === 3;
-          var barH = Math.max(isCur ? 16 : 3, Math.round(v / maxW * 34));
-          return '<div class="wkcol"><i style="height:' + barH + 'px">' +
-            (isCur ? '<span class="wkval">' + fmtCount(v) + '</span>' : '') + '</i></div>';
-        }).join("") + '</div></div>';
-    });
-    h += '</div><div class="legend"><span><i class="wkpast"></i>frühere Wochen</span>' +
-      '<span><i class="wkcur"></i>aktuelle Woche</span></div>';
-  } else {
-    h += '<div class="vol">';
-    var maxAbs = 1;
-    if (!compare) {
-      cats.forEach(function (c) {
-        if (a[c].sets > maxAbs) maxAbs = a[c].sets;
-      });
-    }
-    cats.forEach(function (c) {
-      var aVal = a[c].sets;
-      var barHtml;
-      if (compare) {
-        var bVal = b[c].sets;
-        /* Mindestbasis wie bei imbalanceFlag(): unter minDiff Sätzen machte ein
-           Sprung wie 1 auf 3 Sätze, plus 200 Prozent, die kleinste Gruppe zur
-           auffälligsten. */
-        var hiSets = Math.max(aVal, bVal);
-        var minDiff = (IMBALANCE_THRESH[range] || IMBALANCE_THRESH[30]).minDiff;
-        if (bVal < 0.05) {
-          barHtml = '<span class="vb2"><span class="bar"><i class="mid"></i></span>' +
-            '<span class="pct isnew">neu</span></span>';
-        } else if (hiSets < minDiff) {
-          barHtml = '<span class="vb2"><span class="bar"><i class="mid"></i></span>' +
-            '<span class="pct">zu wenig</span></span>';
-        } else {
-          var pct = Math.round((aVal - bVal) / bVal * 100);
-          var clamped = Math.max(-100, Math.min(100, pct));
-          var cls = pct > 0 ? "pos" : (pct < 0 ? "neg" : "");
-          var fill = pct === 0 ? "" :
-            (pct > 0
-              ? '<i class="pos" style="width:' + (clamped / 2) + '%"></i>'
-              : '<i class="neg" style="width:' + (Math.abs(clamped) / 2) + '%"></i>');
-          barHtml = '<span class="vb2"><span class="bar"><i class="mid"></i>' + fill +
-            '</span><span class="pct ' + cls + '">' + (pct > 0 ? "+" : "") + pct +
-            ' %</span></span>';
-        }
-      } else {
-        var pctAbs = Math.round(aVal / maxAbs * 100);
-        barHtml = '<span class="vb"><i class="abs" style="width:' + pctAbs + '%"></i></span>';
-      }
-      h += '<div class="volrow"><span class="vn">' + esc(c) + '</span>' + barHtml +
-        '<span class="vv">' + setCount(aVal) + '</span></div>';
-    });
-    h += '</div>';
-    if (compare) {
-      h += '<div class="legend"><span><i class="pos"></i>mehr als im Zeitraum davor</span>' +
-        '<span><i class="neg"></i>weniger</span></div>';
-    }
+      : '') + '</p>';
+}
+function volWeekCols(cats, td) {
+  var weeks = [];
+  for (var w = 0; w < 4; w++) {
+    var wTo = shiftISO(td, -(3 - w) * 7);
+    weeks.push(volByMuscle(shiftISO(wTo, -6), wTo));
   }
-  var unmapped = volUnmapped(aFrom, td);
-  if (unmapped.sets > 0) {
-    h += '<p class="notice">' + setCount(unmapped.sets) + ' aus ' +
-      plural(unmapped.exCount, "Übung", "Übungen") + ' ohne Muskelzuordnung' +
-      ' stecken in der Summe oben, erscheinen aber in keiner Balkengruppe.' +
-      ' <button class="linklike" data-act="tab" data-v="daten">Zu den Übungen</button></p>';
+  return '<div class="wk">' + cats.map(function (c) {
+    var vals = weeks.map(function (wd) { return wd[c].sets; });
+    var maxW = Math.max.apply(null, vals) || 1;
+    return '<div class="wkrow"><span class="vn">' + esc(c) + '</span><div class="wkcols">' +
+      vals.map(function (v, i) {
+        var isCur = i === 3;
+        var barH = Math.max(isCur ? 16 : 3, Math.round(v / maxW * 34));
+        return '<div class="wkcol"><i style="height:' + barH + 'px">' +
+          (isCur ? '<span class="wkval">' + fmtCount(v) + '</span>' : '') + '</i></div>';
+      }).join("") + '</div></div>';
+  }).join("") + '</div><div class="legend"><span><i class="wkpast"></i>frühere Wochen</span>' +
+    '<span><i class="wkcur"></i>aktuelle Woche</span></div>';
+}
+/* Mit b der Vergleich mit dem Zeitraum davor, ohne ein Anteilsbalken. */
+function volBars(cats, a, b, range) {
+  var maxAbs = 1;
+  if (!b) {
+    cats.forEach(function (c) {
+      if (a[c].sets > maxAbs) maxAbs = a[c].sets;
+    });
   }
-  h += '</div>';
-  return h;
+  return '<div class="vol">' + cats.map(function (c) {
+    var aVal = a[c].sets;
+    var bar = b ? volCompareBar(aVal, b[c].sets, range)
+      : '<span class="vb"><i class="abs" style="width:' + Math.round(aVal / maxAbs * 100) +
+        '%"></i></span>';
+    return '<div class="volrow"><span class="vn">' + esc(c) + '</span>' + bar +
+      '<span class="vv">' + setCount(aVal) + '</span></div>';
+  }).join("") + '</div>' +
+    (b ? '<div class="legend"><span><i class="pos"></i>mehr als im Zeitraum davor</span>' +
+      '<span><i class="neg"></i>weniger</span></div>' : "");
+}
+function volCompareBar(aVal, bVal, range) {
+  /* Mindestbasis wie bei imbalanceFlag(): unter minDiff Sätzen machte ein
+     Sprung wie 1 auf 3 Sätze, plus 200 Prozent, die kleinste Gruppe zur
+     auffälligsten. */
+  var hiSets = Math.max(aVal, bVal);
+  var minDiff = (IMBALANCE_THRESH[range] || IMBALANCE_THRESH[30]).minDiff;
+  if (bVal < 0.05) {
+    return '<span class="vb2"><span class="bar"><i class="mid"></i></span>' +
+      '<span class="pct isnew">neu</span></span>';
+  }
+  if (hiSets < minDiff) {
+    return '<span class="vb2"><span class="bar"><i class="mid"></i></span>' +
+      '<span class="pct">zu wenig</span></span>';
+  }
+  var pct = Math.round((aVal - bVal) / bVal * 100);
+  var clamped = Math.max(-100, Math.min(100, pct));
+  var cls = pct > 0 ? "pos" : (pct < 0 ? "neg" : "");
+  var fill = pct === 0 ? "" :
+    (pct > 0
+      ? '<i class="pos" style="width:' + (clamped / 2) + '%"></i>'
+      : '<i class="neg" style="width:' + (Math.abs(clamped) / 2) + '%"></i>');
+  return '<span class="vb2"><span class="bar"><i class="mid"></i>' + fill +
+    '</span><span class="pct ' + cls + '">' + (pct > 0 ? "+" : "") + pct + ' %</span></span>';
+}
+function volUnmappedNote(from, to) {
+  var unmapped = volUnmapped(from, to);
+  if (!(unmapped.sets > 0)) return "";
+  return '<p class="notice">' + setCount(unmapped.sets) + ' aus ' +
+    plural(unmapped.exCount, "Übung", "Übungen") + ' ohne Muskelzuordnung' +
+    ' stecken in der Summe oben, erscheinen aber in keiner Balkengruppe.' +
+    ' <button class="linklike" data-act="tab" data-v="daten">Zu den Übungen</button></p>';
 }
 
 /* Verglichen wird der beste Wert im Zeitraum mit dem besten davor. Je Übung
