@@ -6477,12 +6477,12 @@ ACTIONS.planfoldall = function () { S.planCardsFold = !S.planCardsFold; };
 ACTIONS.focuson = function () {
   S.editId = ""; S.pickOpen = false;
   /* Ohne passende Übung dieselbe Wahl wie in selectPlan(). */
-  var flist = planItems();
-  if (!S.exercise || !flist.some(function (i) { return i.name === S.exercise; })) {
-    var fopen = firstOpenItem(flist);
-    if (fopen) {
-      S.exercise = fopen.name;
-      applySuggestion(fopen.name);
+  var list = planItems();
+  if (!S.exercise || !list.some(function (i) { return i.name === S.exercise; })) {
+    var first = firstOpenItem(list);
+    if (first) {
+      S.exercise = first.name;
+      applySuggestion(first.name);
     }
   }
   repWinCenter = null;
@@ -6496,9 +6496,9 @@ ACTIONS.focusfinish = function () {
   S.focusEndConfirm = false;
   /* Wie ACTIONS.finish: Pause immer stoppen, die Zusammenfassung aber erst
      zeigen, wenn das verlangte Backup erstellt wurde. */
-  var focusSaved = saveBackup();
+  var saved = saveBackup();
   stopRest();
-  if (focusSaved) {
+  if (saved) {
     clearQuickUndo();
     S.summaryData = trainingSummary(S.date);
     S.showSummary = true;
@@ -6694,8 +6694,8 @@ ACTIONS.exhist = function () {
 };
 ACTIONS.exopen = function (v) { S.exOpen = (S.exOpen === v ? "" : v); };
 ACTIONS.rendo = function (v) {
-  var rin = document.getElementById("ren-name");
-  var to = rin ? rin.value.trim() : "";
+  var inp = document.getElementById("ren-name");
+  var to = inp ? inp.value.trim() : "";
   if (!to) { S.note = "Der neue Name darf nicht leer sein."; render(); return false; }
   if (to === v) { S.exOpen = ""; render(); return false; }
   var merge = allNames().indexOf(to) >= 0;
@@ -6762,15 +6762,15 @@ ACTIONS.save = function () {
   var id = Date.now() + "-" + Math.random().toString(36).slice(2,7);
   /* Aufwärmsätze tragen keinen RPE: sie sind bewusst leicht, eine
      Anstrengungsangabe sagt dort nichts. */
-  var rec0 = { id:id, date:S.date, exercise:S.exercise, set:nextSet(), weight:w,
+  var rec = { id:id, date:S.date, exercise:S.exercise, set:nextSet(), weight:w,
     reps:r, rpe:(wasWarm || isNaN(p)) ? null : p, ts:Date.now() };
-  if (wasWarm) rec0.warm = true;
-  else if (S.plan && S.plans[S.plan]) rec0.plan = S.plan;
-  S.entries.push(rec0);
+  if (wasWarm) rec.warm = true;
+  else if (S.plan && S.plans[S.plan]) rec.plan = S.plan;
+  S.entries.push(rec);
   S.freshId = id; S.note = "";
   if (S.focus) {
-    S.undo = { kind:"newset", item:rec0,
-      label:"Satz " + rec0.set + " bei " + rec0.exercise + " gespeichert." };
+    S.undo = { kind:"newset", item:rec,
+      label:"Satz " + rec.set + " bei " + rec.exercise + " gespeichert." };
     showQuickUndo();
   } else {
     S.undo = null;
@@ -6792,7 +6792,7 @@ ACTIONS.save = function () {
     if (doneNow === needNow) {
       extra = (extra ? extra + " · " : "") + "alle " + needNow + " Zielsätze erledigt";
     }
-    showToast("Satz " + rec0.set + " gesichert: " + num(w) + " kg × " + r +
+    showToast("Satz " + rec.set + " gesichert: " + num(w) + " kg × " + r +
       (extra ? "<br>" + extra : ""));
     S.note = "";
     /* Die Wiederholungszahl bleibt, nur der sichtbare Ausschnitt der Reps-Reihe
@@ -6810,25 +6810,25 @@ ACTIONS.save = function () {
   }
 };
 ACTIONS.edit = function (v) {
-  var e0 = S.entries.filter(function (e) { return e.id === v; })[0];
-  if (!e0) return false;
-  S.editId = v; S.exercise = e0.exercise;
-  S.reps = String(e0.reps); S.weight = comma(e0.weight);
-  S.rpe = e0.rpe == null ? "7" : comma(e0.rpe);
+  var found = S.entries.filter(function (e) { return e.id === v; })[0];
+  if (!found) return false;
+  S.editId = v; S.exercise = found.exercise;
+  S.reps = String(found.reps); S.weight = comma(found.weight);
+  S.rpe = found.rpe == null ? "7" : comma(found.rpe);
   S.pickOpen = false;
   clearWarm();
   window.scrollTo({ top:0, behavior:"smooth" });
 };
 ACTIONS.update = function () {
-  var w2 = deci(S.weight), r2 = parseInt(S.reps,10), p2 = deci(S.rpe);
-  if (isNaN(r2) || r2 < 1 || !isFinite(w2) || w2 < 0) {
+  var w = deci(S.weight), r = parseInt(S.reps,10), p = deci(S.rpe);
+  if (isNaN(r) || r < 1 || !isFinite(w) || w < 0) {
     S.note = "Reps müssen mindestens 1 und das Gewicht mindestens 0 kg sein.";
     render(); return false;
   }
   S.entries.forEach(function (e) {
     if (e.id !== S.editId) return;
-    e.weight = w2; e.reps = r2;
-    e.rpe = (e.warm || isNaN(p2)) ? null : p2;
+    e.weight = w; e.reps = r;
+    e.rpe = (e.warm || isNaN(p)) ? null : p;
   });
   S.freshId = S.editId; S.editId = ""; S.note = "";
   persist();
@@ -6857,16 +6857,16 @@ ACTIONS.undo = function () {
     S.entries.splice(Math.min(u.index, S.entries.length), 0, u.item);
     renumber(u.item.date, u.item.exercise);
   } else if (u.kind === "newset") {
-    var ni = -1;
-    S.entries.forEach(function (e, i) { if (e.id === u.item.id) ni = i; });
-    if (ni >= 0) {
-      S.entries.splice(ni, 1);
+    var idx = -1;
+    S.entries.forEach(function (e, i) { if (e.id === u.item.id) idx = i; });
+    if (idx >= 0) {
+      S.entries.splice(idx, 1);
       renumber(u.item.date, u.item.exercise);
     }
   } else if (u.kind === "custom") {
     S.custom.splice(Math.min(u.index, S.custom.length), 0, u.item);
-    var un = typeof u.item === "string" ? u.item : (u.item && u.item.name);
-    if (un && u.meta) S.exmeta[un] = u.meta;
+    var name = typeof u.item === "string" ? u.item : (u.item && u.item.name);
+    if (name && u.meta) S.exmeta[name] = u.meta;
   } else if (u.kind === "planrow" && S.plans[u.plan]) {
     S.plans[u.plan].splice(Math.min(u.index, S.plans[u.plan].length), 0, u.item);
   } else if (u.kind === "plan") {
@@ -6945,11 +6945,11 @@ ACTIONS.barw = function (v, el) {
   persist();
 };
 ACTIONS.plate = function (v) {
-  var pv = parseFloat(v);
-  var pi2 = -1;
-  S.settings.plates.forEach(function (x, ix) { if (Math.abs(x - pv) < 0.001) pi2 = ix; });
-  if (pi2 >= 0) { if (S.settings.plates.length > 1) S.settings.plates.splice(pi2, 1); }
-  else S.settings.plates.push(pv);
+  var val = parseFloat(v);
+  var idx = -1;
+  S.settings.plates.forEach(function (x, ix) { if (Math.abs(x - val) < 0.001) idx = ix; });
+  if (idx >= 0) { if (S.settings.plates.length > 1) S.settings.plates.splice(idx, 1); }
+  else S.settings.plates.push(val);
   S.settings.plates.sort(function (a,b) { return b - a; });
   persist();
 };
@@ -7015,29 +7015,29 @@ ACTIONS.notifytest = function () {
   setTimeout(function () { signal(true); }, 5000);
 };
 ACTIONS.openex = function (v) {
-  var exWasOpen = !!S.openEx;
+  var wasOpen = !!S.openEx;
   S.openEx = (S.openEx === v ? "" : v);
   /* Nur das Auf- und Zuklappen ist eine Ebene, der Wechsel von einer Übung zur
      nächsten bleibt auf derselben. */
-  if (S.openEx && !exWasOpen) navOpen("openex");
-  else if (!S.openEx && exWasOpen) navBack("openex");
+  if (S.openEx && !wasOpen) navOpen("openex");
+  else if (!S.openEx && wasOpen) navBack("openex");
 };
 ACTIONS.pdel = function (v, el) {
-  var pp = el.getAttribute("data-p"), pi = parseInt(el.getAttribute("data-i"),10);
-  if (!S.plans[pp] || !S.plans[pp][pi]) return false;
-  var removed = S.plans[pp][pi];
-  S.undo = { kind:"planrow", plan:pp, index:pi, item:removed,
-    label:removed.name + " aus " + pp + " entfernt." };
-  S.plans[pp].splice(pi, 1);
+  var plan = el.getAttribute("data-p"), idx = parseInt(el.getAttribute("data-i"),10);
+  if (!S.plans[plan] || !S.plans[plan][idx]) return false;
+  var removed = S.plans[plan][idx];
+  S.undo = { kind:"planrow", plan:plan, index:idx, item:removed,
+    label:removed.name + " aus " + plan + " entfernt." };
+  S.plans[plan].splice(idx, 1);
   S.note = "";
   persist();
 };
 ACTIONS.addplan = function () {
-  var np = document.getElementById("newPlan");
-  var pn = np ? np.value.trim() : "";
-  if (!pn) return false;
-  if (S.plans[pn]) { S.note = "Ein Plan mit diesem Namen existiert bereits."; }
-  else { S.plans[pn] = []; S.note = "Plan " + pn + " angelegt."; persist(); }
+  var inp = document.getElementById("newPlan");
+  var name = inp ? inp.value.trim() : "";
+  if (!name) return false;
+  if (S.plans[name]) { S.note = "Ein Plan mit diesem Namen existiert bereits."; }
+  else { S.plans[name] = []; S.note = "Plan " + name + " angelegt."; persist(); }
 };
 ACTIONS.planvis = function (v) {
   if (!dropFrom(S.settings.hiddenPlans, v)) {
@@ -7120,9 +7120,9 @@ ACTIONS.planweek = function (v) {
   /* Der gewählte Tag geht auf denselben Wochentag der neuen Woche, damit Reiter
      oben und Auswahl unten dieselbe Woche meinen. */
   if (S.planDaySel) {
-    var pwOff = Math.round((Date.parse(S.planDaySel + "T12:00:00") -
+    var off = Math.round((Date.parse(S.planDaySel + "T12:00:00") -
       Date.parse(mondayOf(S.planDaySel) + "T12:00:00")) / 86400000);
-    S.planDaySel = shiftISO(v, pwOff);
+    S.planDaySel = shiftISO(v, off);
   }
   S.planWeekSel = v;
 };
@@ -7137,36 +7137,36 @@ ACTIONS.planassign = function (v, el) {
      Zwischenstand gibt es in der App nirgends. */
   /* Der Tag kommt vom Knopf, siehe assignPanel(), damit Planung und
      Wochenübersicht über dieselbe Aktion zuweisen. */
-  var paDay = el.getAttribute("data-day");
-  if (paDay) {
-    if (v) S.settings.planDays[paDay] = v;
-    else delete S.settings.planDays[paDay];
+  var day = el.getAttribute("data-day");
+  if (day) {
+    if (v) S.settings.planDays[day] = v;
+    else delete S.settings.planDays[day];
     persist();
     /* "Frei" nimmt eine bestehende Planwahl im Training nicht weg, trainiert
        werden darf trotzdem. */
-    if (v && paDay === S.date) preselectPlan();
+    if (v && day === S.date) preselectPlan();
   }
 };
 ACTIONS.drafttake = function () {
   /* Die einzelnen Übungen bleiben im Entwurf, in den Wochenzielen haben sie
      keinen Platz. */
-  var tkMon = selWeek(), tkList = [];
+  var mon = selWeek(), list = [];
   Object.keys(S.plans).forEach(function (p) {
-    var tkE = draftEntry(p, tkMon), tkV = tkE.on ? tkE.times : 0;
-    if (tkV) tkList.push(p + " " + tkV + "×");
+    var e = draftEntry(p, mon), times = e.on ? e.times : 0;
+    if (times) list.push(p + " " + times + "×");
     /* Kein Ballast: wer nie ein Ziel hatte und keins bekommt, bleibt ohne Eintrag. */
-    if (tkV || S.settings.weekGoals[p] != null) S.settings.weekGoals[p] = tkV;
+    if (times || S.settings.weekGoals[p] != null) S.settings.weekGoals[p] = times;
   });
   writeWeekGoalLog();
   /* Geleert wird der Entwurf, der gerade galt: seine Zahlen stehen jetzt in den
      Wochenzielen, leer zeigt also dasselbe und folgt späteren Änderungen der
      Wochenziele, siehe draftEntry(). */
-  weekDraft(tkMon).plans = {};
+  weekDraft(mon).plans = {};
   saveDraft();
   persist();
-  var tkWk = S.draft.split ? " aus KW " + isoWeekNo(tkMon) : "";
-  S.note = tkList.length
-    ? "Wochenziele" + tkWk + " übernommen: " + tkList.join(", ") + "."
+  var wk = S.draft.split ? " aus KW " + isoWeekNo(mon) : "";
+  S.note = list.length
+    ? "Wochenziele" + wk + " übernommen: " + list.join(", ") + "."
     : "Wochenziele übernommen, kein Plan hat mehr ein Ziel.";
 };
 ACTIONS.draftreset = function () {
