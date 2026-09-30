@@ -103,6 +103,11 @@ eine else-if-Kette im `change`-Verteiler. Der Klick-Verteiler übergeht jede
 Aktion aus beiden Tabellen von selbst; bis 1.35.15 stand dafür am Anfang eine
 Ausschlussliste, die von Hand zu beiden passen musste.
 
+Dasselbe Muster gilt seit 1.36.0 für Rückgängig: jede Art eines `S.undo`
+(gelöschter Satz, eben gespeicherter Satz, eigene Übung, Planzeile, Plan,
+Umbenennen) ist ein Eintrag in `UNDO`, Schlüssel ist `S.undo.kind`. Eine neue
+Art ist damit ein weiterer Eintrag statt ein weiterer Zweig in `ACTIONS.undo`.
+
 ## Hosting
 
 Ausgeliefert über GitHub Pages aus dem Wurzelverzeichnis des `main`-Branch.
@@ -765,12 +770,15 @@ Das Verhalten der App selbst, also das, was man sieht und tippt, prüfen die
 Suiten unter `tools/tests/`, je Thema eine Datei und nach den Abschnitten dieser
 README benannt: `pause`, `aufwaermen`, `rekorde`, `planung`, `wochen-trennen`,
 `wochenstreifen`, `vorwahl`, `plan-kopie`, `volumen`, `einstellungen`,
-`eingaben`, `farbschema`, `uebungsverlauf`. Jede Suite fährt in Chromium einen Ablauf gegen die
-echte `index.html` und prüft Zustand, Speicher und Oberfläche: dass ein
-Aufwärmsatz ohne RPE gespeichert wird, dass ein Import eine Pause von 100 s im
-Auswahlfeld zeigt, dass die Suche nach dem Neuaufbau den Fokus behält. Die
-Prüfungen beschreiben das Verhalten, nicht den Aufbau des Codes, damit ein
-Umbau sie nicht bricht, solange die App sich gleich verhält.
+`eingaben`, `farbschema`, `uebungsverlauf`, dazu seit 1.36.0 `import` (Backup
+laden ergänzt, überschreibt nicht), `reparatur` (beschädigter Speicher beim
+Start) und `uebungen` (anlegen, umbenennen, löschen, Rückgängig). Jede Suite
+fährt in Chromium einen Ablauf gegen die echte `index.html` und prüft Zustand,
+Speicher und Oberfläche: dass ein Aufwärmsatz ohne RPE gespeichert wird, dass
+ein Import eine Pause von 100 s im Auswahlfeld zeigt, dass die Suche nach dem
+Neuaufbau den Fokus behält. Die Prüfungen beschreiben das Verhalten, nicht den
+Aufbau des Codes, damit ein Umbau sie nicht bricht, solange die App sich gleich
+verhält.
 
 ```
 tools/test-app.sh                    # alle Suiten
