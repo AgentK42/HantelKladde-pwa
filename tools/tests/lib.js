@@ -12,6 +12,9 @@
      errs         Fehler aus Konsole und Seite, aller Seiten dieser Suite
      url          die Adresse der App, falls eine Suite selbst navigiert
 
+   Dazu die Schritte, die viele Suiten gehen, mit einheitlicher Pause danach:
+   tab(p, v), pickPlan(p, name), startFocus(p), saveSet(p).
+
    Rückgabewert: 0 alles grün, 1 mindestens eine Prüfung schlug fehl, 2 die Suite
    selbst ist abgestürzt, etwa an einem Selektor, den es nicht mehr gibt. */
 
@@ -81,4 +84,28 @@ async function suite(body) {
   process.exit(crashed ? 2 : (fails.length ? 1 : 0));
 }
 
-module.exports = { suite };
+/* Die App baut beim Klick sofort neu auf; die kurze Pause lässt Toasts und
+   Zeitgeber anlaufen, bevor die Suite nachsieht. */
+async function tab(p, v) {
+  await p.click('.seg button[data-v="' + v + '"]'); await p.waitForTimeout(150);
+}
+async function pickPlan(p, name) {
+  await p.click('.plans button[data-act="plan"][data-v="' + name + '"]');
+  await p.waitForTimeout(150);
+}
+async function startFocus(p) {
+  await p.click('button[data-act="focuson"]'); await p.waitForTimeout(200);
+}
+/* Die App nimmt innerhalb von 900 ms keinen zweiten Satz an, siehe
+   ACTIONS.save. saveSet() hält den Abstand selbst ein. */
+const SAVE_GAP = 1000;
+const lastSaveAt = new WeakMap();
+async function saveSet(p) {
+  const wait = SAVE_GAP - (Date.now() - (lastSaveAt.get(p) || 0));
+  if (wait > 0) await p.waitForTimeout(wait);
+  await p.click('button[data-act="save"]');
+  lastSaveAt.set(p, Date.now());
+  await p.waitForTimeout(300);
+}
+
+module.exports = { suite, tab, pickPlan, startFocus, saveSet };

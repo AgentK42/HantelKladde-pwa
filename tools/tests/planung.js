@@ -1,13 +1,12 @@
 /* Planung: Entwurf je Plan und Einzelübung, Muskelbilanz, Zuweisen auf Tage,
    Übernehmen als Wochenziel, Backup ohne Entwurf, Neustart und Adresse. */
-const { suite } = require("./lib");
+const { suite, tab } = require("./lib");
 
 suite(async ({ open, check, errs, url }) => {
   const page = await open();
   check("Seite laeuft ohne Fehler", errs.length === 0, errs.join(" | "));
   check("fuenf Reiter", await page.locator(".seg button").count() === 5);
-  await page.click('.seg button[data-v="planung"]');
-  await page.waitForTimeout(100);
+  await tab(page, "planung");
   check("Reiter Planung aktiv", await page.evaluate(() => S.view === "planung"));
   const heads = await page.locator(".sect h2").allInnerTexts();
   check("Abschnitte", ["Entwurf","Einzelne Übungen","Sätze je Muskelgruppe","Zuweisen","Übernehmen"].every(t => heads.some(h => h.startsWith(t))), heads.join(" / "));
@@ -84,8 +83,7 @@ suite(async ({ open, check, errs, url }) => {
   const sums = await page.locator(".wsum .c").allInnerTexts();
   check("Tabelle zeigt Zuweisung", sums.length >= 4 && sums[0] === "1 / 2", sums.join(","));
   // Training: Ring im Wochenstreifen
-  await page.click('.seg button[data-v="tag"]');
-  await page.waitForTimeout(100);
+  await tab(page, "tag");
   check("Ring im Wochenstreifen", await page.evaluate(() => { const c = document.querySelector('#week .wday[data-v="' + planWeeks()[0].days[0] + '"]'); return c && c.classList.contains("plan") && c.title.includes("geplant: Push Day"); }));
   // Backup enthaelt planDays, Import liest sie
   const bk = await page.evaluate(() => JSON.parse(backupText()));
@@ -97,7 +95,7 @@ suite(async ({ open, check, errs, url }) => {
   const bad = await page.evaluate(() => { const b = JSON.parse(backupText()); b.settings.planDays["nix"] = "Push Day"; try { mergeBackup(JSON.stringify(b)); return "durch"; } catch (e) { return e.message; } });
   check("Import lehnt kaputtes Datum ab", bad.includes("ungültiges Datum"), bad);
   // Uebernehmen
-  await page.click('.seg button[data-v="planung"]');
+  await tab(page, "planung");
   await page.click('button[data-act="drafttake"]');
   check("Wochenziele uebernommen", await page.evaluate(() => S.settings.weekGoals["Push Day"] === 2 && S.settings.weekGoals["Pull Day"] === 1 && S.settings.weekGoals["Upper Body"] === undefined));
   check("Historie geschrieben", await page.evaluate(() => S.settings.weekGoalLog["Push Day"].length === 1 && S.settings.weekGoalLog["Push Day"][0].value === 2));
@@ -105,12 +103,12 @@ suite(async ({ open, check, errs, url }) => {
   check("Entwurf zeigt weiter Push 2x", await page.evaluate(() => draftEntry("Push Day").on && draftEntry("Push Day").times === 2));
   check("Uebernehmen jetzt aus", await page.locator('button[data-act="drafttake"]').isDisabled());
   // Plaene-Reiter unveraendert nutzbar
-  await page.click('.seg button[data-v="plaene"]');
+  await tab(page, "plaene");
   await page.click('button[data-act="secfold"][data-v="plansets"]');
   check("Plaene-Reiter Balken", await page.locator(".vol.bymuscle .volrow").count() > 0);
   check("Plaene-Reiter ohne Null-Zeilen", await page.locator(".volrow.zero").count() === 0);
   // Neustart: Entwurf ueberlebt, Reiter ueberlebt
-  await page.click('.seg button[data-v="planung"]');
+  await tab(page, "planung");
   await page.reload({ waitUntil: "load" });
   await page.waitForTimeout(300);
   check("nach Neustart Reiter Planung", await page.evaluate(() => S.view === "planung"));
@@ -122,5 +120,5 @@ suite(async ({ open, check, errs, url }) => {
   check("Shortcut-Parameter", await page.evaluate(() => S.view === "planung"));
   // Dunkel-Screenshot der Planung
   await page.evaluate(() => { setTheme("dark"); });
-  await page.click('.seg button[data-v="planung"]');
+  await tab(page, "planung");
 });

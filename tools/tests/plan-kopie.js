@@ -1,10 +1,10 @@
 /* Plan duplizieren: Name mit Zusatz und Nummer, alle Übungen, eigene Farbe,
    kein Wochenziel, keine Sperre, unabhängig vom Original, im Backup. */
-const { suite } = require("./lib");
+const { suite, tab } = require("./lib");
 
 suite(async ({ open, check }) => {
   const p = await open();
-  await p.click('.seg button[data-v="plaene"]'); await p.waitForTimeout(250);
+  await tab(p, "plaene");
 
   check("jeder Plan hat einen Kopierknopf",
     await p.locator('[data-act="dupplan"]').count() === await p.evaluate(()=>Object.keys(S.plans).length));
@@ -59,7 +59,7 @@ suite(async ({ open, check }) => {
       S.plans["Push Day Kopie Kopie"][0].sets===9));
 
   // Im Training sichtbar
-  await p.click('.seg button[data-v="tag"]'); await p.waitForTimeout(250);
+  await tab(p, "tag");
   check("die Kopie steht im Training zur Auswahl",
     await p.locator('.plans button[data-act="plan"][data-v="Push Day Kopie"]').count()===1);
 
@@ -75,7 +75,7 @@ suite(async ({ open, check }) => {
     await p.evaluate(()=>!!S.plans["Push Day Kopie"] && !!S.plans["Push Day Kopie 2"]));
 
   // Eingeklappte Karten bleiben ohne Kopierknopf, sonst wird der Name abgeschnitten
-  await p.click('.seg button[data-v="plaene"]'); await p.waitForTimeout(200);
+  await tab(p, "plaene");
   await p.evaluate(()=>{ S.planCardsFold=true; render(); });
   await p.waitForTimeout(150);
   check("eingeklappt steht kein Kopierknopf da",

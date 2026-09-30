@@ -1,6 +1,6 @@
 /* Verlauf dieser Übung: derselbe Block im Trainingsreiter und im Fokus-Modus,
    je ein eigener Schalter unter Daten, und ohne frühere Einheit kein Block. */
-const { suite } = require("./lib");
+const { suite, tab, pickPlan, startFocus } = require("./lib");
 
 const EX = "Benchpress Maschine";
 
@@ -24,22 +24,13 @@ suite(async ({ open, check }) => {
     persist();
   }, EX);
 
-  await p.click('.seg button[data-v="tag"]'); await p.waitForTimeout(150);
-  await p.click('.plans button[data-act="plan"][data-v="Push Day"]'); await p.waitForTimeout(200);
+  await tab(p, "tag");
+  await pickPlan(p, "Push Day");
   await p.evaluate((ex)=>{ S.exercise=ex; render(); }, EX);
 
   const head = ()=>p.locator('[data-act="exhist"]').count();
   const rows = ()=>p.locator('.exhist .hset').count();
   const fxHead = ()=>p.locator('.fx [data-act="exhist"]').count();
-  const toData = async ()=>{
-    await p.click('.seg button[data-v="daten"]'); await p.waitForTimeout(250);
-  };
-  const toDay = async ()=>{
-    await p.click('.seg button[data-v="tag"]'); await p.waitForTimeout(250);
-  };
-  const enterFocus = async ()=>{
-    await p.click('button[data-act="focuson"]'); await p.waitForTimeout(250);
-  };
   const leaveFocus = async ()=>{
     await p.click('.fx [data-act="focusoff"]'); await p.waitForTimeout(250);
   };
@@ -54,7 +45,7 @@ suite(async ({ open, check }) => {
     (await p.locator('.exhist').innerText()).indexOf("62") > 0);
 
   // 2. Fokus-Modus zeigt denselben Block
-  await enterFocus();
+  await startFocus(p);
   check("der Fokus-Modus ist offen", await p.locator('.fx').count() === 1);
   check("auch im Fokus steht der Verlauf", await fxHead() === 1);
   /* Aufgeklappt wird nicht je Ansicht gemerkt, sondern je Übung (S.exHistFor):
@@ -76,7 +67,7 @@ suite(async ({ open, check }) => {
 
   // 4. Der Schalter unter Daten gilt nur für den Fokus
   await leaveFocus();
-  await toData();
+  await tab(p, "daten");
   const toggle = p.locator('[data-act="focushisttoggle"]');
   check("unter Daten steht der Schalter für den Fokus", await toggle.count() === 1);
   check("er steht auf an", /: an$/.test((await toggle.innerText()).trim()),
@@ -87,19 +78,19 @@ suite(async ({ open, check }) => {
   check("der Schalter für den Trainingsreiter bleibt auf an",
     /: an$/.test((await p.locator('[data-act="exhisttoggle"]').innerText()).trim()));
 
-  await toDay();
+  await tab(p, "tag");
   check("im Trainingsreiter steht der Verlauf weiter", await head() === 1);
-  await enterFocus();
+  await startFocus(p);
   check("im Fokus ist er weg", await fxHead() === 0);
 
   // 5. Umgekehrt: der Trainingsreiter aus, der Fokus wieder an
   await leaveFocus();
-  await toData();
+  await tab(p, "daten");
   await p.click('[data-act="focushisttoggle"]'); await p.waitForTimeout(250);
   await p.click('[data-act="exhisttoggle"]'); await p.waitForTimeout(250);
-  await toDay();
+  await tab(p, "tag");
   check("ohne exHist ist er im Trainingsreiter weg", await head() === 0);
-  await enterFocus();
+  await startFocus(p);
   check("im Fokus steht er trotzdem", await fxHead() === 1);
   await leaveFocus();
 

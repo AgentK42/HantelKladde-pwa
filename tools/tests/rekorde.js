@@ -1,6 +1,6 @@
 /* Rekorde: eine erste Aufzeichnung ist keiner, eine Steigerung braucht einen
    Vorher-Wert, Zusammenfassung, Block Neue Rekorde und Toast beim Speichern. */
-const { suite } = require("./lib");
+const { suite, tab, pickPlan, saveSet } = require("./lib");
 
 suite(async ({ open, check }) => {
   const p = await open();
@@ -58,16 +58,14 @@ suite(async ({ open, check }) => {
 
   // 6. Toast beim ersten Satz einer Uebung
   await p.evaluate(()=>seed([]));
-  await p.click('.seg button[data-v="tag"]'); await p.waitForTimeout(150);
-  await p.click('.plans button[data-act="plan"][data-v="Push Day"]'); await p.waitForTimeout(150);
-  await p.click('button[data-act="save"]'); await p.waitForTimeout(250);
+  await tab(p, "tag");
+  await pickPlan(p, "Push Day");
+  await saveSet(p);
   let toast = await p.locator(".toast").innerText().catch(()=>"");
   check("erster Satz meldet keinen Rekord", !toast.includes("Neuer Rekord"), toast.replace(/\n/g," "));
-  // Zweiter Satz mit mehr Gewicht meldet einen Rekord. Die App sperrt ein
-  // zweites Speichern innerhalb von 900 ms, deshalb die Pause.
+  // Zweiter Satz mit mehr Gewicht meldet einen Rekord
   await p.evaluate(()=>{ S.weight = String(deci(S.weight) + 5); render(); });
-  await p.waitForTimeout(1000);
-  await p.click('button[data-act="save"]'); await p.waitForTimeout(250);
+  await saveSet(p);
   check("zweiter Satz gespeichert", await p.evaluate(()=>S.entries.length===2));
   toast = await p.locator(".toast").innerText().catch(()=>"");
   check("schwererer Satz meldet einen Rekord", toast.includes("Neuer Rekord"), toast.replace(/\n/g," "));

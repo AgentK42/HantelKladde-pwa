@@ -1,6 +1,6 @@
 /* Wochenstreifen und Wochenübersicht: Fenster von 13 Tagen zurück bis 7 vor,
    Ringe für geplante Tage, Zuweisen aus der Übersicht, Zurück-Geste. */
-const { suite } = require("./lib");
+const { suite, tab } = require("./lib");
 
 suite(async ({ open, check }) => {
   const page = await open();
@@ -66,11 +66,11 @@ suite(async ({ open, check }) => {
   const closeOvr = async () => { if (await page.locator('button[data-act="weekovrclose"]').count()) { await page.click('button[data-act="weekovrclose"]'); await page.waitForTimeout(80); } };
   await closeOvr();
   await page.click(".weekmore"); await page.waitForTimeout(100);
-  await page.click('.seg button[data-v="daten"]'); await page.waitForTimeout(150);
+  await tab(page, "daten");
   check("Reiterwechsel schliesst Uebersicht", await page.evaluate(() => S.weekOverview === false && S.view === "daten"));
   check("History-Stapel leer nach Reiterwechsel", await page.evaluate(() => navStack.length === 0));
   // Weit entferntes Datum nimmt das Fenster mit (kommt nur noch aus der Sitzung)
-  await page.click('.seg button[data-v="tag"]'); await page.waitForTimeout(100);
+  await tab(page, "tag");
   await closeOvr();
   await page.evaluate(() => { S.date = shiftISO(todayISO(), -120); render(); });
   await page.waitForTimeout(100);

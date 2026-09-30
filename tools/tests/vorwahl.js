@@ -1,13 +1,13 @@
 /* Vorwahl des Plans im Training: die Zuweisung des Tages wählt den Plan, eine
    gemerkte Sitzung hat Vorrang, Abwählen bleibt, ausgeblendete Pläne nicht. */
-const { suite } = require("./lib");
+const { suite, tab, pickPlan } = require("./lib");
 
 suite(async ({ open, check }) => {
   const page = await open();
   // Heute liegt seit 1.26.0 nicht mehr im Raster der Planung: Zuweisung fuer heute
   // laeuft ueber die Wochenuebersicht im Training.
   async function assignVia(day, plan) {
-    await page.click('.seg button[data-v="tag"]'); await page.waitForTimeout(80);
+    await tab(page, "tag");
     if (!(await page.locator('button[data-act="weekovrclose"]').count())) await page.click(".weekmore");
     await page.waitForTimeout(100);
     await page.click('.card .cal .wday[data-v="' + day + '"]'); await page.waitForTimeout(80);
@@ -22,15 +22,15 @@ suite(async ({ open, check }) => {
   await assignVia(today, "Push Day");
   check("Zuweisung heute waehlt Plan im Training", await page.evaluate(() => S.plan === "Push Day" && S.plansFold === true));
   check("erste Uebung des Plans vorgeschlagen", await page.evaluate(() => S.exercise === "Benchpress Maschine"));
-  await page.click('.seg button[data-v="tag"]'); await page.waitForTimeout(100);
+  await tab(page, "tag");
   check("Training zeigt eingeklappten Plan", (await page.locator(".plansel b").innerText()) === "Push Day");
   // Wechseln bleibt moeglich
   await page.click(".plansel");
-  await page.click('.plans button[data-act="plan"][data-v="Pull Day"]');
+  await pickPlan(page, "Pull Day");
   check("Wechsel auf Pull Day", await page.evaluate(() => S.plan === "Pull Day"));
   // Abwaehlen bleibt: kein erneutes Vorwaehlen beim Neuaufbau
   await page.click(".plansel");
-  await page.click('.plans button[data-act="plan"][data-v="Pull Day"]');
+  await pickPlan(page, "Pull Day");
   check("abgewaehlt", await page.evaluate(() => S.plan === ""));
   await page.evaluate(() => render());
   check("Neuaufbau waehlt nicht wieder vor", await page.evaluate(() => S.plan === ""));
@@ -39,7 +39,7 @@ suite(async ({ open, check }) => {
   const free = await page.evaluate(() => shiftISO(todayISO(), 2));
   await assignVia(tomorrow, "Pull Day");
   check("Zuweisung fuer anderen Tag aendert Wahl nicht", await page.evaluate(() => S.plan === ""));
-  await page.click('.seg button[data-v="tag"]');
+  await tab(page, "tag");
   // Der Streifen endet heute, solange kein spaeteres Datum gewaehlt ist: morgen
   // also ueber das Datumsfeld, danach steht er im Streifen.
   const setDate = (d) => page.click('#week .wday[data-v="' + d + '"]');
@@ -57,13 +57,13 @@ suite(async ({ open, check }) => {
   check("Start ohne Sitzung waehlt heutigen Plan", await page.evaluate(() => S.plan === "Push Day" && S.date === todayISO()));
   // Start mit Sitzung: gemerkter Plan hat Vorrang
   await page.click(".plansel");
-  await page.click('.plans button[data-act="plan"][data-v="Upper Body"]');
+  await pickPlan(page, "Upper Body");
   await page.reload({ waitUntil: "load" }); await page.waitForTimeout(200);
   check("Sitzung hat Vorrang", await page.evaluate(() => S.plan === "Upper Body"));
   // Ausgeblendeter Plan wird nicht vorgewaehlt
-  await page.click('.seg button[data-v="plaene"]');
+  await tab(page, "plaene");
   await page.click('button[data-act="planvis"][data-v="Push Day"]');
-  await page.click('.seg button[data-v="tag"]');
+  await tab(page, "tag");
   await setDate(tomorrow);
   await page.click('button[data-act="today"]');
   check("ausgeblendeter Plan nicht vorgewaehlt", await page.evaluate(() => S.plan === "Pull Day"));

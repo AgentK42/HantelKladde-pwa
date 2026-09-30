@@ -777,7 +777,11 @@ Das Skript startet jede Suite in einem eigenen Browser, damit kein Zustand von
 einer in die nächste läuft, und setzt `NODE_PATH` selbst. Eine grüne Suite ist
 eine Zeile mit der Zahl ihrer Prüfungen, eine rote bringt ihre ganze Ausgabe
 mit. Den gemeinsamen Rahmen (Server, Browser, `check`, Bilanz) stellt
-`tools/tests/lib.js`, die Suiten selbst bestehen nur aus dem Ablauf. Sie
+`tools/tests/lib.js`, die Suiten selbst bestehen nur aus dem Ablauf. Dort stehen
+auch die Schritte, die viele Suiten gehen: `tab`, `pickPlan`, `startFocus` und
+`saveSet`. `saveSet` hält den Abstand ein, den die App zwischen zwei Sätzen
+verlangt (900 ms gegen doppeltes Tippen); vorher wartete jede Suite davor auf
+eigene Weise. Sie
 entstanden in den Sitzungen, in denen das jeweilige Verhalten gebaut wurde, und
 lagen bis 1.30.5 außerhalb des Repos, im Arbeitsverzeichnis der Sitzung. Eine
 Prüfung, die nur eine Sitzung ausführen kann, ist keine; deshalb gehören sie

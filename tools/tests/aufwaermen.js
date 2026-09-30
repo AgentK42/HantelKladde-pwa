@@ -1,6 +1,6 @@
 /* Aufwärmsätze: kein RPE-Feld, kein RPE im Satz, Reps und RPE kommen nach dem
    Speichern auf den Zielwert zurück, auch im Fokus und nach einem Neustart. */
-const { suite } = require("./lib");
+const { suite, tab, pickPlan, saveSet } = require("./lib");
 
 suite(async ({ open, check }) => {
   const p = await open();
@@ -8,8 +8,8 @@ suite(async ({ open, check }) => {
   const rpeFields=async()=>(await p.locator('[data-act="step"][data-f="rpe"]').count())
     + (await p.locator('[data-act="pillrpe"]').count());
 
-  await p.click('.seg button[data-v="tag"]'); await p.waitForTimeout(150);
-  await p.click('.plans button[data-act="plan"][data-v="Push Day"]'); await p.waitForTimeout(200);
+  await tab(p, "tag");
+  await pickPlan(p, "Push Day");
   await p.evaluate(()=>{ S.rpe="9"; S.reps="10"; render(); });
 
   // 1. Standard-Trainingsreiter
@@ -22,7 +22,7 @@ suite(async ({ open, check }) => {
 
   // 2. Speichern eines Aufwaermsatzes
   await p.evaluate(()=>{ S.rpe="6"; render(); });   // haengengebliebener Wert
-  await p.click('button[data-act="save"]'); await p.waitForTimeout(300);
+  await saveSet(p);
   const e1 = await p.evaluate(()=>S.entries[0]);
   check("der Aufwärmsatz trägt keinen RPE", e1 && e1.warm === true && e1.rpe === null,
     JSON.stringify(e1));
@@ -32,9 +32,8 @@ suite(async ({ open, check }) => {
   check("und es ist wieder ein Arbeitssatz", a1.warm === false);
 
   // 3. Zweiter Rampensatz gleich danach
-  await p.waitForTimeout(1000);
   await p.click('button[data-act="warmpick"][data-i="1"]'); await p.waitForTimeout(200);
-  await p.click('button[data-act="save"]'); await p.waitForTimeout(300);
+  await saveSet(p);
   const a2 = await st();
   check("auch nach dem zweiten Rampensatz kommt der Zielwert zurück",
     a2.reps === "10" && a2.rpe === "9" && !a2.warm, JSON.stringify(a2));
@@ -50,8 +49,7 @@ suite(async ({ open, check }) => {
     a3.reps === "10" && a3.rpe === "9" && !a3.warm, JSON.stringify(a3));
 
   // 5. Der Arbeitssatz speichert den RPE weiterhin
-  await p.waitForTimeout(1000);
-  await p.click('button[data-act="save"]'); await p.waitForTimeout(300);
+  await saveSet(p);
   check("der Arbeitssatz trägt seinen RPE",
     await p.evaluate(()=>{ var e=S.entries[2]; return !e.warm && e.rpe===9; }),
     JSON.stringify(await p.evaluate(()=>S.entries[2])));

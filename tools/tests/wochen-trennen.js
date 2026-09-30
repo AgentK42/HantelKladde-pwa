@@ -1,10 +1,10 @@
 /* Wochen getrennt planen: zwei volle Kalenderwochen, eine Abweichung je Woche,
    Chips und Tabelle je Woche, Übernehmen nimmt die angezeigte Woche. */
-const { suite } = require("./lib");
+const { suite, tab } = require("./lib");
 
 suite(async ({ open, check }) => {
   const p = await open();
-  await p.click('.seg button[data-v="planung"]'); await p.waitForTimeout(120);
+  await tab(p, "planung");
 
   // Wochenregel: genau zwei volle KW, erster Tag ist ein Montag in der Zukunft (oder heute)
   const w = await p.evaluate(()=>planWeeks().map(x=>x.monday));
@@ -87,7 +87,7 @@ suite(async ({ open, check }) => {
   check("Backup ohne Entwurf", await p.evaluate(()=>JSON.stringify(JSON.parse(backupText())).indexOf("split")<0));
 
   // Trennung aufheben
-  await p.click('.seg button[data-v="planung"]'); await p.waitForTimeout(120);
+  await tab(p, "planung");
   await p.click(".wksplit"); await p.waitForTimeout(120);
   check("wieder gemeinsam", await p.evaluate(()=>S.draft.split===false && Object.keys(S.draft.weeks).length===0));
   check("Reiter weg", await p.locator(".seg2").count()===0);

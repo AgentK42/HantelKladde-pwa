@@ -3,7 +3,7 @@
    Dazu die Obergrenze REST_MAX aus 1.35.0: keine Pause wird länger, weder über
    den Regler, noch über das Auswahlfeld, noch über den Plus-Knopf während sie
    läuft, und ein älterer Wert von 180 s wirkt und erscheint gekürzt. */
-const { suite } = require("./lib");
+const { suite, tab, saveSet } = require("./lib");
 
 suite(async ({ open, check }) => {
   const p = await open();
@@ -41,14 +41,13 @@ suite(async ({ open, check }) => {
     await p.evaluate(()=>exRest("Eigene Übung")===90 && exRest("")===90));
 
   // 4. Pausenlaenge beim Speichern
-  await p.click('.seg button[data-v="tag"]'); await p.waitForTimeout(150);
+  await tab(p, "tag");
   async function saveWith(name, warm) {
     await p.evaluate(([n,w])=>{
       S.entries=[]; S.exercise=n; S.warm=!!w; S.weight="40"; S.reps="10";
       S.restEnd=0; S.restTotal=0; persist(); render();
     },[name,warm]);
-    await p.waitForTimeout(1000);
-    await p.click('button[data-act="save"]'); await p.waitForTimeout(250);
+    await saveSet(p);
     return p.evaluate(()=>S.restTotal);
   }
   check("Arbeitssatz Squats startet 120 s", await saveWith("Squats",false)===120);
@@ -58,7 +57,7 @@ suite(async ({ open, check }) => {
 
   // 5. Bedienung unter Daten
   await p.evaluate(()=>{ S.entries=[]; S.restEnd=0; persist(); });
-  await p.click('.seg button[data-v="daten"]'); await p.waitForTimeout(200);
+  await tab(p, "daten");
   check("die zugeklappte Zeile nennt die abweichende Pause", await p.evaluate(()=>{
     S.dataClosed={}; S.secOpen.uebungen=true; render();
     var rows=Array.from(document.querySelectorAll(".cnote")).map(e=>e.innerText);
