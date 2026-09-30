@@ -898,7 +898,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.35.14";
+var APP_VERSION = "1.35.15";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -2192,7 +2192,8 @@ function backToWork() {
   repWinCenter = null;
 }
 /* Merkt sich den Arbeitssatz, zu dem backToWork() zurückkehrt. Die vier Felder
-   gehören zusammen und werden nur hier und in clearWarm() geschrieben. */
+   gehören zusammen und werden nur hier, in clearWarm() und beim Neustart in
+   restoreSession() geschrieben. */
 function enterWarm(base) {
   if (S.warm) return;
   S.warmBase = base;
@@ -2260,7 +2261,6 @@ function hintBlock() {
     '<div class="suggestion-copy"><b>Zurück in die Range</b>' +
     '<span>' + esc(s.hint) + '</span></div></div>';
 }
-/* Übungen des gewählten Plans, leer ohne Plan oder wenn er nicht mehr da ist. */
 function planItems() {
   return (S.plan && S.plans[S.plan]) || [];
 }
