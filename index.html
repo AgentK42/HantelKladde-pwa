@@ -1569,7 +1569,10 @@ function restoreSession() {
      fragte nach offenen Übungen eines Plans, den es nicht mehr gibt. */
   if (d.focus && !startFromUrl && planItems().length) {
     S.focus = true;
-    navResume("focus");
+    /* Den History-Eintrag gibt es nach dem Neuladen oft noch; dann übernimmt der
+       Fokus-Modus seinen Platz im Stapel, statt einen zweiten zu legen, sonst
+       bräuchte es zwei Gesten für eine Ebene. */
+    navSwap("focus");
   }
 }
 function restoreWarm(d) {
@@ -2633,18 +2636,6 @@ function navDepth() {
 function navOpen(name) {
   if (navStack[navStack.length - 1] === name) return;
   try { history.pushState({ hk:navStack.length + 1 }, ""); } catch (e) { return; }
-  navStack.push(name);
-}
-/* Eine Ebene nach dem Neuladen wieder anlegen. Ohne History-Eintrag schlösse die
-   Zurück-Geste die App. Trägt der Eintrag nach dem Neuladen schon ein hk, wird
-   nicht erneut gepusht, sonst bräuchte es zwei Gesten für eine Ebene; der
-   Stapel wird nur auf diese Tiefe gebracht. Die Ebenen darunter sind unbekannt
-   und bleiben namenlos, navCloseTop() nimmt sie kommentarlos ab. */
-function navResume(name) {
-  var hk = navDepth();
-  if (!(hk > 0)) { navOpen(name); return; }
-  navStack.length = 0;
-  while (navStack.length < hk - 1) navStack.push("");
   navStack.push(name);
 }
 /* Ebene ersetzen, ohne die Tiefe zu ändern: aus der Zusammenfassung soll zurück
@@ -7604,15 +7595,16 @@ try {
 /* Reiter aus einem Shortcut und die Markierung des Teilen-Wegs stehen in der
    Adresse und müssen vor dem ersten Aufbau gelesen sein. */
 var sharedFlag = startParams();
+/* Jeder History-Eintrag, der das Neuladen überstanden hat, bekommt einen
+   namenlosen Platz im Stapel; navCloseTop() nimmt ihn kommentarlos ab. Kommt
+   seine Ebene nicht zurück, etwa der Fokus-Modus ohne seinen Plan, bekäme sonst
+   die nächste Ebene dieselbe Tiefe, und ihre erste Zurück-Geste liefe ins
+   Leere. Nach startParams(), das mit der Adresse auch den Eintrag aufräumt. */
+while (navStack.length < navDepth()) navStack.push("");
 /* Nach startParams(), damit ein Reiter aus der Adresse das letzte Wort behält
    und der History-Eintrag des Fokus-Modus nicht gleich wieder überschrieben
    wird. */
 restoreSession();
-/* Kommt eine Ebene nach dem Neuladen nicht zurück, etwa der Fokus-Modus ohne
-   seinen Plan, bleibt ihr History-Eintrag trotzdem liegen. Ohne namenlosen
-   Platz dafür bekäme die nächste Ebene dieselbe Tiefe, und ihre erste
-   Zurück-Geste liefe ins Leere. */
-while (navStack.length < navDepth()) navStack.push("");
 /* Nur wenn die Sitzung weder Plan noch Übung zurückbrachte. Ein leerer Plan
    allein reicht nicht: wer den Plan abgewählt und eine Übung samt Werten
    eingestellt hat, bekäme sonst über selectPlan() Übung, Werte und
