@@ -4006,74 +4006,72 @@ function planListBlock() {
   return h;
 }
 function daySetsBlock(day) {
-  var h = "";
-  h += '<div class="sect"><h2>Erfasste Sätze</h2><span>' +
+  var h = '<div class="sect"><h2>Erfasste Sätze</h2><span>' +
     (day.length ? plural(day.length, "Satz", "Sätze") : "noch keine") +
     '</span></div>';
-
   if (!day.length) {
-    h += '<p class="empty">Hier erscheint jeder gespeicherte Satz,<br>' +
+    return h + '<p class="empty">Hier erscheint jeder gespeicherte Satz,<br>' +
       'antippen zum Korrigieren.</p>';
-  } else {
-    var order = [], groups = {};
-    day.forEach(function (e) {
-      if (!groups[e.exercise]) { groups[e.exercise] = []; order.push(e.exercise); }
-      groups[e.exercise].push(e);
-    });
-    order.forEach(function (name) {
-      var sets = groups[name];
-      var wsets = sets.filter(isWork);
-      var vol = wsets.reduce(function (a, e) { return a + e.weight * e.reps; }, 0);
-      var need = targetSets(name);
-      h += '<div class="grp"><header><h3>' + esc(name) + '</h3><span>' +
-        wsets.length + ' von ' + need + ', ' + num(vol) + ' kg Last</span></header>';
-      sets.forEach(function (s) {
-        h += '<div class="set' +
-          (s.warm ? " warm" : "") +
-          (s.id === S.freshId ? " fresh" : "") + (s.id === S.editId ? " editing" : "") + '">' +
-          '<button class="tapzone" data-act="edit" data-v="' + s.id + '">' +
-          '<span class="no">' + (s.warm ? "A" : "") + s.set + '</span>' +
-          '<span class="fig">' + s.reps + '<s>Reps</s></span>' +
-          '<span class="fig">' + num(s.weight) + '<s>kg</s></span>' +
-          (s.warm ? '<span class="rpe">Warmup</span>'
-                  : (s.rpe != null ? '<span class="rpe">RPE ' + num(s.rpe) + '</span>' : '')) +
-          '</button>' +
-          '<button class="del" data-act="del" data-v="' + s.id +
-          '" aria-label="Satz löschen">✕</button></div>';
-      });
-      h += '</div>';
-    });
-    var wday = day.filter(isWork);
-    var workExercises = {};
-    wday.forEach(function (e) { workExercises[e.exercise] = 1; });
-    var workExerciseCount = Object.keys(workExercises).length;
-    var total = wday.reduce(function (a, e) { return a + e.weight * e.reps; }, 0);
-    var mins = dayMinutes(S.date);
-    /* "erledigt" kommt aus derselben Quelle wie der Punkt im Wochenstreifen,
-       dayPlan(). Ohne erkannten Plan fehlt die Marke, statt eine Zahl zu
-       zeigen, die nichts über einen Plantag sagt. */
-    var dp = dayPlan(S.date);
-    var mark = (dp && dp.plan)
-      ? '<em class="' + (dp.done ? "ok" : "") + '">' +
-        (dp.done ? "erledigt" : "noch " + (dp.need - dp.touched)) + '</em>'
-      : "";
-    h += '<div class="totals"><b>' + workExerciseCount + ' Übungen</b>' +
-      '<span>' + wday.length + ' Sätze</span><span>' + num(total) + ' kg</span>' +
-      (mins ? '<span>' + mins + ' min</span>' : '') + mark + '</div>';
-
-    h += '<button class="planhead" data-act="noteopen"><b>Notiz zum Tag</b><span>' +
-      (S.notes[S.date] ? "vorhanden" : "keine") + '</span>' +
-      '<i class="chev' + (S.noteOpen ? " up" : "") + '">' + svg("chev", 15) +
-      '</i></button>';
-    if (S.noteOpen) {
-      h += '<textarea id="dayNote" class="note" data-act="noteinput" rows="3" ' +
-        'placeholder="Wie lief es? Etwa: Knie gezwickt, Bank besetzt, Gurt benutzt.">' +
-        esc(S.notes[S.date] || "") + '</textarea>';
-    }
-    h += '<div class="tools"><button class="solid wide" data-act="finish">' +
-      'Training abschließen und sichern</button></div>';
   }
-  return h;
+  var order = [], groups = {};
+  day.forEach(function (e) {
+    if (!groups[e.exercise]) { groups[e.exercise] = []; order.push(e.exercise); }
+    groups[e.exercise].push(e);
+  });
+  return h + order.map(function (name) { return setGroup(name, groups[name]); }).join("") +
+    dayTotals(day) + dayNoteBlock() +
+    '<div class="tools"><button class="solid wide" data-act="finish">' +
+    'Training abschließen und sichern</button></div>';
+}
+function setGroup(name, sets) {
+  var wsets = sets.filter(isWork);
+  var vol = wsets.reduce(function (a, e) { return a + e.weight * e.reps; }, 0);
+  return '<div class="grp"><header><h3>' + esc(name) + '</h3><span>' +
+    wsets.length + ' von ' + targetSets(name) + ', ' + num(vol) + ' kg Last</span></header>' +
+    sets.map(setRow).join("") + '</div>';
+}
+function setRow(s) {
+  return '<div class="set' +
+    (s.warm ? " warm" : "") +
+    (s.id === S.freshId ? " fresh" : "") + (s.id === S.editId ? " editing" : "") + '">' +
+    '<button class="tapzone" data-act="edit" data-v="' + s.id + '">' +
+    '<span class="no">' + (s.warm ? "A" : "") + s.set + '</span>' +
+    '<span class="fig">' + s.reps + '<s>Reps</s></span>' +
+    '<span class="fig">' + num(s.weight) + '<s>kg</s></span>' +
+    (s.warm ? '<span class="rpe">Warmup</span>'
+            : (s.rpe != null ? '<span class="rpe">RPE ' + num(s.rpe) + '</span>' : '')) +
+    '</button>' +
+    '<button class="del" data-act="del" data-v="' + s.id +
+    '" aria-label="Satz löschen">✕</button></div>';
+}
+function dayTotals(day) {
+  var wday = day.filter(isWork);
+  var workExercises = {};
+  wday.forEach(function (e) { workExercises[e.exercise] = 1; });
+  var total = wday.reduce(function (a, e) { return a + e.weight * e.reps; }, 0);
+  var mins = dayMinutes(S.date);
+  /* "erledigt" kommt aus derselben Quelle wie der Punkt im Wochenstreifen,
+     dayPlan(). Ohne erkannten Plan fehlt die Marke, statt eine Zahl zu
+     zeigen, die nichts über einen Plantag sagt. */
+  var dp = dayPlan(S.date);
+  var mark = (dp && dp.plan)
+    ? '<em class="' + (dp.done ? "ok" : "") + '">' +
+      (dp.done ? "erledigt" : "noch " + (dp.need - dp.touched)) + '</em>'
+    : "";
+  return '<div class="totals"><b>' + Object.keys(workExercises).length + ' Übungen</b>' +
+    '<span>' + wday.length + ' Sätze</span><span>' + num(total) + ' kg</span>' +
+    (mins ? '<span>' + mins + ' min</span>' : '') + mark + '</div>';
+}
+function dayNoteBlock() {
+  return '<button class="planhead" data-act="noteopen"><b>Notiz zum Tag</b><span>' +
+    (S.notes[S.date] ? "vorhanden" : "keine") + '</span>' +
+    '<i class="chev' + (S.noteOpen ? " up" : "") + '">' + svg("chev", 15) +
+    '</i></button>' +
+    (S.noteOpen
+      ? '<textarea id="dayNote" class="note" data-act="noteinput" rows="3" ' +
+        'placeholder="Wie lief es? Etwa: Knie gezwickt, Bank besetzt, Gurt benutzt.">' +
+        esc(S.notes[S.date] || "") + '</textarea>'
+      : "");
 }
 
 function exNoteBlock() {
