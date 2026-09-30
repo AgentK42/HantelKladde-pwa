@@ -2851,72 +2851,71 @@ function render() {
   /* Nur hier wird die Sitzung festgehalten, weil jede Zustandsänderung in einem
      Neuaufbau endet. */
   saveSession();
+  var app = document.getElementById("app");
   if (S.showSummary) {
-    document.getElementById("app").innerHTML = viewSummary();
-    renderRest();
-    return;
+    app.innerHTML = viewSummary();
+  } else if (S.focus) {
+    app.innerHTML = viewFocus();
+    takeFocus();
+  } else {
+    app.innerHTML = topBar() + '<div class="wrap">' + notices() + viewBody() +
+      '<p class="ver">HantelKladde ' + APP_VERSION + '</p></div>';
+    scrollWeek();
+    if (S.freshId) setTimeout(function () { S.freshId = ""; }, 1200);
+    takeFocus();
   }
-  if (S.focus) {
-    document.getElementById("app").innerHTML = viewFocus();
-    if (focusAfterRender) {
-      var ffel = document.getElementById(focusAfterRender);
-      focusAfterRender = "";
-      if (ffel) {
-        ffel.focus();
-        try { ffel.setSelectionRange(ffel.value.length, ffel.value.length); } catch (e) {}
-      }
-    }
-    renderRest();
-    return;
-  }
-  var h = '<div class="bar"><div class="bar-top"><div class="brand">' +
+  renderRest();
+}
+function topBar() {
+  return '<div class="bar"><div class="bar-top"><div class="brand">' +
     '<i class="hmark" role="img" aria-label="H">' + svg("hantelh", 17) + '</i>antelKladde</div>' +
     '<div class="seg">' + seg("tag","Training","training") + seg("plaene","Pläne","plaene") +
     seg("planung","Planung","planung") + seg("verlauf","Verlauf","verlauf") +
     seg("daten","Daten","daten") +
-    '</div></div></div><div class="wrap">';
-
+    '</div></div></div>';
+}
+function notices() {
+  var h = "";
   if (S.storeOk === false) {
     h += '<div class="notice bad">Dieser Browser speichert hier nichts dauerhaft. ' +
       'Lege unter Daten ein Backup an, bevor du die Seite schließt.</div>';
   }
-
   if (S.pwa.updateReady) {
     h += '<div class="notice act">Ein Update ist vorhanden.' +
       '<button data-act="swupdate">Update starten</button></div>';
   }
-
   if (S.undo) {
     h += '<div class="notice act">' + esc(S.undo.label) +
       '<button data-act="undo">Rückgängig</button></div>';
   }
   if (S.note) h += '<div class="notice">' + esc(S.note) + '</div>';
-
-  if (S.view === "tag") h += viewTag();
-  else if (S.view === "plaene") h += (S.pickPlanTarget ? viewPicker() : viewPlans());
-  else if (S.view === "planung") h += (S.pickPlanTarget ? viewPicker() : viewPlanung());
-  else if (S.view === "verlauf") h += viewHistory();
-  else h += viewData();
-
-  h += '<p class="ver">HantelKladde ' + APP_VERSION + '</p>';
-
-  document.getElementById("app").innerHTML = h + '</div>';
+  return h;
+}
+function viewBody() {
+  if (S.view === "tag") return viewTag();
+  if (S.view === "plaene") return S.pickPlanTarget ? viewPicker() : viewPlans();
+  if (S.view === "planung") return S.pickPlanTarget ? viewPicker() : viewPlanung();
+  if (S.view === "verlauf") return viewHistory();
+  return viewData();
+}
+/* Der gewählte Tag steht am rechten Rand des Streifens, siehe README,
+   Wochenstreifen. */
+function scrollWeek() {
   var wk = document.getElementById("week");
-  if (wk) {
-    var on = wk.querySelector(".wday.on");
-    wk.scrollLeft = on ? Math.max(0, on.offsetLeft - wk.clientWidth + on.offsetWidth + 8)
-      : wk.scrollWidth;
-  }
-  if (S.freshId) setTimeout(function () { S.freshId = ""; }, 1200);
-  if (focusAfterRender) {
-    var fel = document.getElementById(focusAfterRender);
-    focusAfterRender = "";
-    if (fel) {
-      fel.focus();
-      try { fel.setSelectionRange(fel.value.length, fel.value.length); } catch (e) {}
-    }
-  }
-  renderRest();
+  if (!wk) return;
+  var on = wk.querySelector(".wday.on");
+  wk.scrollLeft = on ? Math.max(0, on.offsetLeft - wk.clientWidth + on.offsetWidth + 8)
+    : wk.scrollWidth;
+}
+/* Ein Feld, das nach dem Neuaufbau den Fokus bekommen soll, mit der Schreibmarke
+   am Ende, etwa die Geräteeinstellung nach dem Aufklappen. */
+function takeFocus() {
+  if (!focusAfterRender) return;
+  var el = document.getElementById(focusAfterRender);
+  focusAfterRender = "";
+  if (!el) return;
+  el.focus();
+  try { el.setSelectionRange(el.value.length, el.value.length); } catch (e) {}
 }
 var focusAfterRender = "";
 
