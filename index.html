@@ -898,7 +898,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.36.4";
+var APP_VERSION = "1.36.5";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -2826,7 +2826,7 @@ function takeSharedBackup(shared) {
       return;
     }
     var n = mergeBackup(text);
-    S.note = n + " Sätze aus dem geteilten Backup ergänzt, " +
+    S.note = plural(n, "Satz", "Sätze") + " aus dem geteilten Backup ergänzt, " +
       S.entries.length + " insgesamt.";
     render();
   }).catch(function (e) {
@@ -3369,7 +3369,7 @@ function dayCell(d, td, act, sel, st) {
   }
   var dot = dayDot(dp, planned);
   cls += dot.cls;
-  var tip = dp ? esc(dp.plan ? dp.plan : "Training") + ', ' + dp.total + ' Übungen' : "";
+  var tip = dp ? esc(dp.plan ? dp.plan : "Training") + ', ' + plural(dp.total, "Übung", "Übungen") : "";
   if (planned && !(dp && dp.planDone)) tip += (tip ? ", " : "") + "geplant: " + esc(planned);
   var inner = '<span class="wd">' + wd + '</span><span class="dd">' + dt.getDate() +
     '</span><span class="dot"' + dot.style + '></span>';
@@ -4061,8 +4061,8 @@ function dayTotals(day) {
     ? '<em class="' + (dp.done ? "ok" : "") + '">' +
       (dp.done ? "erledigt" : "noch " + (dp.need - dp.touched)) + '</em>'
     : "";
-  return '<div class="totals"><b>' + Object.keys(workExercises).length + ' Übungen</b>' +
-    '<span>' + wday.length + ' Sätze</span><span>' + num(total) + ' kg</span>' +
+  return '<div class="totals"><b>' + plural(Object.keys(workExercises).length, "Übung", "Übungen") +
+    '</b><span>' + plural(wday.length, "Satz", "Sätze") + '</span><span>' + num(total) + ' kg</span>' +
     (mins ? '<span>' + mins + ' min</span>' : '') + mark + '</div>';
 }
 function dayNoteBlock() {
@@ -4422,7 +4422,7 @@ function weekGoalsBlock() {
 function planEditHead() {
   return '<div class="sect"><h2>Pläne bearbeiten' + infoBtn("plaene") +
     '</h2><span>' +
-    Object.keys(S.plans).length + ' Pläne</span></div>' +
+    plural(Object.keys(S.plans).length, "Plan", "Pläne") + '</span></div>' +
     descText("plaene", '<p class="notice">Änderungen wirken sofort im Training. Die ' +
       'Zielwerte dienen als Vorschlag, sobald es für eine Übung noch kein früheres ' +
       'Training gibt. Reihenfolge ändern: den Griff links gedrückt halten und ziehen, ' +
@@ -5587,7 +5587,7 @@ function dataColors() {
 }
 function dataExercises() {
   return '<div class="sect"><h2>Übungen' + infoBtn("uebungen") + '</h2>' +
-    secFold("uebungen", allNames().length + " Übungen") + '</div>' +
+    secFold("uebungen", plural(allNames().length, "Übung", "Übungen")) + '</div>' +
     descText("uebungen", '<p class="notice">Die Überschrift zeigt die Gruppe, unter der eine ' +
       'Übung im Auswahlmenü steht, ein Tipp darauf klappt sie zu. Die Schrittweite gilt für ' +
       'die Plus- und Minus-Tasten beim Gewicht, angegeben in Kilogramm. ' +
@@ -5682,7 +5682,7 @@ function dataBarbell() {
 }
 function dataMuscles() {
   return '<div class="sect"><h2>Muskelgruppen' + infoBtn("muskeln") + '</h2>' +
-    secFold("muskeln", allNames().length + " Übungen") + '</div>' +
+    secFold("muskeln", plural(allNames().length, "Übung", "Übungen")) + '</div>' +
     descText("muskeln", '<p class="notice">Primäre und sekundäre Muskelgruppe je Übung, ' +
       'Grundlage für die Verteilung im Verlauf. Bei eigenen oder umbenannten Übungen lässt ' +
       'sich beides per Dropdown setzen. Ein Arbeitssatz zählt beim Primärmuskel voll und ' +
@@ -6722,7 +6722,7 @@ ACTIONS.rendo = function (v) {
     if (!window.confirm("„" + to + "“ gibt es bereits.\n\n" +
         v + ": " + plural(uf, "Satz", "Sätze") + "\n" +
         to + ": " + plural(ut, "Satz", "Sätze") + "\n" +
-        "ergibt " + (uf + ut) + " Sätze unter „" + to + "“.\n\n" +
+        "ergibt " + plural(uf + ut, "Satz", "Sätze") + " unter „" + to + "“.\n\n" +
         "Rekorde und Verlauf werden neu berechnet. Schrittweite, Langhantel und " +
         "Geräteeinstellung von „" + to + "“ bleiben erhalten. " +
         "Rückgängig über Wiederherstellen.")) return false;
@@ -7001,7 +7001,7 @@ ACTIONS.importtext = function () {
   var ta = document.getElementById("out");
   try {
     var added = mergeBackup(ta.value);
-    S.note = added + " Sätze ergänzt, " + S.entries.length + " insgesamt.";
+    S.note = plural(added, "Satz", "Sätze") + " ergänzt, " + S.entries.length + " insgesamt.";
   } catch (e) {
     S.note = e && e.message && e.message.indexOf("Backup ungültig:") === 0
       ? e.message : "Der Text ist kein gültiges Backup.";
@@ -7210,8 +7210,9 @@ ACTIONS.draftreset = function () {
   S.note = "Entwurf verworfen, es gelten wieder die Wochenziele.";
 };
 ACTIONS.delplan = function (v) {
-  if (!window.confirm("Plan " + v + " mit " + (S.plans[v] ? S.plans[v].length : 0) +
-      " Übungen wirklich löschen?")) return false;
+  if (!window.confirm("Plan " + v + " mit " +
+      plural(S.plans[v] ? S.plans[v].length : 0, "Übung", "Übungen") +
+      " wirklich löschen?")) return false;
   S.undo = { kind:"plan", plan:v, item:S.plans[v], color:S.colors[v],
     goal:S.settings.weekGoals[v], goalLog:S.settings.weekGoalLog[v],
     hidden:planHidden(v), locked:planLocked(v),
@@ -7268,7 +7269,8 @@ document.getElementById("filein").addEventListener("change", function (ev) {
   reader.onload = function () {
     try {
       var n = mergeBackup(String(reader.result));
-      S.note = n + " Sätze aus " + f.name + " ergänzt, " + S.entries.length + " insgesamt.";
+      S.note = plural(n, "Satz", "Sätze") + " aus " + f.name + " ergänzt, " + S.entries.length +
+        " insgesamt.";
     } catch (e) {
       S.note = e && e.message && e.message.indexOf("Backup ungültig:") === 0
         ? e.message : "Die Datei " + f.name + " ist kein gültiges HantelKladde-Backup.";
