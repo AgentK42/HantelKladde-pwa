@@ -1212,6 +1212,7 @@ function esc(s) {
 function deci(s) { return parseFloat(String(s).replace(",", ".")); }
 function comma(v) { return String(v).replace(".", ","); }
 function e1rm(w, r) { return w * (1 + r / 30); }
+function plural(n, one, many) { return n + " " + (n === 1 ? one : many); }
 function mmss(sec) {
   var m = Math.floor(Math.abs(sec) / 60), s = Math.abs(sec) % 60;
   return (sec < 0 ? "+" : "") + m + ":" + (s < 10 ? "0" : "") + s;
@@ -1462,16 +1463,13 @@ function load() {
 function repairNote() {
   var parts = [];
   if (loadRepairs.dropped) {
-    parts.push(loadRepairs.dropped +
-      (loadRepairs.dropped === 1 ? " unlesbarer Satz" : " unlesbare Sätze") + " entfernt");
+    parts.push(plural(loadRepairs.dropped, "unlesbarer Satz", "unlesbare Sätze") + " entfernt");
   }
   if (loadRepairs.entries) {
-    parts.push(loadRepairs.entries +
-      (loadRepairs.entries === 1 ? " Satz" : " Sätze") + " mit fehlenden Werten ergänzt");
+    parts.push(plural(loadRepairs.entries, "Satz", "Sätze") + " mit fehlenden Werten ergänzt");
   }
   if (loadRepairs.plans) {
-    parts.push(loadRepairs.plans +
-      (loadRepairs.plans === 1 ? " Planeintrag" : " Planeinträge") + " berichtigt");
+    parts.push(plural(loadRepairs.plans, "Planeintrag", "Planeinträge") + " berichtigt");
   }
   if (!parts.length) return;
   S.note = "Beim Laden repariert: " + parts.join(", ") +
@@ -3393,7 +3391,7 @@ function weekTally(monday, td, stats) {
     else if (shiftISO(monday, i) >= td && stats[i].planned) planned += 1;
   }
   var bits = [];
-  if (done) bits.push(done + (done === 1 ? " Tag" : " Tage"));
+  if (done) bits.push(plural(done, "Tag", "Tage"));
   if (planned) bits.push(planned + " geplant");
   if (bits.length) return bits.join(", ");
   return shiftISO(monday, 6) < td ? "kein Training" : "nichts geplant";
@@ -3442,7 +3440,7 @@ function logHead() {
   var i = planIndex(), mins = currentSessionMinutes(S.date);
   return '<div class="loghead"><span>' +
     (i >= 0 ? "Übung " + (i + 1) + " von " + list.length
-            : list.length + (list.length === 1 ? " Übung" : " Übungen")) +
+            : plural(list.length, "Übung", "Übungen")) +
     '</span>' + (mins ? '<em>' + mins + ' min</em>' : '') + '</div>';
 }
 
@@ -3711,13 +3709,12 @@ function viewPicker() {
      Antippen mehrerer Karten nicht erst wieder hochscrollen muss. */
   if (multi) {
     var nSel = S.pickSel.length;
-    h += '<div class="pkmulti"><span>' + nSel +
-      (nSel === 1 ? " Übung ausgewählt" : " Übungen ausgewählt") + '</span>' +
+    h += '<div class="pkmulti"><span>' + plural(nSel, "Übung", "Übungen") + ' ausgewählt</span>' +
       '<button data-act="pickmultidone"' + (nSel ? "" : " disabled") + '>Hinzufügen</button></div>';
   }
 
   h += '<div class="pksect"><span>' + (q ? "Treffer" : esc(active)) + '</span><em>' +
-    items.length + (items.length === 1 ? " Übung" : " Übungen") + '</em></div>';
+    plural(items.length, "Übung", "Übungen") + '</em></div>';
 
   if (!items.length) {
     h += '<p class="empty">' + (q
@@ -3972,7 +3969,7 @@ function planListBlock() {
 function daySetsBlock(day) {
   var h = "";
   h += '<div class="sect"><h2>Erfasste Sätze</h2><span>' +
-    (day.length ? day.length + (day.length === 1 ? " Satz" : " Sätze") : "noch keine") +
+    (day.length ? plural(day.length, "Satz", "Sätze") : "noch keine") +
     '</span></div>';
 
   if (!day.length) {
@@ -4107,7 +4104,7 @@ function focusWho() {
     var next = (i >= 0 && i < list.length - 1) ? list[i + 1].name : "";
     return '<div class="who"><b>' + esc(S.plan) + '</b><span class="wholine"><em>' +
       (i >= 0 ? "Übung " + (i + 1) + " von " + list.length
-              : list.length + (list.length === 1 ? " Übung" : " Übungen")) +
+              : plural(list.length, "Übung", "Übungen")) +
       (mins ? " · " + mins + " min" : "") + '</em>' +
       (next ? '<i>Next: ' + esc(next) + '</i>' : "") + '</span></div>';
   }
@@ -4247,7 +4244,7 @@ function focusRightButton(doneN, done) {
 }
 function endWarnBlock() {
   var n = openPlanCount();
-  return '<div class="endwarn"><b>Noch ' + n + (n === 1 ? ' Übung offen' : ' Übungen offen') +
+  return '<div class="endwarn"><b>Noch ' + plural(n, "Übung", "Übungen") + ' offen' +
     '</b><p>Training wirklich beenden?</p>' +
     '<div class="row">' +
     '<button data-act="focusfinishcancel">Weiter trainieren</button>' +
@@ -4261,8 +4258,8 @@ function viewSummary() {
     'abgeschlossen</b><span>' + longDay(S.date) + '</span></div></div>' +
     '<div class="fx-body pad">' +
     '<div class="hero-ex">Gute Arbeit!</div>' +
-    '<div class="hero-meta">' + sum.exCount + (sum.exCount === 1 ? " Übung, " : " Übungen, ") +
-    sum.sets + (sum.sets === 1 ? " Satz, " : " Sätze, ") + num(sum.volume) +
+    '<div class="hero-meta">' + plural(sum.exCount, "Übung", "Übungen") + ", " +
+    plural(sum.sets, "Satz", "Sätze") + ", " + num(sum.volume) +
     ' kg Gesamtlast' + (sum.mins ? ', ' + sum.mins + ' min Trainingsdauer' : '') + '.</div>';
   if (sum.records.length) {
     h += '<div class="fieldlab">NEUE REKORDE</div><div class="card" style="padding:0">' +
@@ -4478,8 +4475,8 @@ function viewPlans() {
         '<button class="dup" aria-label="' + esc(p) + ' duplizieren" title="' +
         esc(p) + ' als Vorlage kopieren" data-act="dupplan" data-v="' + esc(p) + '">' +
         svg("kopie", 15) + '</button>') + '</h3>' +
-      (S.planCardsFold ? '<span class="plancount">' + list.length +
-        (list.length === 1 ? " Übung" : " Übungen") + '</span>' : "") +
+      (S.planCardsFold ? '<span class="plancount">' + plural(list.length, "Übung", "Übungen") +
+        '</span>' : "") +
       '<button data-act="delplan" data-v="' + esc(p) + '">Plan löschen</button></div>';
     if (!S.planCardsFold) {
     h += '<div class="plabels"><span></span><span>Übung</span><span>Sätze</span>' +
@@ -4695,7 +4692,7 @@ function draftBlock() {
 }
 function draftExtrasBlock() {
   var xs = weekDraft(selWeek()).extras, mark = weekMark();
-  var cap = [mark, xs.length ? xs.length + (xs.length === 1 ? " Übung" : " Übungen") : ""]
+  var cap = [mark, xs.length ? plural(xs.length, "Übung", "Übungen") : ""]
     .filter(function (t) { return t; }).join(", ");
   var h = '<div class="sect"><h2>Einzelne Übungen' + infoBtn("entwurfextras") + '</h2>' +
     (cap ? '<span>' + cap + '</span>' : "") + '</div>' +
@@ -4985,10 +4982,9 @@ function volumeBlock() {
   var totB = compare ? volTotals(bFrom, bTo) : null;
   var dl = totA.days;
   var mins = dl.reduce(function (acc, d) { return acc + dayMinutes(d); }, 0);
-  h += '<div class="card"><p>' + dl.length +
-    (dl.length === 1 ? " Training, " : " Trainings, ") +
-    num(Math.round(totA.vol)) + ' kg Gesamtlast aus ' + totA.sets +
-    (totA.sets === 1 ? ' Arbeitssatz' : ' Arbeitssätzen') +
+  h += '<div class="card"><p>' + plural(dl.length, "Training", "Trainings") + ", " +
+    num(Math.round(totA.vol)) + ' kg Gesamtlast aus ' +
+    plural(totA.sets, "Arbeitssatz", "Arbeitssätzen") +
     (mins ? ', ' + mins + ' Minuten' : '') + '.' +
     (compare
       ? '<br>Vorheriger Zeitraum ' + num(Math.round(totB.vol)) + ' kg' +
@@ -5067,10 +5063,8 @@ function volumeBlock() {
   }
   var unmapped = volUnmapped(aFrom, td);
   if (unmapped.sets > 0) {
-    h += '<p class="notice">' + fmtCount(unmapped.sets) +
-      (unmapped.sets === 1 ? ' Satz' : ' Sätze') + ' aus ' + unmapped.exCount +
-      (unmapped.exCount === 1 ? ' Übung ohne Muskelzuordnung' :
-        ' Übungen ohne Muskelzuordnung') +
+    h += '<p class="notice">' + setCount(unmapped.sets) + ' aus ' +
+      plural(unmapped.exCount, "Übung", "Übungen") + ' ohne Muskelzuordnung' +
       ' stecken in der Summe oben, erscheinen aber in keiner Balkengruppe.' +
       ' <button class="linklike" data-act="tab" data-v="daten">Zu den Übungen</button></p>';
   }
@@ -5218,7 +5212,7 @@ function weekGoalBlock() {
     (counted ? met + ' von ' + counted : "kein Ziel") + '</span></div>';
   if (range === 90) {
     var text = counted
-      ? met + ' von ' + counted + (counted === 1 ? ' Woche' : ' Wochen') + ' erreicht.'
+      ? met + ' von ' + plural(counted, "Woche", "Wochen") + ' erreicht.'
       : "kein Ziel";
     return h + '<div class="card"><p>' + text + '</p></div>';
   }
@@ -5320,7 +5314,7 @@ function viewHistory() {
       shortDate(rec.date) + '.<br>' +
       '~1 Rep Max <b>' + num(e1rm(er.weight, er.reps)) + ' kg</b>, ' +
       'aus ' + num(er.weight) + ' kg mit ' + er.reps + ' Reps.<br>' +
-      g.sets + (g.sets === 1 ? ' Satz' : ' Sätze') + ' in diesem Zeitraum, zuletzt am ' +
+      plural(g.sets, "Satz", "Sätze") + ' in diesem Zeitraum, zuletzt am ' +
       shortDate(g.last) + '.</p>' +
       plateauFlag(flat, lastDay) +
       (days.length > 1
@@ -5465,8 +5459,7 @@ function volChart(days, byDay) {
     'style="display:block;height:auto" preserveAspectRatio="xMidYMid meet" role="img" ' +
     'aria-label="Volumen je Training in Kilogramm">' + grid + bars + marks +
     dateRow(days, padL, w - padR, hh - 6) + '</svg>' +
-    '<p>Zusammen ' + num(sum) + ' kg aus ' + sets +
-    (sets === 1 ? ' Satz' : ' Sätzen') + ', im Schnitt ' +
+    '<p>Zusammen ' + num(sum) + ' kg aus ' + plural(sets, "Satz", "Sätzen") + ', im Schnitt ' +
     num(Math.round(sum / vols.length)) + ' kg je Training.</p></div>';
 }
 
@@ -5501,8 +5494,8 @@ function dataStorage() {
       ? "Gespeichert auf diesem Gerät sind:"
       : "Dieser Browser legt hier nichts ab. Lege ein Backup an, bevor du die " +
         "Seite schließt.") +
-    '<br>' + S.entries.length + (S.entries.length === 1 ? ' Satz, ' : ' Sätze, ') +
-    S.custom.length + (S.custom.length === 1 ? ' eigene Übung.' : ' eigene Übungen.') +
+    '<br>' + plural(S.entries.length, "Satz", "Sätze") + ", " +
+    plural(S.custom.length, "eigene Übung", "eigene Übungen") + "." +
     '<br>' + protectLine() +
     '<br>Letztes Backup: ' + lb + '. Backupgröße ' + byteSize(backupSize()) + '.' +
     '</p></div>' +
@@ -5910,10 +5903,10 @@ function catRow(n) {
           '<input class="name" id="ren-name" value="' + esc(n) + '" ' +
           'autocomplete="off" autocapitalize="words" spellcheck="false">' +
           '<p>' + (use.sets
-            ? use.sets + (use.sets === 1 ? " Satz" : " Sätze")
+            ? plural(use.sets, "Satz", "Sätze")
             : "Noch keine Sätze") +
           (use.plans
-            ? " und " + use.plans + (use.plans === 1 ? " Plan werden" : " Pläne werden")
+            ? " und " + plural(use.plans, "Plan", "Pläne") + " werden"
             : ", kein Plan wird") +
           ' mit umbenannt. Gibt es den neuen Namen schon, kommt vorher die Frage, ob ' +
           'beide Übungen zusammengeführt werden sollen.</p>' +
@@ -6644,11 +6637,11 @@ ACTIONS.pickmultidone = function () {
   var mTo = toDraft ? "in den Entwurf" : "zu " + plan;
   var mIn = toDraft ? "im Entwurf" : "in " + plan;
   S.note = addedN
-    ? addedN + (addedN === 1 ? " Übung " : " Übungen ") + mTo + " hinzugefügt." +
-      (alreadyN ? " " + alreadyN + (alreadyN === 1 ? " stand" : " standen") +
+    ? plural(addedN, "Übung", "Übungen") + " " + mTo + " hinzugefügt." +
+      (alreadyN ? " " + plural(alreadyN, "stand", "standen") +
         " schon " + (toDraft ? "im Entwurf" : "im Plan") + "." : "")
     : alreadyN
-      ? alreadyN + (alreadyN === 1 ? " Übung stand" : " Übungen standen") +
+      ? plural(alreadyN, "Übung stand", "Übungen standen") +
         " schon " + mIn + "."
       : "Keine Übung ausgewählt.";
   if (addedN && !toDraft) persist();
@@ -6786,8 +6779,8 @@ ACTIONS.rendo = function (v) {
   if (merge) {
     var uf = exUsage(v).sets, ut = exUsage(to).sets;
     if (!window.confirm("„" + to + "“ gibt es bereits.\n\n" +
-        v + ": " + uf + (uf === 1 ? " Satz" : " Sätze") + "\n" +
-        to + ": " + ut + (ut === 1 ? " Satz" : " Sätze") + "\n" +
+        v + ": " + plural(uf, "Satz", "Sätze") + "\n" +
+        to + ": " + plural(ut, "Satz", "Sätze") + "\n" +
         "ergibt " + (uf + ut) + " Sätze unter „" + to + "“.\n\n" +
         "Rekorde und Verlauf werden neu berechnet. Schrittweite, Langhantel und " +
         "Geräteeinstellung von „" + to + "“ bleiben erhalten. " +
@@ -7153,8 +7146,7 @@ ACTIONS.dupplan = function (v) {
   /* Wochenziel, Sichtbarkeit und Sperre werden nicht kopiert: ein mitkopiertes
      Wochenziel verdoppelte stillschweigend das Wochenpensum. */
   var len = S.plans[name].length;
-  S.note = name + " angelegt, " + len +
-    (len === 1 ? " Übung übernommen." : " Übungen übernommen.") +
+  S.note = name + " angelegt, " + plural(len, "Übung", "Übungen") + " übernommen." +
     " Wochenziel bleibt frei.";
   persist();
 };
