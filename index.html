@@ -1261,6 +1261,23 @@ function readJson(key, fallback) {
     return v === null ? fallback : v;
   } catch (e) { return fallback; }
 }
+/* Übernimmt je Schlüssel, was fn als brauchbar zurückgibt, und lässt den Rest weg. */
+function cleanMap(src, fn) {
+  var out = {};
+  Object.keys(src).forEach(function (k) {
+    var v = fn(src[k]);
+    if (v) out[k] = v;
+  });
+  return out;
+}
+function positiveNumbers(list) {
+  return list.filter(function (x) { return typeof x === "number" && x > 0; });
+}
+function goalLogEntries(log) {
+  return log.filter(function (x) {
+    return x && typeof x.since === "string" && typeof x.value === "number";
+  });
+}
 /* ---------- Beschädigten Speicher reparieren ---------- */
 /* Anders als der Import (prepareBackup()) repariert der Start, statt
    abzulehnen: der eigene Speicher ist das einzige Zuhause der Daten, und ein
@@ -1345,8 +1362,6 @@ function readTheme() {
     else if (mq.addListener) mq.addListener(onSys);
   }
 }
-/* Sät mitgelieferte Pläne nur nach, wenn sie auf diesem Gerät noch nie da waren
-   (meta.seeded), damit ein gelöschter nicht zurückkommt. */
 function load() {
   readTheme();
   S.storeOk = storageOk();
@@ -1356,113 +1371,109 @@ function load() {
   var e = readJson(KEY, []);
   if (Array.isArray(e)) S.entries = repairEntries(e);
   var c = readJson(CUSTOM_KEY, []);
-  if (Array.isArray(c)) {
-    S.custom = c.map(function (x) {
-      if (typeof x === "string" && x.trim()) return { name:x, cat:"Sonstige" };
-      if (!x || typeof x !== "object" || typeof x.name !== "string" || !x.name.trim()) {
-        return null;
-      }
-      return { name:x.name, cat:safeCat(x.cat) };
-    }).filter(function (x) { return !!x; });
-  }
+  if (Array.isArray(c)) S.custom = readCustom(c);
   var p = readJson(PLANS_KEY, null);
   if (p && typeof p === "object" && !Array.isArray(p) && Object.keys(p).length) {
     var repaired = repairPlans(p);
     if (Object.keys(repaired).length) S.plans = repaired;
   }
   var st = readJson(SET_KEY, null);
-  if (st && typeof st === "object") {
-    /* Was nicht passt, behält den Ausgangswert: ein Start darf an einem
-       kaputten Feld nicht scheitern. */
-    Object.keys(SETTING_FIELDS).forEach(function (k) {
-      var r = checkSetting(SETTING_FIELDS[k], st[k]);
-      if (r.value !== undefined) S.settings[k] = r.value;
-    });
-    if (Array.isArray(st.plates) && st.plates.length) {
-      S.settings.plates = st.plates.filter(function (x) { return typeof x === "number" && x > 0; });
-    }
-    if (st.descOpen && typeof st.descOpen === "object") {
-      Object.keys(st.descOpen).forEach(function (k) { S.settings.descOpen[k] = !!st.descOpen[k]; });
-    }
-    if (st.weekGoals && typeof st.weekGoals === "object") {
-      Object.keys(st.weekGoals).forEach(function (k) {
-        var n = st.weekGoals[k];
-        if (typeof n === "number" && n >= 0) S.settings.weekGoals[k] = n;
-      });
-    }
-    if (st.weekGoalLog && typeof st.weekGoalLog === "object") {
-      Object.keys(st.weekGoalLog).forEach(function (k) {
-        var log = st.weekGoalLog[k];
-        if (!Array.isArray(log)) return;
-        S.settings.weekGoalLog[k] = log.filter(function (e) {
-          return e && typeof e.since === "string" && typeof e.value === "number";
-        });
-      });
-    }
-    if (st.planDays && typeof st.planDays === "object") {
-      S.settings.planDays = cleanPlanDays(st.planDays);
-    }
-  }
+  if (st && typeof st === "object") readSettings(st);
   var em = readJson(EXMETA_KEY, null);
-  if (em && typeof em === "object") {
-    S.exmeta = em;
-    Object.keys(S.exmeta).forEach(function (k) {
-      var x = S.exmeta[k];
-      if (!x || typeof x !== "object") return;
-      if (x.musclePrimary) x.musclePrimary = muscleAlias(x.musclePrimary);
-      if (x.muscleSecondary) x.muscleSecondary = muscleAlias(x.muscleSecondary);
-    });
-  }
+  if (em && typeof em === "object") S.exmeta = readExmeta(em);
   var nt = readJson(NOTES_KEY, null);
   if (nt && typeof nt === "object") S.notes = nt;
   var cl = readJson(COLOR_KEY, null);
-  if (cl && typeof cl === "object") {
-    S.colors = {};
-    Object.keys(cl).forEach(function (k) {
-      var color = safeColor(cl[k]);
-      if (color) S.colors[k] = color;
-    });
-  }
+  if (cl && typeof cl === "object") S.colors = cleanMap(cl, safeColor);
   var ct = readJson(CATS_KEY, null);
-  if (ct && typeof ct === "object") {
-    S.cats = {};
-    Object.keys(ct).forEach(function (k) { S.cats[k] = safeCat(ct[k]); });
-  }
-  S.custom.forEach(function (x) {
-    if (x && typeof x === "object") x.cat = safeCat(x.cat);
-  });
+  if (ct && typeof ct === "object") S.cats = cleanMap(ct, safeCat);
   var mt = readJson(META_KEY, null);
   if (mt && typeof mt === "object") S.meta = { lastBackup: mt.lastBackup || "",
     lastCount: mt.lastCount || 0, seeded: Array.isArray(mt.seeded) ? mt.seeded : [] };
 
-  /* Auch eine Reparatur setzt seedChanged, nicht nur das Nachsäen. Nur dann
-     wird geschrieben. */
-  var seedChanged = false;
-
-  /* Ein Planeintrag ohne brauchbare Satzzahl, Reps oder Gewicht stünde sonst
-     als "NaN" in Zielzeile, Vorschlag und Plan-Editor. */
+  /* Auch eine Reparatur schreibt, nicht nur das Nachsäen, und nur dann. */
+  var changed = repairPlanItems();
+  if (seedPlans()) changed = true;
+  if (changed) persist();
+  loadSuggestions();
+  loadDraft();
+  repairNote();
+}
+function readCustom(list) {
+  return list.map(function (x) {
+    if (typeof x === "string" && x.trim()) return { name:x, cat:"Sonstige" };
+    if (!x || typeof x !== "object" || typeof x.name !== "string" || !x.name.trim()) {
+      return null;
+    }
+    return { name:x.name, cat:safeCat(x.cat) };
+  }).filter(function (x) { return !!x; });
+}
+/* Was nicht passt, behält den Ausgangswert: ein Start darf an einem kaputten
+   Feld nicht scheitern. */
+function readSettings(st) {
+  Object.keys(SETTING_FIELDS).forEach(function (k) {
+    var r = checkSetting(SETTING_FIELDS[k], st[k]);
+    if (r.value !== undefined) S.settings[k] = r.value;
+  });
+  if (Array.isArray(st.plates) && st.plates.length) {
+    S.settings.plates = positiveNumbers(st.plates);
+  }
+  if (st.descOpen && typeof st.descOpen === "object") {
+    Object.keys(st.descOpen).forEach(function (k) { S.settings.descOpen[k] = !!st.descOpen[k]; });
+  }
+  if (st.weekGoals && typeof st.weekGoals === "object") {
+    Object.keys(st.weekGoals).forEach(function (k) {
+      var n = st.weekGoals[k];
+      if (typeof n === "number" && n >= 0) S.settings.weekGoals[k] = n;
+    });
+  }
+  if (st.weekGoalLog && typeof st.weekGoalLog === "object") {
+    Object.keys(st.weekGoalLog).forEach(function (k) {
+      var log = st.weekGoalLog[k];
+      if (Array.isArray(log)) S.settings.weekGoalLog[k] = goalLogEntries(log);
+    });
+  }
+  if (st.planDays && typeof st.planDays === "object") {
+    S.settings.planDays = cleanPlanDays(st.planDays);
+  }
+}
+function readExmeta(em) {
+  Object.keys(em).forEach(function (k) {
+    var x = em[k];
+    if (!x || typeof x !== "object") return;
+    if (x.musclePrimary) x.musclePrimary = muscleAlias(x.musclePrimary);
+    if (x.muscleSecondary) x.muscleSecondary = muscleAlias(x.muscleSecondary);
+  });
+  return em;
+}
+/* Ein Planeintrag ohne brauchbare Satzzahl, Reps oder Gewicht stünde sonst als
+   "NaN" in Zielzeile, Vorschlag und Plan-Editor. Liefert, ob sich etwas
+   geändert hat. */
+function repairPlanItems() {
+  var changed = false;
   Object.keys(S.plans).forEach(function (p) {
     if (!Array.isArray(S.plans[p])) return;
     S.plans[p].forEach(function (i) {
       if (!i || typeof i !== "object") return;
       var n = parseInt(i.sets, 10);
-      if (!(n > 0)) { i.sets = defaultSets(); seedChanged = true; }
-      if (repairPlanItem(i)) { loadRepairs.plans += 1; seedChanged = true; }
+      if (!(n > 0)) { i.sets = defaultSets(); changed = true; }
+      if (repairPlanItem(i)) { loadRepairs.plans += 1; changed = true; }
     });
   });
-
-  var seeded = S.meta.seeded || [];
+  return changed;
+}
+/* Sät mitgelieferte Pläne nur nach, wenn sie auf diesem Gerät noch nie da waren
+   (meta.seeded), damit ein gelöschter nicht zurückkommt. */
+function seedPlans() {
+  var seeded = S.meta.seeded || [], changed = false;
   Object.keys(DEFAULT_PLANS).forEach(function (p) {
-    if (seeded.indexOf(p) < 0) {
-      seeded.push(p);
-      seedChanged = true;
-      if (!S.plans[p]) S.plans[p] = JSON.parse(JSON.stringify(DEFAULT_PLANS[p]));
-    }
+    if (seeded.indexOf(p) >= 0) return;
+    seeded.push(p);
+    changed = true;
+    if (!S.plans[p]) S.plans[p] = JSON.parse(JSON.stringify(DEFAULT_PLANS[p]));
   });
-  if (seedChanged) { S.meta.seeded = seeded; persist(); }
-  loadSuggestions();
-  loadDraft();
-  repairNote();
+  if (changed) S.meta.seeded = seeded;
+  return changed;
 }
 /* Nicht still beheben: fehlende Sätze sollen auffallen, solange ein älteres
    Backup sie noch zurückholen kann. */
@@ -6064,7 +6075,7 @@ function mergeSettings(src) {
 
   if (Array.isArray(src.plates) && src.plates.length &&
       JSON.stringify(st.plates) === JSON.stringify(def.plates)) {
-    var pl = src.plates.filter(function (x) { return typeof x === "number" && x > 0; });
+    var pl = positiveNumbers(src.plates);
     if (pl.length) st.plates = pl;
   }
 
@@ -6087,9 +6098,7 @@ function mergeSettings(src) {
       var log = src.weekGoalLog[k];
       if (!Array.isArray(log)) return;
       if (st.weekGoalLog[k] && st.weekGoalLog[k].length) return;
-      var clean = log.filter(function (x) {
-        return x && typeof x.since === "string" && typeof x.value === "number";
-      });
+      var clean = goalLogEntries(log);
       if (clean.length) st.weekGoalLog[k] = clean;
     });
   }
