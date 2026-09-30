@@ -3527,36 +3527,15 @@ function heroSteppers() {
     '</div>';
 }
 
-/* Die Reihe zentriert auf dem gewählten Wert und rückt so mit jedem Tipp nach,
-   auch in größere Bereiche, ohne ein Feld anzufassen. */
-function repPills() {
+function curReps() {
   var cur = parseInt(S.reps, 10);
-  if (!(cur > 0)) cur = 10;
-  var lo = Math.max(1, cur - 2), h = '<div class="pills">';
-  for (var i = 0; i < 5; i++) {
-    var v = lo + i;
-    h += '<button class="' + (v === cur ? "on" : "") + '" data-act="pillrep" data-v="' +
-      v + '">' + v + '</button>';
-  }
-  return h + '</div>';
+  return cur > 0 ? cur : 10;
 }
-
-/* Eigener, verschiebbarer Ausschnitt (repWinCenter), damit im Fokus-Modus auch
-   weit unter dem Ziel liegende Werte erreichbar sind, etwa bei einem
-   abgebrochenen Satz. Chevron und Wischen verschieben nur den Ausschnitt, ein
-   Tipp wählt und zentriert wieder. */
-function focusRepPills() {
-  var cur = parseInt(S.reps, 10);
-  if (!(cur > 0)) cur = 10;
-  var center = repWinCenter != null ? repWinCenter : cur;
-  var lo = Math.max(1, center - 2);
-  /* Ziel-Range der doppelten Progression: nur ein Rahmen um ihre Tasten. Nicht
-     in repPills(), beim Korrigieren eines früheren Satzes ist die Range nur
-     Beiwerk. */
-  var rng = repRangeShown(S.exercise);
-  var h = '<div class="repsrow"><button class="chev" data-act="repwin" data-d="-5" ' +
-    'aria-label="Niedrigere Reps zeigen">' + svg("zurueck", 15) +
-    '</button><div class="pills">';
+function shiftRepWin(d) {
+  repWinCenter = Math.max(3, (repWinCenter != null ? repWinCenter : curReps()) + d);
+}
+function repPillRow(lo, cur, rng) {
+  var h = '<div class="pills">';
   for (var i = 0; i < 5; i++) {
     var v = lo + i;
     var cls = [];
@@ -3565,9 +3544,30 @@ function focusRepPills() {
     h += '<button class="' + cls.join(" ") + '" data-act="pillrep" data-v="' +
       v + '">' + v + '</button>';
   }
-  h += '</div><button class="chev fwd" data-act="repwin" data-d="5" ' +
+  return h + '</div>';
+}
+/* Die Reihe zentriert auf dem gewählten Wert und rückt so mit jedem Tipp nach,
+   auch in größere Bereiche, ohne ein Feld anzufassen. */
+function repPills() {
+  var cur = curReps();
+  return repPillRow(Math.max(1, cur - 2), cur, null);
+}
+
+/* Eigener, verschiebbarer Ausschnitt (repWinCenter), damit im Fokus-Modus auch
+   weit unter dem Ziel liegende Werte erreichbar sind, etwa bei einem
+   abgebrochenen Satz. Chevron und Wischen verschieben nur den Ausschnitt, ein
+   Tipp wählt und zentriert wieder. */
+function focusRepPills() {
+  var cur = curReps();
+  var center = repWinCenter != null ? repWinCenter : cur;
+  /* Ziel-Range der doppelten Progression: nur ein Rahmen um ihre Tasten. Nicht
+     in repPills(), beim Korrigieren eines früheren Satzes ist die Range nur
+     Beiwerk. */
+  return '<div class="repsrow"><button class="chev" data-act="repwin" data-d="-5" ' +
+    'aria-label="Niedrigere Reps zeigen">' + svg("zurueck", 15) + '</button>' +
+    repPillRow(Math.max(1, center - 2), cur, repRangeShown(S.exercise)) +
+    '<button class="chev fwd" data-act="repwin" data-d="5" ' +
     'aria-label="Höhere Reps zeigen">' + svg("zurueck", 15) + '</button></div>';
-  return h;
 }
 
 /* Ein abweichender Wert aus älteren Sätzen, etwa 7,5, wird einsortiert, damit
@@ -6538,12 +6538,7 @@ ACTIONS.focusfinish = function () {
     showToast(S.note);
   }
 };
-ACTIONS.repwin = function (v, el) {
-  var cur = parseInt(S.reps, 10);
-  if (!(cur > 0)) cur = 10;
-  var center = repWinCenter != null ? repWinCenter : cur;
-  repWinCenter = Math.max(3, center + parseInt(el.getAttribute("data-d"), 10));
-};
+ACTIONS.repwin = function (v, el) { shiftRepWin(parseInt(el.getAttribute("data-d"), 10)); };
 ACTIONS.plan = function (v) {
   if (S.plan === v) { S.plan = ""; S.plansFold = false; }
   else selectPlan(v);
@@ -7400,10 +7395,7 @@ document.addEventListener("touchend", function (ev) {
   var dx = ev.changedTouches[0].clientX - repSwipe;
   repSwipe = null;
   if (Math.abs(dx) < 28) return;
-  var cur = parseInt(S.reps, 10);
-  if (!(cur > 0)) cur = 10;
-  var center = repWinCenter != null ? repWinCenter : cur;
-  repWinCenter = Math.max(3, center + (dx > 0 ? -5 : 5));
+  shiftRepWin(dx > 0 ? -5 : 5);
   render();
 }, { passive:true });
 
