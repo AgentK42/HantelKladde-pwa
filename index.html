@@ -898,7 +898,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.35.12";
+var APP_VERSION = "1.35.13";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -7684,6 +7684,11 @@ var sharedFlag = startParams();
    und der History-Eintrag des Fokus-Modus nicht gleich wieder überschrieben
    wird. */
 restoreSession();
+/* Kommt eine Ebene nach dem Neuladen nicht zurück, etwa der Fokus-Modus ohne
+   seinen Plan, bleibt ihr History-Eintrag trotzdem liegen. Ohne namenlosen
+   Platz dafür bekäme die nächste Ebene dieselbe Tiefe, und ihre erste
+   Zurück-Geste liefe ins Leere. */
+while (navStack.length < navDepth()) navStack.push("");
 /* Nur wenn die Sitzung weder Plan noch Übung zurückbrachte. Ein leerer Plan
    allein reicht nicht: wer den Plan abgewählt und eine Übung samt Werten
    eingestellt hat, bekäme sonst über selectPlan() Übung, Werte und

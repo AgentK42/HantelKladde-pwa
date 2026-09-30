@@ -1,6 +1,7 @@
 /* Fokus-Modus nach einem Neustart: er kommt mit seinem Plan zurück. Fehlt der
    Plan inzwischen, öffnet die App den normalen Trainingsreiter, statt einen
-   Abschluss für einen Plan anzubieten, den es nicht mehr gibt. */
+   Abschluss für einen Plan anzubieten, den es nicht mehr gibt, und die
+   Zurück-Geste schließt danach jede Ebene beim ersten Mal. */
 const { suite, tab, pickPlan, startFocus, saveSet } = require("./lib");
 
 suite(async ({ open, check }) => {
@@ -32,4 +33,11 @@ suite(async ({ open, check }) => {
   check("und es wird kein Plan zum Abschließen angeboten",
     await p.locator('button:has-text("Trainingsplan abschließen")').count() === 0);
   check("die Übung bleibt gewählt", await p.evaluate(()=>S.exercise) === ex);
+
+  // 3. Der Eintrag des nicht zurückgekehrten Fokus-Modus stört die Zurück-Geste nicht
+  await pickPlan(p, "Push Day");
+  await startFocus(p);
+  await p.evaluate(()=>history.back()); await p.waitForTimeout(300);
+  check("eine Zurück-Geste schließt den neu gestarteten Fokus-Modus",
+    await p.evaluate(()=>!S.focus));
 });
