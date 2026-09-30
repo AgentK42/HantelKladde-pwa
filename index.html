@@ -3131,13 +3131,16 @@ function plannedPlan(iso) {
   var p = S.settings.planDays[iso];
   return (p && S.plans[p]) ? p : "";
 }
+/* Die erste Übung ohne Satz am gewählten Tag, sonst die erste des Plans. */
+function firstOpenItem(list) {
+  var day = dayEntries();
+  return list.filter(function (i) {
+    return !day.some(function (e) { return e.exercise === i.name; });
+  })[0] || list[0];
+}
 function selectPlan(p) {
   S.plan = p; S.pickOpen = false; S.editId = ""; S.plansFold = true;
-  var plist = S.plans[p] || [];
-  var pday = dayEntries();
-  var firstOpen = plist.filter(function (i) {
-    return !pday.some(function (e) { return e.exercise === i.name; });
-  })[0] || plist[0];
+  var firstOpen = firstOpenItem(S.plans[p] || []);
   if (firstOpen) {
     S.exercise = firstOpen.name;
     applySuggestion(firstOpen.name);
@@ -6504,14 +6507,10 @@ ACTIONS.plansfold = function () { S.plansFold = !S.plansFold; };
 ACTIONS.planfoldall = function () { S.planCardsFold = !S.planCardsFold; };
 ACTIONS.focuson = function () {
   S.editId = ""; S.pickOpen = false;
-  /* Dieselbe Wahl wie in selectPlan(): ohne passende Übung die erste noch
-     offene des Plans. */
+  /* Ohne passende Übung dieselbe Wahl wie in selectPlan(). */
   var flist = planItems();
   if (!S.exercise || !flist.some(function (i) { return i.name === S.exercise; })) {
-    var fday = dayEntries();
-    var fopen = flist.filter(function (i) {
-      return !fday.some(function (e) { return e.exercise === i.name; });
-    })[0] || flist[0];
+    var fopen = firstOpenItem(flist);
     if (fopen) {
       S.exercise = fopen.name;
       applySuggestion(fopen.name);
