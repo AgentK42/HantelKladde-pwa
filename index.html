@@ -898,7 +898,7 @@ textarea { width:100%; margin-top:12px; height:130px; padding:11px; border-radiu
 <script>
 "use strict";
 
-var APP_VERSION = "1.36.1";
+var APP_VERSION = "1.36.2";
 
 var KEY = "kraftlog:v1", CUSTOM_KEY = "kraftlog:custom", THEME_KEY = "kraftlog:theme",
     PLANS_KEY = "kraftlog:plans", SET_KEY = "kraftlog:settings", META_KEY = "kraftlog:meta",
@@ -6877,6 +6877,7 @@ UNDO.custom = function (u) {
   S.custom.splice(Math.min(u.index, S.custom.length), 0, u.item);
   var name = typeof u.item === "string" ? u.item : (u.item && u.item.name);
   if (name && u.meta) S.exmeta[name] = u.meta;
+  if (name && u.cat) S.cats[name] = u.cat;
 };
 UNDO.planrow = function (u) {
   if (!S.plans[u.plan]) return;
@@ -7006,7 +7007,7 @@ ACTIONS.exdel = function (v) {
   });
   if (ci < 0) return false;
   S.undo = { kind:"custom", index:ci, item:S.custom[ci], meta:S.exmeta[v],
-    label:v + " gelöscht." };
+    cat:S.cats[v], label:v + " gelöscht." };
   S.custom.splice(ci, 1);
   delete S.cats[v];
   delete S.exmeta[v];

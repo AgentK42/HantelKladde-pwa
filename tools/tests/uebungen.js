@@ -93,6 +93,7 @@ suite(async ({ open, check }) => {
     var used = ACTIONS.exdel("Kabelrudern") === false && customNames().indexOf("Kabelrudern") >= 0;
     S.entries.pop();
     S.exmeta.Beinschwinger.note = "Polster";
+    S.cats.Beinschwinger = "Core";
     ACTIONS.exdel("Beinschwinger"); render();
     return { used:used, gone:customNames().indexOf("Beinschwinger") < 0 && !S.exmeta.Beinschwinger,
       label:S.undo && S.undo.label, preset:removable("Flys") };
@@ -103,6 +104,7 @@ suite(async ({ open, check }) => {
   await p.click('[data-act="undo"]'); await p.waitForTimeout(150);
   check("Rückgängig bringt sie samt Einstellung zurück", await p.evaluate(() =>
     customNames().indexOf("Beinschwinger") >= 0 && S.exmeta.Beinschwinger.note === "Polster"));
+  check("und in ihrer Gruppe", await p.evaluate(() => catOf("Beinschwinger") === "Core"));
 
   // 6. Satz löschen: Nummern rücken nach, Rückgängig setzt ihn an seinen Platz
   await tab(p, "tag");
