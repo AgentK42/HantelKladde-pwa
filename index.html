@@ -3692,6 +3692,65 @@ function newExerciseBox(prefix, placeholder, act, cat) {
     '<div class="newrow"><button data-act="' + act + '">Anlegen</button></div>' +
     '</div></div>';
 }
+/* Gruppen des Wählers nach Kategorie oder nach Primärmuskel, dazu die gewählte,
+   ohne Wahl die erste. */
+function pickerGroups(names, byMuscle) {
+  var groups;
+  if (byMuscle) {
+    groups = MUSCLE_LIST.filter(function (m) {
+      return names.some(function (n) { var mo = muscleOf(n); return mo && mo.primary === m; });
+    });
+    if (names.some(function (n) { return !muscleOf(n); })) groups.push("Ohne Zuordnung");
+    return { list:groups,
+      active:S.pickMuscle && groups.indexOf(S.pickMuscle) >= 0 ? S.pickMuscle : (groups[0] || "") };
+  }
+  groups = CATLIST.concat(["Sonstige"]).filter(function (c) {
+    return names.some(function (n) { return catOf(n) === c; });
+  });
+  return { list:groups,
+    active:S.pickCat && groups.indexOf(S.pickCat) >= 0 ? S.pickCat : (groups[0] || "Push") };
+}
+/* Mit Suchbegriff alle Treffer, sonst die Übungen der gewählten Gruppe. */
+function pickerItems(names, q, byMuscle, active) {
+  if (q) return names.filter(function (n) { return n.toLowerCase().indexOf(q) >= 0; });
+  return names.filter(function (n) {
+    if (!byMuscle) return catOf(n) === active;
+    var mo = muscleOf(n);
+    return active === "Ohne Zuordnung" ? !mo : !!(mo && mo.primary === active);
+  });
+}
+function pickerHead(multi, byMuscle) {
+  return '<div class="pkhead">' +
+    '<button data-act="' + (multi ? "pickmulticlose" : "pickclose") +
+    '" aria-label="Zurück">' + svg("zurueck", 22) + '</button><b>' +
+    (multi
+      ? (S.pickPlanTarget === DRAFT_TARGET ? "Für den Entwurf wählen"
+        : "Für " + esc(S.pickPlanTarget) + " wählen")
+      : "Übung wählen") +
+    '</b></div>' +
+    '<div class="seg2">' +
+    '<button class="' + (byMuscle ? "" : "on") + '" data-act="pickgroupby" data-v="cat">' +
+    'Kategorie</button>' +
+    '<button class="' + (byMuscle ? "on" : "") + '" data-act="pickgroupby" data-v="muscle">' +
+    'Muskelgruppe</button></div>';
+}
+function pickerCards(items, q, byMuscle, active, multi) {
+  var h = '<div class="pksect"><span>' + (q ? "Treffer" : esc(active)) + '</span><em>' +
+    plural(items.length, "Übung", "Übungen") + '</em></div>';
+  if (!items.length) {
+    return h + '<p class="empty">' + (q
+      ? "Kein Treffer für " + esc(S.search) + ".<br>Lege die Übung unten neu an."
+      : "Keine Übung in dieser Gruppe.") + '</p>';
+  }
+  /* Das Kategorie-Tag doppelt die Überschrift nur bei Kategorie-Einteilung,
+     bei Muskelgruppen ist es eine zusätzliche Angabe. */
+  var hideTag = (!q && !byMuscle) ? active : "";
+  return h + '<div class="excards">' + items.map(function (n) {
+    return exCard(n, multi
+      ? { multi:true, plan:S.pickPlanTarget, selected:S.pickSel.indexOf(n) >= 0, hideTag:hideTag }
+      : { hideTag:hideTag });
+  }).join("") + '</div>';
+}
 /* Ersetzt den Trainingsbildschirm, statt darunter aufzuklappen, damit die
    Karten die ganze Breite bekommen. */
 function viewPicker() {
@@ -3699,49 +3758,14 @@ function viewPicker() {
   var names = allNames();
   var q = S.search.trim().toLowerCase();
   var byMuscle = S.pickGroupBy === "muscle";
-  var groups, active;
-  if (byMuscle) {
-    groups = MUSCLE_LIST.filter(function (m) {
-      return names.some(function (n) { var mo = muscleOf(n); return mo && mo.primary === m; });
-    });
-    if (names.some(function (n) { return !muscleOf(n); })) groups.push("Ohne Zuordnung");
-    active = S.pickMuscle && groups.indexOf(S.pickMuscle) >= 0 ? S.pickMuscle : (groups[0] || "");
-  } else {
-    groups = CATLIST.concat(["Sonstige"]).filter(function (c) {
-      return names.some(function (n) { return catOf(n) === c; });
-    });
-    active = S.pickCat && groups.indexOf(S.pickCat) >= 0 ? S.pickCat : (groups[0] || "Push");
-  }
-  var items = q
-    ? names.filter(function (n) { return n.toLowerCase().indexOf(q) >= 0; })
-    : names.filter(function (n) {
-        if (!byMuscle) return catOf(n) === active;
-        var mo = muscleOf(n);
-        return active === "Ohne Zuordnung" ? !mo : !!(mo && mo.primary === active);
-      });
-
-  var h = '<div class="pkhead">' +
-    '<button data-act="' + (multi ? "pickmulticlose" : "pickclose") +
-    '" aria-label="Zurück">' + svg("zurueck", 22) + '</button><b>' +
-    (multi
-      ? (S.pickPlanTarget === DRAFT_TARGET ? "Für den Entwurf wählen"
-        : "Für " + esc(S.pickPlanTarget) + " wählen")
-      : "Übung wählen") +
-    '</b></div>';
-  h += '<div class="seg2">' +
-    '<button class="' + (byMuscle ? "" : "on") + '" data-act="pickgroupby" data-v="cat">' +
-    'Kategorie</button>' +
-    '<button class="' + (byMuscle ? "on" : "") + '" data-act="pickgroupby" data-v="muscle">' +
-    'Muskelgruppe</button></div>';
-  h += '<div class="catpills">';
-  groups.forEach(function (c) {
-    h += '<button class="' + (!q && c === active ? "on" : "") + '" data-act="' +
-      (byMuscle ? "pickmuscle" : "pickcat") + '" data-v="' + esc(c) + '">' + esc(c) + '</button>';
-  });
-  h += '</div>' +
+  var g = pickerGroups(names, byMuscle), active = g.active;
+  var h = pickerHead(multi, byMuscle) + '<div class="catpills">' +
+    g.list.map(function (c) {
+      return '<button class="' + (!q && c === active ? "on" : "") + '" data-act="' +
+        (byMuscle ? "pickmuscle" : "pickcat") + '" data-v="' + esc(c) + '">' + esc(c) + '</button>';
+    }).join("") + '</div>' +
     '<div class="pkfind"><input id="searchEx" data-act="search" ' +
     'placeholder="Übung suchen" value="' + esc(S.search) + '"></div>';
-
   /* Zähler und Bestätigen stehen direkt unter der Suche, damit man sie nach dem
      Antippen mehrerer Karten nicht erst wieder hochscrollen muss. */
   if (multi) {
@@ -3749,29 +3773,8 @@ function viewPicker() {
     h += '<div class="pkmulti"><span>' + plural(nSel, "Übung", "Übungen") + ' ausgewählt</span>' +
       '<button data-act="pickmultidone"' + (nSel ? "" : " disabled") + '>Hinzufügen</button></div>';
   }
-
-  h += '<div class="pksect"><span>' + (q ? "Treffer" : esc(active)) + '</span><em>' +
-    plural(items.length, "Übung", "Übungen") + '</em></div>';
-
-  if (!items.length) {
-    h += '<p class="empty">' + (q
-      ? "Kein Treffer für " + esc(S.search) + ".<br>Lege die Übung unten neu an."
-      : "Keine Übung in dieser Gruppe.") + '</p>';
-  } else {
-    h += '<div class="excards">';
-    /* Das Kategorie-Tag doppelt die Überschrift nur bei Kategorie-Einteilung,
-       bei Muskelgruppen ist es eine zusätzliche Angabe. */
-    var hideTag = (!q && !byMuscle) ? active : "";
-    items.forEach(function (n) {
-      h += exCard(n, multi
-        ? { multi:true, plan:S.pickPlanTarget, selected:S.pickSel.indexOf(n) >= 0, hideTag:hideTag }
-        : { hideTag:hideTag });
-    });
-    h += '</div>';
-  }
-
-  h += newExerciseBox("new", "Name der Übung", "addex", byMuscle ? "" : active);
-  return h;
+  return h + pickerCards(pickerItems(names, q, byMuscle, active), q, byMuscle, active, multi) +
+    newExerciseBox("new", "Name der Übung", "addex", byMuscle ? "" : active);
 }
 
 /* Der Pausentimer startet nur für den heutigen Tag, dieselbe Bedingung steht
